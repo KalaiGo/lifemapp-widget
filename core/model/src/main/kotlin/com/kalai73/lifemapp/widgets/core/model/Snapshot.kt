@@ -86,7 +86,18 @@ data class Task(
     val listColor: String? = null,
     val recurring: Boolean = false,
     val source: String = "local",
-)
+    /**
+     * The web Task List Widget's date segment: "today" (Today list, due today or overdue), "tomorrow" or "later"
+     * (its "Tomorrow ++ 1"). Servers before upcomingTasks list today's tasks only, hence the default.
+     */
+    val segment: String = SEGMENT_TODAY,
+) {
+    companion object {
+        const val SEGMENT_TODAY = "today"
+        const val SEGMENT_TOMORROW = "tomorrow"
+        const val SEGMENT_LATER = "later"
+    }
+}
 
 @Serializable
 data class Shortcut(
@@ -168,6 +179,8 @@ data class Topic(
     val encryptedName: String? = null,
     /** The Reminders topic, which the Reception adds to */
     val reminders: Boolean = false,
+    /** Collapsed on the web card (subdomain is_collapsed): the widget lists no items */
+    val collapsed: Boolean = false,
     /** Every item, also those beyond the list cap */
     val count: Int = 0,
     val items: List<TopicItem> = emptyList(),

@@ -74,6 +74,7 @@ import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
 import com.kalai73.lifemapp.widgets.widget.shortcuts.TILE_WIDTH
 import com.kalai73.lifemapp.widgets.widget.sync.SyncScheduler
 import com.kalai73.lifemapp.widgets.widget.tasks.TaskActions
+import com.kalai73.lifemapp.widgets.widget.tasks.TaskDayHeader
 import com.kalai73.lifemapp.widgets.widget.tasks.TaskRow
 import com.kalai73.lifemapp.widgets.widget.today.Counters
 import com.kalai73.lifemapp.widgets.widget.today.HeroFooter
@@ -192,6 +193,8 @@ private const val ID_TASKS_EMPTY = -13L
 private const val ID_SHORTCUTS_EMPTY = -14L
 private const val ID_TASKS_ACTIONS = -15L
 private const val ID_TASKS_DAY = -16L
+// The Tomorrow and Tomorrow ++ 1 dividers are ID_TASKS_DAY - 100 and - 200
+private const val ID_TASKS_TODAY_EMPTY = -20L
 private const val ID_MAIL = -17L
 private const val ID_MAIL_BODY = -18L
 private const val ID_LINKS = -19L
@@ -265,10 +268,22 @@ private fun LazyListScope.tasksSection(ui: WidgetUi) {
             EmptyLine(context.getString(R.string.no_tasks), openRoute(context, WebRoutes.TASKS))
         }
     } else {
-        // The widget gets today's and overdue tasks only, so one "TODAY" divider as on the web
-        item(itemId = ID_TASKS_DAY) { DayHeader(EventDayUi(ui.today, DayKind.TODAY, "", emptyList())) }
-        // Offset so a task can't share an id with an event (both are string hashes)
-        itemsIndexed(ui.tasks, itemId = { _, task -> task.id.hashCode().toLong() + (1L shl 40) }) { index, task -> TaskRow(task, number = index + 1) }
+        // Segmented as on the web's Task List Widget: TODAY, TOMORROW, TOMORROW ++ 1, numbered across them;
+        // Today always gets its divider, saying so when it has no tasks
+        if (ui.tasks.first().day != DayKind.TODAY) {
+            item(itemId = ID_TASKS_DAY) { TaskDayHeader(DayKind.TODAY) }
+            item(itemId = ID_TASKS_TODAY_EMPTY) {
+                val context = LocalContext.current
+                EmptyLine(context.getString(R.string.no_tasks), openRoute(context, WebRoutes.TASKS))
+            }
+        }
+        ui.tasks.forEachIndexed { index, task ->
+            if (index == 0 || ui.tasks[index - 1].day != task.day) {
+                item(itemId = ID_TASKS_DAY - task.day.ordinal * 100L) { TaskDayHeader(task.day) }
+            }
+            // Offset so a task can't share an id with an event (both are string hashes)
+            item(itemId = task.id.hashCode().toLong() + (1L shl 40)) { TaskRow(task, number = index + 1) }
+        }
     }
 }
 

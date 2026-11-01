@@ -60,7 +60,7 @@ class SnapshotAndPresenterTest {
 
     private fun api(handler: suspend io.ktor.client.engine.mock.MockRequestHandleScope.(io.ktor.client.request.HttpRequestData) -> io.ktor.client.request.HttpResponseData): LifeMappApi {
         val http = mockClient(handler)
-        return LifeMappApi(http, TestConfig, AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, { true }, clock = { 0 }))
+        return LifeMappApi(http, TestConfig, AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, clock = { 0 }))
     }
 
     private suspend fun signIn() = secrets.update { it.copy(session = Session("a", "r", 99_999, "u1")) }
@@ -125,6 +125,47 @@ class SnapshotAndPresenterTest {
     }
 
     @Test
+    fun `upcoming tasks follow today's in the web's segments and roll over at midnight`() {
+        val snapshot = Snapshot(
+            today = "2026-10-31",
+            tasks = listOf(
+                Task("later", "In five days", dueDate = "2026-11-05", segment = Task.SEGMENT_LATER),
+                Task("tomorrow", "Tomorrow", dueDate = "2026-11-01", segment = Task.SEGMENT_TOMORROW),
+                Task("today", "Today", dueDate = "2026-10-31"),
+                Task("week", "Undated in In 7 days", segment = Task.SEGMENT_LATER),
+            ),
+            counts = Counts(tasks = 1),
+        )
+        val ui = WidgetPresenter.present(CachedState(snapshot = snapshot), AuthState.SIGNED_IN, null, now, madrid)
+        assertEquals(listOf("today", "tomorrow", "later", "week"), ui.tasks.map { it.id })
+        assertEquals(listOf(DayKind.TODAY, DayKind.TOMORROW, DayKind.OTHER, DayKind.OTHER), ui.tasks.map { it.day })
+        assertEquals(listOf(false, true, true, true), ui.tasks.map { it.upcoming })
+        assertEquals(1, ui.tasksCount)
+
+        // The next morning, before a sync: tomorrow's task is today's
+        val nextDay = ZonedDateTime.of(2026, 11, 1, 8, 0, 0, 0, madrid).toInstant().toEpochMilli()
+        val rolled = WidgetPresenter.present(CachedState(snapshot = snapshot), AuthState.SIGNED_IN, null, nextDay, madrid)
+        assertEquals(listOf("today", "tomorrow", "later", "week"), rolled.tasks.map { it.id })
+        assertEquals(listOf(DayKind.TODAY, DayKind.TODAY, DayKind.OTHER, DayKind.OTHER), rolled.tasks.map { it.day })
+        assertEquals(2, rolled.tasksCount)
+    }
+
+    @Test
+    fun `tasks from connected task managers show their local time and can't be completed`() {
+        val snapshot = Snapshot(
+            today = "2026-10-31",
+            tasks = listOf(
+                Task("local:1", "Local", dueDate = "2026-10-31"),
+                Task("todoist:7", "Call Bob", dueDate = "2026-10-31", dueTime = "18:00", source = "todoist"),
+            ),
+            counts = Counts(tasks = 2),
+        )
+        val ui = WidgetPresenter.present(CachedState(snapshot = snapshot), AuthState.SIGNED_IN, null, now, madrid)
+        assertEquals(listOf(null, "18:00"), ui.tasks.map { it.dueLabel })
+        assertEquals(listOf(true, false), ui.tasks.map { it.completable })
+    }
+
+    @Test
     fun `completing a task hides it at once and removes it once confirmed`() = runTest {
         signIn()
         cache.update { CachedState(snapshot = Snapshot(tasks = listOf(Task("t1", "A"), Task("t2", "B")), counts = Counts(tasks = 2))) }
@@ -177,11 +218,11 @@ class SnapshotAndPresenterTest {
         val unlocked = WidgetPresenter.present(state, AuthState.SIGNED_IN, key, now, madrid)
         assertEquals(EncryptionState.UNLOCKED, unlocked.encryption)
         assertEquals("Secret task", unlocked.tasks.single().title)
-        assertEquals("Ju. 29/10/2026", unlocked.tasks.single().dueLabel)
+        assertEquals("Ju. 29.10.2026", unlocked.tasks.single().dueLabel)
         assertTrue(unlocked.tasks.single().overdue)
         assertEquals(7.0, unlocked.averageRating!!, 0.0)
         assertEquals(listOf("a", "b"), unlocked.shortcuts.map { it.id })
-        assertEquals("Sá. 31/10/2026", unlocked.todayLabel)
+        assertEquals("Sá. 31.10.2026", unlocked.todayLabel)
         assertFalse(unlocked.stale)
 
         val locked = WidgetPresenter.present(state, AuthState.SIGNED_IN, null, now, madrid)
@@ -202,8 +243,8 @@ class SnapshotAndPresenterTest {
             infoBox = "Capture & Organize",
             encryptedRating = enc("8"),
             topics = listOf(
-                Topic("s1", name = "Reminders", reminders = true, count = 0),
-                Topic("s2", encryptedName = enc("Topic 1"), count = 11, items = listOf(
+                Topic("s1", name = "Reminders", reminders = true, collapsed = true, count = 0),
+                Topic("s2", encryptedName = enc("Topic 1"), collapsed = true, count = 11, items = listOf(
                     TopicItem("i1", encryptedName = enc("Item"), warning = true),
                     TopicItem("i2", name = "Plain"),
                 )),
@@ -221,6 +262,8 @@ class SnapshotAndPresenterTest {
         assertTrue(unlocked.topics[1].items[0].warning)
         assertEquals(9, unlocked.topics[1].more)
         assertEquals(3, unlocked.warnings)
+        // Collapsed as on the web, except Reminders, which is always expanded
+        assertEquals(listOf(false, true), unlocked.topics.map { it.collapsed })
 
         val locked = WidgetPresenter.present(state, AuthState.SIGNED_IN, null, now, madrid).integrity!!
         assertNull(locked.name)

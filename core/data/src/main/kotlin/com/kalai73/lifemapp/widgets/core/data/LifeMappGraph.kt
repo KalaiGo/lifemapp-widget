@@ -33,8 +33,7 @@ class LifeMappGraph private constructor(context: Context) {
     val secrets = SecretStore(appContext)
     private val authApi = SupabaseAuthApi(http, config)
 
-    // The whitelist check needs the API, which needs auth: resolved lazily
-    val auth: AuthRepository = AuthRepository(authApi, secrets, isWhitelisted = { email -> api.isWhitelisted(email) })
+    val auth: AuthRepository = AuthRepository(authApi, secrets)
     val api = LifeMappApi(http, config, auth)
     val cache = CacheStore(appContext)
     val snapshots = SnapshotRepository(api, cache)

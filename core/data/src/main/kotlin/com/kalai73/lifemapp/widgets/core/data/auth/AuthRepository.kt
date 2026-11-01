@@ -12,14 +12,9 @@ import kotlinx.coroutines.sync.withLock
 /** Signed out, or the refresh token was revoked: the user has to sign in again. */
 class NotSignedInException : Exception("Not signed in")
 
-/** Thrown when sign-in succeeded but the account isn't on the beta whitelist. */
-class NotWhitelistedException : Exception("This account doesn't have beta access yet")
-
 class AuthRepository(
     private val api: SupabaseAuthApi,
     private val secrets: SecretStore,
-    /** POST /api/auth/check-whitelist; returns false to reject the account */
-    private val isWhitelisted: suspend (email: String) -> Boolean,
     private val clock: () -> Long = { System.currentTimeMillis() / 1000 },
 ) {
     private val refreshMutex = Mutex()
@@ -48,11 +43,7 @@ class AuthRepository(
     }
 
     private suspend fun finishSignIn(session: Session) {
-        val email = session.email
-        if (email != null && !isWhitelisted(email)) {
-            api.signOut(session.accessToken)
-            throw NotWhitelistedException()
-        }
+        // Beta access is enforced only at registration (Supabase "Before User Created" hook), like the web app
         secrets.update { old ->
             // The data key belongs to one account
             if (old.dataKeyUserId != null && old.dataKeyUserId != session.userId) {

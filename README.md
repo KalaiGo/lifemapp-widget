@@ -59,7 +59,7 @@ Web Crypto code; see `lifeMappWeb/frontend/src/lib/encryption/__tests__/android-
 | `GET /api/widget/snapshot?tz=…&daysAhead=…` | Everything the widgets show, one request; failed sections are listed and kept from cache |
 | `POST /api/widget/session-handoff` | One-time magic-link token → `/auth/exchange` signs the browser in |
 | `PUT /api/tasks/{id}` `{completed:true}` | Task checkbox; the server creates the next recurring instance |
-| `POST /api/auth/check-whitelist` | Beta access check at sign-in |
+| `POST /api/auth/check-whitelist` | Beta access check (registration only; not used by this app) |
 | Supabase REST `lm_user_settings` | Passphrase salt and key envelope, for the encryption unlock |
 
 ## Notes

@@ -17,6 +17,8 @@ import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.action.Action
 import androidx.glance.action.clickable
+import androidx.glance.action.actionParametersOf
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyListScope
@@ -47,6 +49,7 @@ import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.widget.R
 import com.kalai73.lifemapp.widgets.widget.common.Icon
+import com.kalai73.lifemapp.widgets.widget.common.ToggleTopicAction
 import com.kalai73.lifemapp.widgets.widget.common.LocalPd
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetColors
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
@@ -56,6 +59,7 @@ import com.kalai73.lifemapp.widgets.widget.common.PdWrapFrame
 import com.kalai73.lifemapp.widgets.widget.common.captionStyle
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
 import com.kalai73.lifemapp.widgets.widget.common.numberStyle
+import com.kalai73.lifemapp.widgets.widget.common.openApp
 import com.kalai73.lifemapp.widgets.widget.common.openRoute
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
@@ -78,6 +82,8 @@ internal fun LazyListScope.integritySection(integrity: IntegrityUi) {
         // The Reception sits right above the Reminders topic, as on the web
         if (topic.reminders) item(itemId = base) { CardRow { Reception() } }
         item(itemId = base + 1) { CardRow { TopicHeader(topic) } }
+        // A topic collapsed on the web shows its header only
+        if (topic.collapsed && topic.items.isNotEmpty()) return@forEachIndexed
         if (topic.items.isEmpty()) {
             item(itemId = base + 2) { CardRow { NoContent(topic) } }
         } else {
@@ -294,18 +300,31 @@ private fun TopicHeader(topic: TopicUi) {
     val accent = pd?.ink ?: GlanceTheme.colors.primary
     val dim = pd?.dim ?: GlanceTheme.colors.onSurfaceVariant
     val name = topic.name ?: context.getString(R.string.locked)
+    // The web card's collapse toggle: one tap anywhere on the header (but "+") collapses or expands the topic.
+    // Reminders (always expanded, as on the web) and a topic without items have nothing to fold, so they open the app.
+    val toggles = !topic.reminders && topic.items.isNotEmpty()
+    val tap = if (toggles) {
+        actionRunCallback<ToggleTopicAction>(
+            actionParametersOf(ToggleTopicAction.TopicIdKey to topic.id, ToggleTopicAction.CollapsedKey to !topic.collapsed),
+        )
+    } else {
+        openApp(context)
+    }
     Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(modifier = GlanceModifier.defaultWeight().clickable(openRoute(context, WebRoutes.INTEGRITY)), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = GlanceModifier.defaultWeight().height(28.dp).clickable(tap), verticalAlignment = Alignment.CenterVertically) {
             if (!topic.reminders) {
-                // Decorative: the web card's collapse toggle (a widget topic is always expanded)
-                Icon(LucideIcons.CHEVRON_DOWN, null, size = 12.dp, tint = dim)
-                Spacer(GlanceModifier.width(4.dp))
-            } else {
-                // Reminders: a bullet in the toggle's slot, so the hex lines up with the other topics
-                Box(modifier = GlanceModifier.width(12.dp), contentAlignment = Alignment.Center) {
-                    Text("•", style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = dim))
+                Box(modifier = GlanceModifier.width(22.dp), contentAlignment = Alignment.CenterStart) {
+                    Icon(
+                        if (topic.collapsed) LucideIcons.CHEVRON_RIGHT else LucideIcons.CHEVRON_DOWN,
+                        if (toggles) context.getString(if (topic.collapsed) R.string.integrity_expand else R.string.integrity_collapse) else null,
+                        size = 12.dp, tint = dim,
+                    )
                 }
-                Spacer(GlanceModifier.width(4.dp))
+            } else {
+                // A bullet in the toggle's slot, so the hex lines up with the other topics
+                Box(modifier = GlanceModifier.width(22.dp), contentAlignment = Alignment.CenterStart) {
+                    Text("•", style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = dim), modifier = GlanceModifier.padding(start = 4.dp))
+                }
             }
             if (pd != null) {
                 PdHex(18.dp, edge = pd.accent, fill = pd.panel) { Text("${topic.number}", style = numberStyle(9.sp, color = pd.ink)) }
@@ -388,7 +407,7 @@ private fun ItemRow(topic: TopicUi, item: TopicItemUi, number: Int) {
     val name = item.name?.takeIf { it.isNotBlank() }
         ?: if (item.name == null) context.getString(R.string.locked) else if (item.isImage) context.getString(R.string.integrity_image) else ""
     Row(
-        modifier = GlanceModifier.fillMaxWidth().clickable(openRoute(context, WebRoutes.INTEGRITY)).padding(start = 10.dp, top = 3.dp, bottom = 3.dp),
+        modifier = GlanceModifier.fillMaxWidth().clickable(openApp(context)).padding(start = 10.dp, top = 3.dp, bottom = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(modifier = GlanceModifier.size(5.dp).cornerRadius(3.dp).background(pd?.faint ?: GlanceTheme.colors.outline)) {}
@@ -417,7 +436,7 @@ private fun MoreLine(more: Int) {
         context.getString(R.string.integrity_more, more),
         style = if (pd != null) captionStyle(size = 10.sp, color = dim) else textStyle(size = 11.sp, color = dim),
         maxLines = 1,
-        modifier = GlanceModifier.fillMaxWidth().clickable(openRoute(context, WebRoutes.INTEGRITY)).padding(start = 22.dp, top = 2.dp, bottom = 2.dp),
+        modifier = GlanceModifier.fillMaxWidth().clickable(openApp(context)).padding(start = 22.dp, top = 2.dp, bottom = 2.dp),
     )
 }
 

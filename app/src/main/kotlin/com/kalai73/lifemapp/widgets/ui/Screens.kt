@@ -123,6 +123,7 @@ fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOp
                         onCompleteTask = viewModel::completeTask,
                         onRenameItem = viewModel::renameItem,
                         onDeleteItem = viewModel::deleteItem,
+                        onToggleTopic = viewModel::setTopicCollapsed,
                         onUnlock = viewModel::showUnlock,
                         onOpenWeb = onOpenWeb,
                     )

@@ -134,7 +134,7 @@ Calling 6–10 separate routes in a background worker is slow and battery-intens
 ### Sign-in
 1. Email + password or Google OAuth through `supabase-kt`.
 2. Google OAuth opens in Chrome Custom Tabs and redirects via `lifemappwidgets://auth/callback`.
-3. Calls `/api/auth/check-whitelist` to enforce beta access.
+3. No beta whitelist check at sign-in: like the web app, beta access is enforced only at registration (Supabase "Before User Created" hook).
 4. Refresh tokens are stored securely in Android Keystore / EncryptedSharedPreferences. `SnapshotWorker` refreshes the token before sync cycles.
 
 ### Web Session Continuity (Widget → Web Handoff)

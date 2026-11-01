@@ -48,6 +48,7 @@
     <string name="complete_task">Complete task</string>
     <string name="today">Today</string>
     <string name="tomorrow">Tomorrow</string>
+    <string name="tomorrow_plus_one">Tomorrow ++ 1</string>
     <string name="all_day">All day</string>
     <string name="rating">Rating</string>
     <string name="updated_at">Updated %1$s</string>
@@ -92,4 +93,6 @@
     <string name="integrity_more">+%d more</string>
     <string name="integrity_image">Image</string>
     <string name="integrity_add_item">Add item</string>
+    <string name="integrity_expand">Expand</string>
+    <string name="integrity_collapse">Collapse</string>
 </resources>

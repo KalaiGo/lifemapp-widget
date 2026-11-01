@@ -14,7 +14,6 @@
     <string name="show">Anzeigen</string>
     <string name="hide">Verbergen</string>
     <string name="forgot_password">Passwort vergessen?</string>
-    <string name="error_not_whitelisted">Dieses Konto hat noch keinen Beta-Zugang.</string>
     <string name="error_network">Keine Verbindung. Prüfe dein Netzwerk und versuche es erneut.</string>
 
     <string name="unlock_title">Verschlüsselung entsperren</string>
@@ -90,6 +89,8 @@
     <string name="today_reception">Empfang</string>
     <string name="today_create_reminder">Erinnerung erstellen</string>
     <string name="today_record">Aufnehmen</string>
+    <string name="today_expand">Aufklappen</string>
+    <string name="today_collapse">Zuklappen</string>
     <string name="today_voice">Aufgaben oder Erinnerungen per Sprache hinzufügen</string>
     <string name="settings_title">Einstellungen</string>
     <string name="settings_open">Einstellungen öffnen</string>
@@ -115,6 +116,7 @@
     <string name="today_locked_banner">Entsperren, um verschlüsselte Inhalte zu sehen</string>
     <string name="today_day_today">Heute</string>
     <string name="today_day_tomorrow">Morgen</string>
+    <string name="today_day_later">Morgen ++ 1</string>
     <string name="today_all_day">Ganztägig</string>
     <string name="today_complete_task">Aufgabe erledigen</string>
     <string name="today_add_task">Aufgabe hinzufügen</string>

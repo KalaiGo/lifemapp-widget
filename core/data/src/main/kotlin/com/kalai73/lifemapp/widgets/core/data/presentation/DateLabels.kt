@@ -2,6 +2,7 @@ package com.kalai73.lifemapp.widgets.core.data.presentation
 
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -11,6 +12,9 @@ import java.time.format.DateTimeFormatter
  */
 object DateLabels {
     const val DEFAULT_DATE_FORMAT = "dd/MM/yyyy"
+
+    /** The format the widgets and the app's Today screen always use, whatever the web setting: "Mi. 23.09.2026" */
+    const val DATE_FORMAT = "dd.MM.yyyy"
 
     private val MONTHS_SHORT = mapOf(
         "en" to listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
@@ -52,4 +56,9 @@ object DateLabels {
 
     fun time(instant: Instant, zone: ZoneId, timeFormat: String?): String =
         DateTimeFormatter.ofPattern(if (is12h(timeFormat)) "h:mm a" else "HH:mm").withZone(zone).format(instant)
+
+    /** A local "14:30" as the user's time format shows it; the text as is when it doesn't parse. */
+    fun time(local: String, timeFormat: String?): String =
+        runCatching { DateTimeFormatter.ofPattern(if (is12h(timeFormat)) "h:mm a" else "HH:mm").format(LocalTime.parse(local)) }
+            .getOrDefault(local)
 }

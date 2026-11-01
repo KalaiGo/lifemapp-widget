@@ -15,7 +15,6 @@
     <string name="show">Show</string>
     <string name="hide">Hide</string>
     <string name="forgot_password">Forgot your password?</string>
-    <string name="error_not_whitelisted">This account doesn\'t have beta access yet.</string>
     <string name="error_network">No connection. Check your network and try again.</string>
 
     <string name="unlock_title">Unlock encryption</string>
@@ -91,6 +90,8 @@
     <string name="today_reception">Reception</string>
     <string name="today_create_reminder">Create reminder</string>
     <string name="today_record">Record</string>
+    <string name="today_expand">Expand</string>
+    <string name="today_collapse">Collapse</string>
     <string name="today_voice">Add tasks or reminders by voice</string>
     <string name="settings_title">Settings</string>
     <string name="settings_open">Open settings</string>
@@ -116,6 +117,7 @@
     <string name="today_locked_banner">Unlock to see your encrypted content</string>
     <string name="today_day_today">Today</string>
     <string name="today_day_tomorrow">Tomorrow</string>
+    <string name="today_day_later">Tomorrow ++ 1</string>
     <string name="today_all_day">All day</string>
     <string name="today_complete_task">Complete task</string>
     <string name="today_add_task">Add task</string>

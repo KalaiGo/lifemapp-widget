@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.kalai73.lifemapp.widgets.R
 import com.kalai73.lifemapp.widgets.core.data.LifeMappGraph
 import com.kalai73.lifemapp.widgets.core.data.auth.AuthException
-import com.kalai73.lifemapp.widgets.core.data.auth.NotWhitelistedException
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetPresenter
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.data.repository.UnlockResult
@@ -26,6 +25,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 
 enum class Screen { LOADING, SIGN_IN, UNLOCK, HOME }
 
@@ -95,8 +95,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 block()
-            } catch (e: NotWhitelistedException) {
-                fail(R.string.error_not_whitelisted)
             } catch (e: AuthException) {
                 _state.update { it.copy(error = e.message) }
             } catch (e: IOException) {
@@ -192,6 +190,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteItem(itemId: String) = run {
         graph.items.delete(itemId)
         LifeMappWidgets.updateAll(getApplication())
+    }
+
+    /**
+     * Collapses or expands an Integrity topic: the cached snapshot (app and widgets) at once, then the server.
+     * Not behind [run]'s busy gate, so quick taps on several headers all land; the repository undoes a refused change.
+     */
+    fun setTopicCollapsed(topicId: String, collapsed: Boolean) {
+        viewModelScope.launch {
+            try {
+                graph.items.setTopicCollapsed(topicId, collapsed) { LifeMappWidgets.updateAll(getApplication()) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: IOException) {
+                fail(R.string.error_network)
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: e.javaClass.simpleName) }
+            }
+            LifeMappWidgets.updateAll(getApplication())
+        }
     }
 
     fun dismissCompletionFailure() {

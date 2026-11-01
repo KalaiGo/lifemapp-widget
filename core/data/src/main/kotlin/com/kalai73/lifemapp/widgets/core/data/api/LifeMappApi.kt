@@ -65,6 +65,8 @@ class LifeMappApi(
                 bearerAuth(token)
                 parameter("tz", timezone)
                 parameter("daysAhead", daysAhead)
+                // Also the Task List Widget's Tomorrow / Tomorrow ++ 1 tasks, shown dimmed as on the web
+                parameter("upcomingTasks", 1)
             }
         }
         return response.body()
@@ -95,6 +97,19 @@ class LifeMappApi(
                 bearerAuth(token)
                 contentType(ContentType.Application.Json)
                 setBody(ItemNameBody(name, encryptedName))
+            }
+        }
+    }
+
+    @Serializable private data class CollapsedBody(@SerialName("is_collapsed") val collapsed: Boolean)
+
+    /** Collapses or expands an Integrity topic (subdomain), as the web card's chevron does. */
+    suspend fun setTopicCollapsed(topicId: String, collapsed: Boolean) {
+        authorized { token ->
+            http.put("${config.webUrl}/api/subdomains/$topicId") {
+                bearerAuth(token)
+                contentType(ContentType.Application.Json)
+                setBody(CollapsedBody(collapsed))
             }
         }
     }
@@ -156,19 +171,6 @@ class LifeMappApi(
         }
         return response.body<VoiceItemsResponse>().results
     }
-
-    @Serializable private data class WhitelistBody(val email: String)
-    @Serializable private data class WhitelistResponse(val allowed: Boolean = true)
-
-    /** Beta access check, like the web sign-in. Fails open on network or server errors, like the route itself. */
-    suspend fun isWhitelisted(email: String): Boolean = runCatching {
-        val response = http.post("${config.webUrl}/api/auth/check-whitelist") {
-            contentType(ContentType.Application.Json)
-            setBody(WhitelistBody(email))
-        }
-        if (!response.status.isSuccess()) return@runCatching true
-        response.body<WhitelistResponse>().allowed
-    }.getOrDefault(true)
 
     suspend fun keyMaterial(userId: String): KeyMaterial {
         val response = authorized { token ->

@@ -48,7 +48,7 @@ class VoiceRepositoryTest {
             bodies[req.url.encodedPath] = (req.body as TextContent).text
             handler(req)
         }
-        val auth = AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, isWhitelisted = { true }, clock = { 0 })
+        val auth = AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, clock = { 0 })
         return VoiceRepository(LifeMappApi(http, TestConfig, auth), dataKey = { dataKey })
     }
 

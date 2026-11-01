@@ -9,6 +9,7 @@ import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.model.Integrity
 import com.kalai73.lifemapp.widgets.core.model.Shortcut
 import com.kalai73.lifemapp.widgets.core.model.SyncError
+import com.kalai73.lifemapp.widgets.core.model.Task
 import com.kalai73.lifemapp.widgets.core.model.ThemeMode
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import kotlinx.serialization.builtins.ListSerializer
@@ -101,7 +102,11 @@ data class TaskUi(
     val recurring: Boolean,
     /** Can be completed from the widget (LIFE MAPP tasks) */
     val completable: Boolean,
-)
+    /** The web Task List Widget's segment: TODAY, TOMORROW, or OTHER ("Tomorrow ++ 1"). Only TODAY is at full strength. */
+    val day: DayKind = DayKind.TODAY,
+) {
+    val upcoming: Boolean get() = day != DayKind.TODAY
+}
 
 data class ShortcutUi(val id: String, val label: String, val url: String, val icon: String, val color: String?)
 
@@ -121,6 +126,8 @@ data class TopicUi(
     val number: Int,
     val name: String?,
     val reminders: Boolean,
+    /** Collapsed on the web card: show the header only */
+    val collapsed: Boolean = false,
     val count: Int,
     val items: List<TopicItemUi>,
 ) {
@@ -159,7 +166,7 @@ object WidgetPresenter {
                 authState = authState,
                 themeMode = state.themeMode,
                 today = today,
-                todayLabel = DateLabels.dayAndDate(today, null, language),
+                todayLabel = DateLabels.dayAndDate(today, DateLabels.DATE_FORMAT, language),
                 syncing = state.isSyncing(now),
                 error = state.lastError,
             )
@@ -167,7 +174,8 @@ object WidgetPresenter {
 
         val pending = state.pendingCompletions.keys
         val visibleTasks = snapshot.tasks.filterNot { it.id in pending }
-        val hiddenCount = snapshot.tasks.size - visibleTasks.size
+        // The server counts the Today segment only
+        val hiddenCount = snapshot.tasks.count { it.id in pending && it.segment == Task.SEGMENT_TODAY }
 
         val tasks = visibleTasks.map { t ->
             val due = t.dueDate?.let(LocalDate::parse)
@@ -175,8 +183,10 @@ object WidgetPresenter {
                 id = t.id,
                 title = t.title ?: key?.let { EncryptedField.decrypt(t.encryptedTitle, it) },
                 dueLabel = due?.let { d ->
-                    val date = if (d == today) null else DateLabels.dayAndDate(d, settings?.dateFormat, language)
+                    val date = if (d == today) null else DateLabels.dayAndDate(d, DateLabels.DATE_FORMAT, language)
+                    // Connected task managers send only the local time, no instant
                     val time = t.due?.takeIf { t.dueTime != null }?.let { DateLabels.time(Instant.parse(it), zone, settings?.timeFormat) }
+                        ?: t.dueTime?.let { DateLabels.time(it, settings?.timeFormat) }
                     listOfNotNull(date, time).joinToString(" ").ifEmpty { null }
                 },
                 overdue = due != null && due < today,
@@ -185,8 +195,11 @@ object WidgetPresenter {
                 listColor = t.listColor,
                 recurring = t.recurring,
                 completable = t.source == "local",
+                day = taskDay(t.segment, due, today),
             )
         }
+            // Segments in order (Today, Tomorrow, Tomorrow ++ 1); the server's order within each is kept
+            .sortedBy { it.day.ordinal }
 
         val eventDays = snapshot.events
             // After midnight, yesterday's events drop out; multi-day all-day events still running stay
@@ -201,7 +214,7 @@ object WidgetPresenter {
                         today.plusDays(1) -> DayKind.TOMORROW
                         else -> DayKind.OTHER
                     },
-                    label = DateLabels.dayAndDate(date, settings?.dateFormat, language),
+                    label = DateLabels.dayAndDate(date, DateLabels.DATE_FORMAT, language),
                     events = events.map { e ->
                         EventUi(
                             id = e.id,
@@ -239,14 +252,19 @@ object WidgetPresenter {
             themeMode = state.themeMode,
             language = language,
             username = settings?.username,
-            todayLabel = DateLabels.dayAndDate(today, settings?.dateFormat, language),
+            todayLabel = DateLabels.dayAndDate(today, DateLabels.DATE_FORMAT, language),
             today = today,
             eventsCount = run {
                 val listedToday = eventDays.firstOrNull { it.kind == DayKind.TODAY }?.events?.size ?: 0
                 // The server's count also covers events beyond the list cap, but only for the day it was made
                 if (snapshot.today == today.toString()) maxOf(listedToday, snapshot.counts.events) else listedToday
             },
-            tasksCount = (snapshot.counts.tasks - hiddenCount).coerceAtLeast(0),
+            tasksCount = run {
+                val listedToday = tasks.count { it.day == DayKind.TODAY }
+                // As for events: the server's count covers tasks beyond the list cap, but only for the day it was made
+                val counted = (snapshot.counts.tasks - hiddenCount).coerceAtLeast(0)
+                if (snapshot.today == today.toString()) maxOf(listedToday, counted) else listedToday
+            },
             mailCount = snapshot.counts.mail,
             mailConnected = snapshot.counts.mailConnected,
             mailUrl = snapshot.mail.inboxUrl,
@@ -285,6 +303,18 @@ object WidgetPresenter {
         return entries.filter { it.url.isNotBlank() }.sortedBy { it.position }.map(::toUi) to false
     }
 
+    /**
+     * The task's segment on the device's date, so a cached snapshot rolls over at midnight: "today" stays Today
+     * (Today list or overdue); a due date otherwise decides; undated upcoming tasks ("In 7 days" list) stay later.
+     */
+    internal fun taskDay(segment: String, due: LocalDate?, today: LocalDate): DayKind = when {
+        segment == Task.SEGMENT_TODAY -> DayKind.TODAY
+        due == null -> if (segment == Task.SEGMENT_TOMORROW) DayKind.TOMORROW else DayKind.OTHER
+        !due.isAfter(today) -> DayKind.TODAY
+        due == today.plusDays(1) -> DayKind.TOMORROW
+        else -> DayKind.OTHER
+    }
+
     private fun toUi(s: Shortcut) = ShortcutUi(s.id, s.label, s.url, s.icon, s.color)
 
     private fun integrity(i: Integrity, key: String?): IntegrityUi {
@@ -302,6 +332,7 @@ object WidgetPresenter {
                     number = index + 1,
                     name = text(t.name, t.encryptedName),
                     reminders = t.reminders,
+                    collapsed = t.collapsed && !t.reminders,
                     count = maxOf(t.count, t.items.size),
                     items = t.items.map { item -> TopicItemUi(item.id, text(item.name, item.encryptedName), item.warning, item.isImage) },
                 )

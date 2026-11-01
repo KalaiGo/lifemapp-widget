@@ -10,6 +10,7 @@ import com.kalai73.lifemapp.widgets.core.model.CachedState
 import com.kalai73.lifemapp.widgets.core.model.Sections
 import com.kalai73.lifemapp.widgets.core.model.Snapshot
 import com.kalai73.lifemapp.widgets.core.model.SyncError
+import com.kalai73.lifemapp.widgets.core.model.Topic
 import com.kalai73.lifemapp.widgets.core.model.TopicItem
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -198,6 +199,33 @@ class ItemRepository(
             if (e.status != 404) throw e
         }
         mapItems { items -> items.filterNot { it.id == itemId } }
+    }
+
+    /**
+     * Collapses or expands a topic: the cached snapshot first, so the widget redraws at once, then the server.
+     * Puts the old state back when the server refuses it.
+     */
+    suspend fun setTopicCollapsed(topicId: String, collapsed: Boolean, onLocalChange: suspend () -> Unit = {}) {
+        mapTopic(topicId) { it.copy(collapsed = collapsed) }
+        onLocalChange()
+        try {
+            api.setTopicCollapsed(topicId, collapsed)
+        } catch (e: Exception) {
+            mapTopic(topicId) { it.copy(collapsed = !collapsed) }
+            throw e
+        }
+    }
+
+    private suspend fun mapTopic(topicId: String, transform: (Topic) -> Topic) {
+        cache.update { state ->
+            val snapshot = state.snapshot ?: return@update state
+            val integrity = snapshot.integrity ?: return@update state
+            state.copy(
+                snapshot = snapshot.copy(
+                    integrity = integrity.copy(topics = integrity.topics.map { if (it.id == topicId) transform(it) else it }),
+                ),
+            )
+        }
     }
 
     private suspend fun mapItems(transform: (List<TopicItem>) -> List<TopicItem>) {

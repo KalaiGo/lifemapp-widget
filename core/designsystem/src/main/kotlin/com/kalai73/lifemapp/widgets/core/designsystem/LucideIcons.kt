@@ -205,6 +205,7 @@ object LucideIcons {
     val INBOX = R.drawable.lm_ic_inbox
     val CLOCK = R.drawable.lm_ic_clock
     val CHEVRON_DOWN = R.drawable.lm_ic_chevron_down
+    val CHEVRON_RIGHT = R.drawable.lm_ic_chevron_right
     val FOLDER = R.drawable.lm_ic_folder
     val SMARTPHONE = R.drawable.lm_ic_smartphone
     val PANEL =R.drawable.lm_ic_panel_left

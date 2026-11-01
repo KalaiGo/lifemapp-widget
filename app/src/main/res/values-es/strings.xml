@@ -14,7 +14,6 @@
     <string name="show">Mostrar</string>
     <string name="hide">Ocultar</string>
     <string name="forgot_password">¿Olvidaste tu contraseña?</string>
-    <string name="error_not_whitelisted">Esta cuenta aún no tiene acceso a la beta.</string>
     <string name="error_network">Sin conexión. Revisa tu red e inténtalo de nuevo.</string>
 
     <string name="unlock_title">Desbloquear cifrado</string>
@@ -92,6 +91,8 @@
     <string name="today_reception">Recepción</string>
     <string name="today_create_reminder">Crear recordatorio</string>
     <string name="today_record">Grabar</string>
+    <string name="today_expand">Expandir</string>
+    <string name="today_collapse">Contraer</string>
     <string name="today_voice">Añadir tareas o recordatorios por voz</string>
     <string name="settings_title">Ajustes</string>
     <string name="settings_open">Abrir ajustes</string>
@@ -117,6 +118,7 @@
     <string name="today_locked_banner">Desbloquea para ver tu contenido cifrado</string>
     <string name="today_day_today">Hoy</string>
     <string name="today_day_tomorrow">Mañana</string>
+    <string name="today_day_later">Mañana ++ 1</string>
     <string name="today_all_day">Todo el día</string>
     <string name="today_complete_task">Completar tarea</string>
     <string name="today_add_task">Añadir tarea</string>

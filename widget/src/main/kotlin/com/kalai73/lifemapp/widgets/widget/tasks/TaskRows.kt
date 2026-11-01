@@ -28,7 +28,12 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.unit.ColorProvider
+import androidx.compose.ui.graphics.Color
+import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
+import com.kalai73.lifemapp.widgets.core.data.presentation.EventDayUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.TaskUi
+import com.kalai73.lifemapp.widgets.widget.events.DayHeader
+import java.time.LocalDate
 import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdDrawables
@@ -93,9 +98,16 @@ private fun ActionButton(icon: Int, label: String, onClick: Action, modifier: Gl
     }
 }
 
+/** The tasks' segment divider, labeled as on the web's Task List Widget: TODAY, TOMORROW, TOMORROW ++ 1. */
+@Composable
+internal fun TaskDayHeader(day: DayKind) {
+    // DayHeader names TODAY and TOMORROW itself and prints the label for any other day
+    DayHeader(EventDayUi(LocalDate.MIN, day, LocalContext.current.getString(R.string.tomorrow_plus_one), emptyList()))
+}
+
 /**
  * A task as on the web's tasks card: numbered hex, square checkbox, list color bar, title, then the due date
- * with a warning when overdue.
+ * with a warning when overdue. Tasks after today are faded, as the web dims them (and as upcoming events are).
  */
 @Composable
 internal fun TaskRow(task: TaskUi, number: Int) {
@@ -103,26 +115,33 @@ internal fun TaskRow(task: TaskUi, number: Int) {
     val pd = LocalPd.current
     val openTasks = openRoute(context, WebRoutes.TASKS)
     val colors = LocalWidgetColors.current
-    val priority = colors.priority(task.priority)
-    val listColor = LifeMappColors.parseHex(task.listColor)?.let(colors::graphic)
+    val upcoming = task.upcoming
+    val rawList = LifeMappColors.parseHex(task.listColor)
+    val fade: (Color) -> ColorProvider = { pd?.tint(it, 0.45f) ?: colors.tint(it, 0.45f) }
+    val priority = if (upcoming) LifeMappColors.priority(task.priority, dark = false)?.let(fade) else colors.priority(task.priority)
+    val listColor = if (upcoming) rawList?.let(fade) else rawList?.let(colors::graphic)
 
     if (pd != null) {
+        val muted = if (upcoming) pd.faint else pd.dim
         Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            PdHex(18.dp, edge = pd.accent, fill = pd.panel) {
-                Text("$number", style = numberStyle(9.sp, color = pd.ink))
+            PdHex(18.dp, edge = if (upcoming) pd.edge2 else pd.accent, fill = pd.panel) {
+                Text("$number", style = numberStyle(9.sp, color = if (upcoming) pd.faint else pd.ink))
             }
             Spacer(GlanceModifier.width(3.dp))
             PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.row, fill = pd.row, modifier = GlanceModifier.defaultWeight()) { frame ->
                 Row(modifier = frame.fillMaxWidth().padding(start = 0.dp, end = 6.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(task, PdDrawables.CHECK_SQUARE, size = 18.dp, tint = priority ?: pd.dim)
+                    Checkbox(task, PdDrawables.CHECK_SQUARE, size = 18.dp, tint = priority ?: muted)
                     PdBar(listColor ?: pd.edge2, height = 26.dp)
                     Column(modifier = GlanceModifier.defaultWeight().clickable(openTasks)) {
                         Text(
                             task.title ?: context.getString(R.string.locked),
-                            style = textStyle(size = 13.sp, weight = FontWeight.Bold, color = if (task.title == null) pd.dim else pd.text),
+                            style = textStyle(
+                                size = 13.sp, weight = FontWeight.Bold,
+                                color = if (upcoming) pd.faint else if (task.title == null) pd.dim else pd.text,
+                            ),
                             maxLines = 1,
                         )
-                        DueLine(task, color = if (task.overdue) pd.destructive else pd.dim, dim = pd.dim)
+                        DueLine(task, color = if (task.overdue) pd.destructive else muted, dim = muted)
                     }
                 }
             }
@@ -135,14 +154,14 @@ internal fun TaskRow(task: TaskUi, number: Int) {
     Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
             "$number",
-            style = textStyle(size = 11.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary).copy(textAlign = TextAlign.Center),
+            style = textStyle(size = 11.sp, weight = FontWeight.Bold, color = if (upcoming) faded else GlanceTheme.colors.primary).copy(textAlign = TextAlign.Center),
             modifier = GlanceModifier.width(16.dp),
         )
         Checkbox(task, LucideIcons.CHECK_OFF, size = 20.dp, tint = priority ?: listColor ?: faded)
         Column(modifier = GlanceModifier.defaultWeight().clickable(openTasks)) {
             Text(
                 task.title ?: context.getString(R.string.locked),
-                style = textStyle(size = 13.sp, weight = FontWeight.Medium, color = if (task.title == null) faded else GlanceTheme.colors.onBackground),
+                style = textStyle(size = 13.sp, weight = FontWeight.Medium, color = if (task.title == null || upcoming) faded else GlanceTheme.colors.onBackground),
                 maxLines = 1,
             )
             DueLine(task, color = if (task.overdue) GlanceTheme.colors.error else faded, dim = faded)
