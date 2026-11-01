@@ -49,10 +49,19 @@
     <string name="lock">Lock on this device</string>
 
     <string name="appearance_title">Appearance</string>
-    <string name="appearance_hint">Light or dark theme for this app and its widgets.</string>
+    <string name="appearance_hint">Light or dark theme and color scheme for this app and its widgets.</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <string name="color_scheme_hint">Color scheme on this device. The web app\'s setting stays unchanged.</string>
+    <string name="color_scheme_web">From web (%1$s)</string>
+    <string name="color_scheme_default">Orange</string>
+    <string name="color_scheme_teal">Teal</string>
+    <string name="color_scheme_ocean">Ocean</string>
+    <string name="color_scheme_sunset">Sunset</string>
+    <string name="color_scheme_forest">Forest</string>
+    <string name="color_scheme_rose">Rose</string>
+    <string name="color_scheme_midnight">Midnight</string>
 
     <string name="battery_title">Background refresh</string>
     <string name="battery_body">Android may delay updates for apps you rarely open. Allowing unrestricted battery use keeps widgets fresh (every 30 minutes).</string>
@@ -81,12 +90,14 @@
     <string name="today_weather">Weather</string>
     <string name="today_task_lists">Task lists</string>
     <string name="today_inbox">Inbox</string>
+    <!-- The web E-Mails widget's name for the inbox tag -->
+    <string name="today_mail_today">Today</string>
     <string name="today_links">Links</string>
+    <string name="today_drive">Drive</string>
     <string name="today_shortcuts">Shortcuts</string>
     <string name="today_mail_not_connected">Mail is not connected</string>
     <string name="today_connect_mail">Connect mail</string>
     <string name="today_no_content">No content yet</string>
-    <string name="today_updated">Updated %1$s</string>
     <string name="today_reception">Reception</string>
     <string name="today_create_reminder">Create reminder</string>
     <string name="today_record">Record</string>
@@ -98,6 +109,8 @@
     <string name="today_greeting">Hello, %1$s</string>
     <string name="today_greeting_anon">Hello</string>
     <string name="today_events">Events</string>
+    <string name="today_nav">Navigation</string>
+    <string name="today_nav_top">Top</string>
     <string name="today_tasks">Tasks</string>
     <string name="today_mail">Mail</string>
     <string name="today_journal">Journal</string>

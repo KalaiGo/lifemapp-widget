@@ -49,6 +49,7 @@
     <string name="today">Hoy</string>
     <string name="tomorrow">Mañana</string>
     <string name="tomorrow_plus_one">Mañana ++ 1</string>
+    <string name="no_due_date">Sin fecha de vencimiento</string>
     <string name="all_day">Todo el día</string>
     <string name="rating">Valoración</string>
     <string name="updated_at">Actualizado %1$s</string>
@@ -77,6 +78,8 @@
     <string name="mail_not_connected">Correo no conectado</string>
     <string name="connect_mail">Conectar correo</string>
     <string name="inbox">Bandeja de entrada</string>
+    <!-- The web E-Mails widget's name for the inbox tag -->
+    <string name="mail_today">Hoy</string>
     <string name="drive">Drive</string>
     <string name="links">Enlaces</string>
     <string name="manage">Gestionar</string>

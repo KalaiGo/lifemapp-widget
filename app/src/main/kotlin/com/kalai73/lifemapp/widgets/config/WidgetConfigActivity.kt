@@ -79,7 +79,7 @@ class WidgetConfigActivity : ComponentActivity() {
             val prefs = getAppWidgetState(applicationContext, PreferencesGlanceStateDefinition, glanceId) as Preferences
             val snapshot = graph.cache.current().snapshot
             val calendars = snapshot?.events?.mapNotNull { it.calendarName }?.distinct()?.sorted().orEmpty()
-            val scheme = ColorSchemeName.from(snapshot?.settings?.colorScheme)
+            val scheme = graph.cache.current().colorScheme
             val uiStyle = UiStyle.from(snapshot?.settings?.uiStyle)
             val themeMode = graph.cache.current().themeMode
 

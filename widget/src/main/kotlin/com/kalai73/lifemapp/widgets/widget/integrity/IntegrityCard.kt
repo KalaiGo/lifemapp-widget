@@ -248,19 +248,16 @@ private fun Reception() {
         if (pd != null) {
             PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge2, fill = pd.well, modifier = GlanceModifier.fillMaxWidth()) { frame ->
                 Row(modifier = frame.fillMaxWidth().padding(horizontal = 12.dp, vertical = 26.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // clickable sits on the hex itself: a wrapping Box would put the Predator card past Glance's 10-level nesting limit
                     Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
-                        Box(modifier = GlanceModifier.clickable(speak)) {
-                            PdHex(32.dp, edge = pd.accent, fill = pd.panel) { Icon(LucideIcons.MIC, recordLabel, size = 15.dp, tint = pd.ink) }
-                        }
+                        PdHex(32.dp, edge = pd.accent, fill = pd.panel, modifier = GlanceModifier.clickable(speak)) { Icon(LucideIcons.MIC, recordLabel, size = 15.dp, tint = pd.ink) }
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(style.label(label), style = labelStyle(size = 13.sp, color = pd.text), maxLines = 1)
                         Text(hint, style = captionStyle(size = 10.sp, color = pd.dim), maxLines = 1)
                     }
                     Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
-                        Box(modifier = GlanceModifier.clickable(type)) {
-                            PdHex(32.dp, edge = pd.accent, fill = pd.panel) { Icon(LucideIcons.PENCIL, hint, size = 15.dp, tint = pd.ink) }
-                        }
+                        PdHex(32.dp, edge = pd.accent, fill = pd.panel, modifier = GlanceModifier.clickable(type)) { Icon(LucideIcons.PENCIL, hint, size = 15.dp, tint = pd.ink) }
                     }
                 }
             }

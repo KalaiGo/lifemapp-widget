@@ -7,6 +7,7 @@ import com.kalai73.lifemapp.widgets.core.data.auth.NotSignedInException
 import com.kalai73.lifemapp.widgets.core.data.cache.CacheStore
 import com.kalai73.lifemapp.widgets.core.data.secure.DeviceLockedException
 import com.kalai73.lifemapp.widgets.core.model.CachedState
+import com.kalai73.lifemapp.widgets.core.model.Integrity
 import com.kalai73.lifemapp.widgets.core.model.Sections
 import com.kalai73.lifemapp.widgets.core.model.Snapshot
 import com.kalai73.lifemapp.widgets.core.model.SyncError
@@ -115,6 +116,7 @@ class SnapshotRepository(
             if (Sections.DOMAINS in failed) merged = merged.copy(domains = old.domains)
             if (Sections.WEATHER in failed) merged = merged.copy(weather = old.weather)
             if (Sections.INTEGRITY in failed) merged = merged.copy(integrity = old.integrity)
+            if (Sections.TODAY_DOMAINS in failed) merged = merged.copy(todayDomains = old.todayDomains)
             return merged
         }
     }
@@ -124,14 +126,27 @@ class TaskRepository(
     private val api: LifeMappApi,
     private val cache: CacheStore,
     private val clock: () -> Long = System::currentTimeMillis,
+    /** The signed-in user, for reading their Todoist API key */
+    private val userId: suspend () -> String? = { null },
+    /** Decrypts the Todoist API key of an account with encryption on */
+    private val dataKey: suspend () -> String? = { null },
 ) {
     /** Hides the task right away; [complete] then confirms it with the server. */
     suspend fun markCompletedLocally(taskId: String): CachedState =
         cache.update { it.copy(pendingCompletions = it.pendingCompletions + (taskId to clock()), completionFailed = false) }
 
-    /** @return true when the server accepted it (or the task no longer exists there) */
+    /**
+     * LIFE MAPP tasks through the web API (which creates the next instance of a recurring task); Todoist tasks
+     * ("todoist:<id>" in the snapshot) at Todoist with the user's own API key, as the web does.
+     * @return true when it was accepted (or the task no longer exists there); false also without a usable Todoist key
+     */
     suspend fun complete(taskId: String): Boolean = try {
-        api.completeTask(taskId)
+        if (taskId.startsWith(TODOIST_PREFIX)) {
+            val key = todoistKey() ?: return false
+            api.closeTodoistTask(key, taskId.removePrefix(TODOIST_PREFIX))
+        } else {
+            api.completeTask(taskId)
+        }
         confirm(taskId)
         true
     } catch (e: ServerException) {
@@ -141,6 +156,14 @@ class TaskRepository(
         } else {
             false
         }
+    }
+
+    private suspend fun todoistKey(): String? {
+        val user = userId() ?: return null
+        val stored = api.todoistApiKey(user)
+        stored.plain?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+        val key = dataKey() ?: return null
+        return EncryptedField.decrypt(stored.encrypted, key)?.trim()?.takeIf { it.isNotEmpty() }
     }
 
     private suspend fun confirm(taskId: String) {
@@ -164,9 +187,20 @@ class TaskRepository(
     suspend fun dismissFailure() {
         cache.update { it.copy(completionFailed = false) }
     }
+
+    companion object {
+        /** The snapshot's id prefix for Todoist tasks */
+        const val TODOIST_PREFIX = "todoist:"
+
+        /** Tasks the app can check off: LIFE MAPP's own, and Todoist's with the user's API key */
+        fun canComplete(source: String): Boolean = source == "local" || source == "todoist"
+    }
 }
 
-/** Edits and removes Integrity items (subsubdomains) from the app, updating the cached snapshot right away. */
+/**
+ * Edits and removes items (subsubdomains) of the Today domain cards (Integrity and positions 2–5) from the app,
+ * updating the cached snapshot right away.
+ */
 class ItemRepository(
     private val api: LifeMappApi,
     private val cache: CacheStore,
@@ -216,30 +250,44 @@ class ItemRepository(
         }
     }
 
+    /** Collapses or expands an item, like [setTopicCollapsed]. */
+    suspend fun setItemCollapsed(itemId: String, collapsed: Boolean, onLocalChange: suspend () -> Unit = {}) {
+        mapItem(itemId) { it.copy(collapsed = collapsed) }
+        onLocalChange()
+        try {
+            api.setItemCollapsed(itemId, collapsed)
+        } catch (e: Exception) {
+            mapItem(itemId) { it.copy(collapsed = !collapsed) }
+            throw e
+        }
+    }
+
+    private suspend fun mapItem(itemId: String, transform: (TopicItem) -> TopicItem) =
+        mapItems { items -> items.map { if (it.id == itemId) transform(it) else it } }
+
     private suspend fun mapTopic(topicId: String, transform: (Topic) -> Topic) {
-        cache.update { state ->
-            val snapshot = state.snapshot ?: return@update state
-            val integrity = snapshot.integrity ?: return@update state
-            state.copy(
-                snapshot = snapshot.copy(
-                    integrity = integrity.copy(topics = integrity.topics.map { if (it.id == topicId) transform(it) else it }),
-                ),
+        mapCards { card -> card.copy(topics = card.topics.map { if (it.id == topicId) transform(it) else it }) }
+    }
+
+    private suspend fun mapItems(transform: (List<TopicItem>) -> List<TopicItem>) {
+        mapCards { card ->
+            card.copy(
+                topics = card.topics.map { topic ->
+                    val items = transform(topic.items)
+                    topic.copy(items = items, count = (topic.count - (topic.items.size - items.size)).coerceAtLeast(items.size))
+                },
             )
         }
     }
 
-    private suspend fun mapItems(transform: (List<TopicItem>) -> List<TopicItem>) {
+    /** Applies [transform] to every domain card in the cached snapshot: Integrity and the other Today domains. */
+    private suspend fun mapCards(transform: (Integrity) -> Integrity) {
         cache.update { state ->
             val snapshot = state.snapshot ?: return@update state
-            val integrity = snapshot.integrity ?: return@update state
             state.copy(
                 snapshot = snapshot.copy(
-                    integrity = integrity.copy(
-                        topics = integrity.topics.map { topic ->
-                            val items = transform(topic.items)
-                            topic.copy(items = items, count = (topic.count - (topic.items.size - items.size)).coerceAtLeast(items.size))
-                        },
-                    ),
+                    integrity = snapshot.integrity?.let(transform),
+                    todayDomains = snapshot.todayDomains.map(transform),
                 ),
             )
         }

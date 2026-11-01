@@ -27,6 +27,11 @@ data class Snapshot(
     val drive: Drive = Drive(),
     /** The Integrity domain card; null when the user has none (or an older server) */
     val integrity: Integrity? = null,
+    /**
+     * The web Today page's other life domains (Serenity, Vitality, Stability, Tenacity: positions 2–5) as the same
+     * card, in position order. The app's Today screen shows them; the widgets don't. Empty from an older server.
+     */
+    val todayDomains: List<Integrity> = emptyList(),
     /** Sections the server couldn't load this time; the app keeps its cached copy of those */
     val failedSections: List<String> = emptyList(),
 )
@@ -138,7 +143,32 @@ data class Weather(
 data class Mail(
     val inboxUrl: String? = null,
     val provider: String? = null,
+    /** The web E-Mails widget's tags of the shown account, in its order; empty from older servers */
+    val tags: List<MailTag> = emptyList(),
 )
+
+/** A Gmail label or Outlook folder as the web E-Mails widget lists it. */
+@Serializable
+data class MailTag(
+    /** null for the inbox, which the widget calls "Today" */
+    val name: String? = null,
+    /** inbox, 7days, 30days, 365days or other */
+    val tier: String = TIER_OTHER,
+    /** Lucide icon name */
+    val icon: String = "tag",
+    val color: String? = null,
+    val unread: Int = 0,
+    val total: Int = 0,
+    val url: String? = null,
+) {
+    companion object {
+        const val TIER_INBOX = "inbox"
+        const val TIER_7_DAYS = "7days"
+        const val TIER_30_DAYS = "30days"
+        const val TIER_365_DAYS = "365days"
+        const val TIER_OTHER = "other"
+    }
+}
 
 @Serializable
 data class Drive(
@@ -158,6 +188,8 @@ data class DriveLink(
 @Serializable
 data class Integrity(
     val domainId: String,
+    /** 1 for Integrity, 2–5 for the other Today domains */
+    val position: Int = 1,
     val name: String? = null,
     val encryptedName: String? = null,
     /** e.g. "Capture & Organize" */
@@ -193,6 +225,11 @@ data class TopicItem(
     val encryptedName: String? = null,
     val warning: Boolean = false,
     val isImage: Boolean = false,
+    /** The item's text as HTML; null for images, encrypted and empty items */
+    val content: String? = null,
+    val encryptedContent: String? = null,
+    /** Collapsed on the web card (subsubdomain is_collapsed): only the header shows */
+    val collapsed: Boolean = false,
 )
 
 /** Section names used in [Snapshot.failedSections]. */
@@ -204,4 +241,5 @@ object Sections {
     const val WEATHER = "weather"
     const val SHORTCUTS = "shortcuts"
     const val INTEGRITY = "integrity"
+    const val TODAY_DOMAINS = "todayDomains"
 }

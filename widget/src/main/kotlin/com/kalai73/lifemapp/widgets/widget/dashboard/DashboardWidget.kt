@@ -69,6 +69,7 @@ import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutTile
 import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutRow
 import com.kalai73.lifemapp.widgets.widget.shortcuts.LINK_ROW_WIDTH
 import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutsSubHeader
+import com.kalai73.lifemapp.widgets.widget.shortcuts.SUB_HEADER_GAP
 import com.kalai73.lifemapp.widgets.widget.common.openExternal
 import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
 import com.kalai73.lifemapp.widgets.widget.shortcuts.TILE_WIDTH
@@ -91,7 +92,7 @@ import com.kalai73.lifemapp.widgets.widget.today.stackedHero
 class DashboardWidget : GlanceAppWidget() {
     companion object {
         val HERO_ONLY = DpSize(250.dp, 110.dp) // 4×2: the hero alone
-        val MEDIUM = DpSize(250.dp, 250.dp)    // 4×4 and taller (default 4×8)
+        val MEDIUM = DpSize(250.dp, 250.dp)    // 4×4 (default) and taller
         val LARGE = DpSize(320.dp, 250.dp)     // 5×4+: weather location and "Updated"
     }
 
@@ -300,7 +301,7 @@ private fun LazyListScope.shortcutsSection(ui: WidgetUi, columns: Int) {
     if (ui.driveLinks.isNotEmpty()) {
         item(itemId = ID_DRIVE) {
             val context = LocalContext.current
-            ShortcutsSubHeader(LucideIcons.FOLDER, context.getString(R.string.drive), openExternal(ui.driveLinks.first().url))
+            ShortcutsSubHeader(LucideIcons.FOLDER, context.getString(R.string.drive), openExternal(ui.driveLinks.first().url), top = SUB_HEADER_GAP)
         }
         item(itemId = ID_DRIVE_BODY) { DriveBody(ui) }
     }
@@ -310,6 +311,7 @@ private fun LazyListScope.shortcutsSection(ui: WidgetUi, columns: Int) {
             LucideIcons.LINK, context.getString(R.string.links), openRoute(context, WebRoutes.QUICK_LINKS),
             count = ui.shortcuts.size.takeUnless { ui.shortcutsLocked },
             onAdd = openRoute(context, WebRoutes.QUICK_LINKS).takeUnless { ui.shortcutsLocked },
+            top = SUB_HEADER_GAP,
             chevron = true,
         )
     }

@@ -51,7 +51,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _today = MutableStateFlow(WidgetUi.SignedOut)
     val today: StateFlow<WidgetUi> = _today.asStateFlow()
 
-    val colorScheme: ColorSchemeName get() = ColorSchemeName.from(cache.value.snapshot?.settings?.colorScheme)
+    val colorScheme: ColorSchemeName get() = cache.value.colorScheme
     val uiStyle: UiStyle get() = UiStyle.from(cache.value.snapshot?.settings?.uiStyle)
 
     init {
@@ -196,10 +196,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * Collapses or expands an Integrity topic: the cached snapshot (app and widgets) at once, then the server.
      * Not behind [run]'s busy gate, so quick taps on several headers all land; the repository undoes a refused change.
      */
-    fun setTopicCollapsed(topicId: String, collapsed: Boolean) {
+    fun setTopicCollapsed(topicId: String, collapsed: Boolean) =
+        toggle { graph.items.setTopicCollapsed(topicId, collapsed) { LifeMappWidgets.updateAll(getApplication()) } }
+
+    /** Collapses or expands an Integrity item's text, like [setTopicCollapsed]. */
+    fun setItemCollapsed(itemId: String, collapsed: Boolean) =
+        toggle { graph.items.setItemCollapsed(itemId, collapsed) { LifeMappWidgets.updateAll(getApplication()) } }
+
+    private fun toggle(block: suspend () -> Unit) {
         viewModelScope.launch {
             try {
-                graph.items.setTopicCollapsed(topicId, collapsed) { LifeMappWidgets.updateAll(getApplication()) }
+                block()
             } catch (e: CancellationException) {
                 throw e
             } catch (_: IOException) {
@@ -229,6 +236,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             graph.cache.update { it.copy(themeMode = mode) }
+            LifeMappWidgets.updateAll(getApplication())
+        }
+    }
+
+    /** Color scheme for the app and every widget on this device; null follows the web's choice. */
+    fun setColorScheme(scheme: ColorSchemeName?) {
+        viewModelScope.launch {
+            graph.cache.update { it.copy(colorSchemeOverride = scheme?.id) }
             LifeMappWidgets.updateAll(getApplication())
         }
     }

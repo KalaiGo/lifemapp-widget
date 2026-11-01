@@ -74,7 +74,7 @@ object EventsConfig {
 
 /** Centered day divider: a line, "TODAY" / "TOMORROW" / the date, a line. */
 @Composable
-internal fun DayHeader(day: EventDayUi) {
+internal fun DayHeader(day: EventDayUi, emphasized: Boolean = false) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
@@ -88,7 +88,7 @@ internal fun DayHeader(day: EventDayUi) {
         Box(GlanceModifier.defaultWeight().height(1.dp).background(line)) {}
         Text(
             style.label(name),
-            style = if (pd != null) labelStyle(size = 10.sp, color = pd.dim) else textStyle(size = 11.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.onSurfaceVariant),
+            style = if (pd != null) labelStyle(size = 10.sp, color = if (emphasized) pd.ink else pd.dim) else textStyle(size = 11.sp, weight = FontWeight.Bold, color = if (emphasized) GlanceTheme.colors.primary else GlanceTheme.colors.onSurfaceVariant),
             maxLines = 1,
             modifier = GlanceModifier.padding(horizontal = 10.dp),
         )
@@ -118,7 +118,6 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
         val captionColor = if (upcoming) pd.faint else pd.dim
         // Faded rows keep a faded color; current ones get the calendar color adjusted to read on the row
         val barColor = if (dimmed) pd.tint(color, 0.45f) else colors.graphic(color)
-        val tagColor = if (dimmed) pd.tint(color, 0.45f) else colors.text(color, over = 0.14f)
         Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             PdHex(18.dp, edge = if (upcoming) pd.edge2 else pd.accent, fill = pd.panel) {
                 Text("$number", style = numberStyle(9.sp, color = if (upcoming) pd.faint else pd.ink))
@@ -136,15 +135,7 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
                                 maxLines = 1,
                                 modifier = GlanceModifier.defaultWeight(),
                             )
-                            if (calendar != null) {
-                                Spacer(GlanceModifier.width(4.dp))
-                                Text(
-                                    style.label(calendar),
-                                    style = labelStyle(size = 8.sp, color = tagColor),
-                                    maxLines = 1,
-                                    modifier = GlanceModifier.background(pd.tint(color, if (dimmed) 0.06f else 0.14f)).padding(horizontal = 5.dp, vertical = 1.dp),
-                                )
-                            }
+                            if (calendar != null) RowTag(calendar, color, dimmed)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(LucideIcons.CLOCK, null, size = 10.dp, tint = captionColor)
@@ -180,15 +171,7 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
                     maxLines = 1,
                     modifier = GlanceModifier.defaultWeight(),
                 )
-                if (calendar != null) {
-                    Spacer(GlanceModifier.width(4.dp))
-                    Text(
-                        calendar,
-                        style = textStyle(size = 9.sp, weight = FontWeight.Bold, color = if (dimmed) ColorProvider(color.copy(alpha = 0.5f)) else colors.text(color, over = 0.14f)),
-                        maxLines = 1,
-                        modifier = GlanceModifier.background(colors.tint(color, 0.14f)).cornerRadius(6.dp).padding(horizontal = 5.dp, vertical = 1.dp),
-                    )
-                }
+                if (calendar != null) RowTag(calendar, color, dimmed)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(LucideIcons.CLOCK, null, size = 10.dp, tint = faded)
@@ -196,6 +179,33 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
                 Text(time, style = textStyle(size = 10.sp, color = faded), maxLines = 1)
             }
         }
+    }
+}
+
+/**
+ * The tag after a row title, shared by event rows (calendar) and task rows (list): the name in its color over a
+ * light tint of it, faded when [dimmed]. Predator: uppercase label, square; Classic: rounded.
+ */
+@Composable
+internal fun RowTag(name: String, color: androidx.compose.ui.graphics.Color, dimmed: Boolean) {
+    val style = LocalWidgetStyle.current
+    val pd = LocalPd.current
+    val colors = LocalWidgetColors.current
+    Spacer(GlanceModifier.width(4.dp))
+    if (pd != null) {
+        Text(
+            style.label(name),
+            style = labelStyle(size = 8.sp, color = if (dimmed) pd.tint(color, 0.45f) else colors.text(color, over = 0.14f)),
+            maxLines = 1,
+            modifier = GlanceModifier.background(pd.tint(color, if (dimmed) 0.06f else 0.14f)).padding(horizontal = 5.dp, vertical = 1.dp),
+        )
+    } else {
+        Text(
+            name,
+            style = textStyle(size = 9.sp, weight = FontWeight.Bold, color = if (dimmed) ColorProvider(color.copy(alpha = 0.5f)) else colors.text(color, over = 0.14f)),
+            maxLines = 1,
+            modifier = GlanceModifier.background(colors.tint(color, 0.14f)).cornerRadius(6.dp).padding(horizontal = 5.dp, vertical = 1.dp),
+        )
     }
 }
 

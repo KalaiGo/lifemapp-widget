@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget-picker preview for DashboardWidget (4x8): hero, then shortcuts, events and tasks. RemoteViews-safe views only. -->
+<!-- Widget-picker preview for DashboardWidget (4x4): hero, then shortcuts, events and tasks. RemoteViews-safe views only. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"

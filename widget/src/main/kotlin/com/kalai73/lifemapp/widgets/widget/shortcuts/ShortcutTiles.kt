@@ -1,7 +1,7 @@
 package com.kalai73.lifemapp.widgets.widget.shortcuts
 
 // The Shortcuts card as on the web's Today page (components/domains/workspace-widget.tsx), simplified: a Mail
-// section (connect prompt or the inbox with its unread count) and the quick links as tiles. The Drive section is just its service-link badges.
+// section (connect prompt or the E-Mails widget's tags with their counts) and the quick links as tiles. The Drive section is just its service-link badges.
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
@@ -19,6 +19,7 @@ import androidx.glance.layout.Spacer
 import androidx.glance.layout.width
 import androidx.glance.action.Action
 import androidx.glance.LocalContext
+import com.kalai73.lifemapp.widgets.core.data.presentation.MailTagUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
@@ -58,6 +59,9 @@ internal val LINK_ROW_WIDTH = 130.dp
  * A section title inside the Shortcuts card ("MAIL", "LINKS 3"): a divider line above, small icon and label in
  * the accent, an optional count, and an optional action on the right ("Manage").
  */
+/** Space above the Drive and Links sub-headers, which follow content (Mail sits right under the section title). */
+internal val SUB_HEADER_GAP = 24.dp
+
 @Composable
 internal fun ShortcutsSubHeader(
     icon: Int,
@@ -68,12 +72,14 @@ internal fun ShortcutsSubHeader(
     actionIcon: Int? = null,
     onAdd: Action? = null,
     chevron: Boolean = false,
+    /** Space above; Drive and Links pass [SUB_HEADER_GAP] as they follow content */
+    top: androidx.compose.ui.unit.Dp = 14.dp,
 ) {
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
     val accent = pd?.ink ?: GlanceTheme.colors.primary
     val dim = pd?.dim ?: GlanceTheme.colors.onSurfaceVariant
-    Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp)) {
+    Column(modifier = GlanceModifier.fillMaxWidth().padding(top = top, bottom = 2.dp)) {
         Box(GlanceModifier.fillMaxWidth().height(1.dp).background(pd?.edge ?: GlanceTheme.colors.outline)) {}
         Row(modifier = GlanceModifier.fillMaxWidth().clickable(onClick).padding(top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             // RemoteViews rows take at most 10 children: gaps are padding on the children, not spacers
@@ -117,7 +123,7 @@ internal fun ShortcutsSubHeader(
     }
 }
 
-/** Mail: the connect prompt, or the inbox row with its unread count. */
+/** Mail: the connect prompt, the web E-Mails widget's tags, or (older servers) the inbox row with its count. */
 @Composable
 internal fun MailBody(ui: WidgetUi) {
     val context = LocalContext.current
@@ -125,6 +131,29 @@ internal fun MailBody(ui: WidgetUi) {
         ConnectCard(LucideIcons.MAIL, context.getString(R.string.mail_not_connected), context.getString(R.string.connect_mail), openRoute(context, WebRoutes.MAIL))
         return
     }
+    if (ui.mailTags.isNotEmpty()) {
+        // Two columns, filled row by row (1 2 / 3 4 ...); an odd last tag keeps half the width
+        Column(modifier = GlanceModifier.fillMaxWidth()) {
+            ui.mailTags.chunked(2).forEachIndexed { r, pair ->
+                Row(modifier = GlanceModifier.fillMaxWidth()) {
+                    pair.forEachIndexed { c, tag -> MailTagRow(tag, r * 2 + c + 1, GlanceModifier.defaultWeight()) }
+                    if (pair.size == 1) Spacer(GlanceModifier.defaultWeight())
+                }
+            }
+        }
+        return
+    }
+    // The inbox row alone still takes one of the two tag columns
+    Row(modifier = GlanceModifier.fillMaxWidth()) {
+        Box(GlanceModifier.defaultWeight().padding(horizontal = 2.dp)) { InboxRow(ui) }
+        Spacer(GlanceModifier.defaultWeight())
+    }
+}
+
+/** The inbox with its unread count (older servers without the tag list). */
+@Composable
+private fun InboxRow(ui: WidgetUi) {
+    val context = LocalContext.current
     val action = ui.mailUrl?.let(::openExternal) ?: openRoute(context, WebRoutes.MAIL)
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
@@ -163,6 +192,101 @@ internal fun MailBody(ui: WidgetUi) {
     }
 }
 
+
+/**
+ * A mail tag as the web E-Mails widget lists it: running number, color bar, icon, name ("Today" for the inbox) and
+ * unread / total. Glance has no opacity, so later horizons get the dimmed text color instead of fading the row.
+ */
+@Composable
+private fun MailTagRow(tag: MailTagUi, number: Int, modifier: GlanceModifier) {
+    val context = LocalContext.current
+    val style = LocalWidgetStyle.current
+    val pd = LocalPd.current
+    val colors = LocalWidgetColors.current
+    val action = tag.url?.let(::openExternal) ?: openRoute(context, WebRoutes.MAIL)
+    val inbox = tag.name == null
+    val unread = tag.unread > 0
+    val faded = tag.fade < 1f
+    val name = tag.name ?: context.getString(R.string.mail_today)
+    val icon = LucideIcons.resolve(tag.icon) ?: LucideIcons.MAIL
+    val counts = "${tag.unread} / ${tag.total}"
+    val tagColor = LifeMappColors.parseHex(tag.color)
+    if (pd != null) {
+        val tint = tagColor?.let(colors::graphic) ?: pd.accent
+        Box(modifier.padding(vertical = 1.dp, horizontal = 2.dp)) {
+            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.row, fill = pd.row, modifier = GlanceModifier.fillMaxWidth().clickable(action)) { frame ->
+                Row(modifier = frame.fillMaxWidth().padding(start = 4.dp, end = 6.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PdHex(16.dp, edge = if (faded) pd.edge else pd.accent, fill = pd.panel) {
+                        Text("$number", style = numberStyle(8.sp, color = if (faded) pd.dim else pd.ink))
+                    }
+                    Box(GlanceModifier.padding(start = 4.dp, end = 5.dp)) { PdBar(tint, height = 14.dp) }
+                    Icon(icon, null, size = 12.dp, tint = if (inbox && unread) pd.accent else pd.dim)
+                    Text(
+                        name,
+                        style = textStyle(size = 12.sp, weight = if (inbox) FontWeight.Bold else FontWeight.Medium, color = if (faded) pd.dim else pd.text),
+                        maxLines = 1,
+                        modifier = GlanceModifier.defaultWeight().padding(start = 5.dp),
+                    )
+                    // Inbox with unread mail: accent parallelogram; otherwise a framed panel
+                    PdWrapFrame(PdShape.PARA, edge = if (inbox && unread) pd.accentHi else pd.edge, fill = if (inbox && unread) pd.accent else pd.panel) { badge ->
+                        Text(
+                            counts,
+                            style = numberStyle(10.sp, color = when {
+                                inbox && unread -> pd.on
+                                unread -> tint
+                                else -> pd.dim
+                            }),
+                            modifier = badge.padding(horizontal = 7.dp, vertical = 1.dp),
+                        )
+                    }
+                }
+            }
+        }
+        return
+    }
+    val tint = tagColor?.let(colors::graphic) ?: GlanceTheme.colors.primary
+    Box(modifier.padding(vertical = 1.dp, horizontal = 2.dp)) {
+        Row(
+            modifier = GlanceModifier.fillMaxWidth().background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius)
+                .clickable(action).padding(horizontal = 6.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "$number",
+                style = textStyle(size = 10.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.onSurfaceVariant),
+                modifier = GlanceModifier.padding(end = 6.dp),
+            )
+            Box(GlanceModifier.width(3.dp).height(16.dp).background(tint).cornerRadius(2.dp)) {}
+            Box(GlanceModifier.padding(start = 6.dp, end = 6.dp)) {
+                Icon(icon, null, size = 14.dp, tint = if (inbox && unread) GlanceTheme.colors.primary else GlanceTheme.colors.onSurfaceVariant)
+            }
+            Text(
+                name,
+                style = textStyle(
+                    size = 13.sp,
+                    weight = if (inbox) FontWeight.Bold else FontWeight.Medium,
+                    color = if (faded) GlanceTheme.colors.onSurfaceVariant else GlanceTheme.colors.onSurface,
+                ),
+                maxLines = 1,
+                modifier = GlanceModifier.defaultWeight(),
+            )
+            Text(
+                counts,
+                style = textStyle(
+                    size = 10.sp,
+                    weight = FontWeight.Bold,
+                    color = when {
+                        inbox && unread -> GlanceTheme.colors.onPrimary
+                        unread -> tint
+                        else -> GlanceTheme.colors.onSurfaceVariant
+                    },
+                ),
+                modifier = GlanceModifier.background(if (inbox && unread) GlanceTheme.colors.primary else GlanceTheme.colors.surfaceVariant)
+                    .cornerRadius(10.dp).padding(horizontal = 7.dp, vertical = 1.dp),
+            )
+        }
+    }
+}
 
 /** Drive: the user's service links as badges in one row (the web's footer badges), each opening its link. */
 @Composable

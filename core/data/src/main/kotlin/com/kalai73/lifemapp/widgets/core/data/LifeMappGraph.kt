@@ -37,7 +37,12 @@ class LifeMappGraph private constructor(context: Context) {
     val api = LifeMappApi(http, config, auth)
     val cache = CacheStore(appContext)
     val snapshots = SnapshotRepository(api, cache)
-    val tasks = TaskRepository(api, cache)
+    val tasks = TaskRepository(
+        api,
+        cache,
+        userId = { runCatching { secrets.read().session?.userId }.getOrNull() },
+        dataKey = { encryption.dataKey() },
+    )
     val encryption = EncryptionRepository(api, secrets)
     val items = ItemRepository(api, cache, dataKey = { encryption.dataKey() })
     val voice = VoiceRepository(api, dataKey = { encryption.dataKey() })

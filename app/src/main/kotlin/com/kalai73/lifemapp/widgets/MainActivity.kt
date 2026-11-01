@@ -32,7 +32,8 @@ class MainActivity : ComponentActivity() {
         handleAuthCallback(intent)
         setContent {
             val cache by viewModel.cache.collectAsState()
-            val scheme = viewModel.colorScheme.takeIf { cache.snapshot != null } ?: com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.DEFAULT
+            // This device's choice, else the web's (signed out: the default unless the device chose one)
+            val scheme = cache.colorScheme
             val style = viewModel.uiStyle.takeIf { cache.snapshot != null } ?: com.kalai73.lifemapp.widgets.core.model.UiStyle.PREDATOR
             val dark = cache.themeMode.isDark(isSystemInDarkTheme())
             // Status and navigation bar icons follow the chosen theme, not only the system one

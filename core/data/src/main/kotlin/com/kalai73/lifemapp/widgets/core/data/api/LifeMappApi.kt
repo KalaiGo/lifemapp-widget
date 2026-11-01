@@ -114,6 +114,17 @@ class LifeMappApi(
         }
     }
 
+    /** Collapses or expands an Integrity item (subsubdomain), as the web card's item chevron does. */
+    suspend fun setItemCollapsed(itemId: String, collapsed: Boolean) {
+        authorized { token ->
+            http.put("${config.webUrl}/api/subsubdomains/$itemId") {
+                bearerAuth(token)
+                contentType(ContentType.Application.Json)
+                setBody(CollapsedBody(collapsed))
+            }
+        }
+    }
+
     suspend fun deleteItem(itemId: String) {
         authorized { token -> http.delete("${config.webUrl}/api/subsubdomains/$itemId") { bearerAuth(token) } }
     }
@@ -195,6 +206,45 @@ class LifeMappApi(
         )
     }
 
+    /**
+     * The user's Todoist API key as the web settings store it: the plain column, or end-to-end encrypted
+     * (EncryptedField JSON) when encryption is on; legacy rows keep it in the user_settings / encrypted_settings JSONB.
+     */
+    suspend fun todoistApiKey(userId: String): StoredApiKey {
+        val response = authorized { token ->
+            http.get("${config.supabaseUrl}/rest/v1/lm_user_settings") {
+                supabase(token)
+                parameter("select", "task_api_key,encrypted_api_key,user_settings,encrypted_settings")
+                parameter("user_id", "eq.$userId")
+            }
+        }
+        val row = response.body<JsonArray>().firstOrNull() as? JsonObject ?: return StoredApiKey(null, null)
+        fun text(element: kotlinx.serialization.json.JsonElement?): String? = when (element) {
+            is JsonPrimitive -> element.contentOrNull
+            is JsonObject -> element.toString()
+            else -> null
+        }?.takeIf { it.isNotBlank() }
+        // JSONB can arrive as a string
+        fun blob(name: String): JsonObject? = when (val e = row[name]) {
+            is JsonObject -> e
+            is JsonPrimitive -> e.contentOrNull?.let { runCatching { LifeMappJson.parseToJsonElement(it).jsonObject }.getOrNull() }
+            else -> null
+        }
+        return StoredApiKey(
+            plain = text(row["task_api_key"]) ?: text(blob("user_settings")?.get("task_manager_api_key")),
+            encrypted = text(row["encrypted_api_key"]) ?: text(blob("encrypted_settings")?.get("task_manager_api_key")),
+        )
+    }
+
+    /**
+     * Closes a Todoist task with the user's own API key, straight at Todoist as the web's /api/todoist proxy does
+     * (the browser needs the proxy for CORS only). Todoist moves a recurring task to its next date.
+     */
+    suspend fun closeTodoistTask(apiKey: String, taskId: String) {
+        val response = http.post("$TODOIST_API_BASE/tasks/$taskId/close") { bearerAuth(apiKey) }
+        if (!response.status.isSuccess()) throw ServerException(response.status.value)
+    }
+
     /** A few encrypted task titles, to verify a legacy account's key that has no key_check. */
     suspend fun encryptedSamples(userId: String): List<String> {
         val response = authorized { token ->
@@ -231,8 +281,12 @@ class LifeMappApi(
     companion object {
         /** As /api/parse-voice-items accepts */
         const val MAX_VOICE_TRANSCRIPT_CHARS = 5000
+        const val TODOIST_API_BASE = "https://api.todoist.com/api/v1"
     }
 }
+
+/** An API key from the settings row: [plain], or [encrypted] with the data key. */
+data class StoredApiKey(val plain: String?, val encrypted: String?)
 
 /** A task or reminder in what was said, as /api/parse-voice-items splits it. */
 @Serializable

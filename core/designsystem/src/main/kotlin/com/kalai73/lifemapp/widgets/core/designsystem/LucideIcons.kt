@@ -208,7 +208,18 @@ object LucideIcons {
     val CHEVRON_RIGHT = R.drawable.lm_ic_chevron_right
     val FOLDER = R.drawable.lm_ic_folder
     val SMARTPHONE = R.drawable.lm_ic_smartphone
-    val PANEL =R.drawable.lm_ic_panel_left
+    val PANEL = R.drawable.lm_ic_panel_left
+    val NAVIGATION = R.drawable.lm_ic_navigation
+    val ARROW_UP = R.drawable.lm_ic_arrow_up
+    val CLOSE = R.drawable.lm_ic_x
+
+    /** The web's icon for a Today life domain by position (domain-icons.ts): Integrity … Tenacity. */
+    fun domain(position: Int): Int = when (position) {
+        2 -> R.drawable.lm_ic_flower
+        3 -> R.drawable.lm_ic_heart
+        4 -> R.drawable.lm_ic_activity
+        else -> R.drawable.lm_ic_circle_check
+    }
 
     /** Visual Crossing icon ids (weather.icon) → bundled weather glyphs */
     fun weather(icon: String?): Int = when (icon) {

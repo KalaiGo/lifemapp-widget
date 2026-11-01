@@ -1,5 +1,8 @@
 package com.kalai73.lifemapp.widgets.core.data
 
+import kotlinx.serialization.builtins.serializer
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpHeaders
 import androidx.datastore.core.DataStoreFactory
 import com.kalai73.lifemapp.widgets.core.crypto.Aes
 import com.kalai73.lifemapp.widgets.core.data.api.LifeMappApi
@@ -10,11 +13,14 @@ import com.kalai73.lifemapp.widgets.core.data.cache.CachedStateSerializer
 import com.kalai73.lifemapp.widgets.core.data.presentation.DateLabels
 import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetPresenter
+import com.kalai73.lifemapp.widgets.core.data.repository.ItemRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.SnapshotRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.SyncResult
 import com.kalai73.lifemapp.widgets.core.data.repository.TaskRepository
 import com.kalai73.lifemapp.widgets.core.data.secure.SecretStore
 import com.kalai73.lifemapp.widgets.core.data.secure.Session
+import com.kalai73.lifemapp.widgets.core.model.MailTag
+import com.kalai73.lifemapp.widgets.core.model.Mail
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.CachedState
 import com.kalai73.lifemapp.widgets.core.model.Counts
@@ -77,6 +83,36 @@ class SnapshotAndPresenterTest {
         assertEquals("Old event", merged.events.single().title)
         assertEquals(Counts(events = 1, tasks = 2, mail = 4, mailConnected = true), merged.counts)
         assertNull(merged.weather) // weather didn't fail: the fresh (empty) value wins
+    }
+
+    @Test
+    fun `the other Today domains are presented in order, kept when their section fails and edited in the cache`() = runTest {
+        val serenity = Integrity(
+            domainId = "d2", position = 2, name = "SERENITY", rating = 6.0,
+            topics = listOf(Topic("s2", name = "Calm", collapsed = false, count = 1, items = listOf(TopicItem("i2", name = "Breathe")))),
+        )
+        val tenacity = Integrity(domainId = "d5", position = 5, name = "TENACITY", rating = 2.0)
+        val snapshot = Snapshot(today = "2026-10-31", integrity = Integrity(domainId = "d1", name = "INTEGRITY"), todayDomains = listOf(serenity, tenacity))
+
+        val ui = WidgetPresenter.present(CachedState(snapshot = snapshot), AuthState.SIGNED_IN, null, now, madrid)
+        assertEquals(listOf("d2" to 2, "d5" to 5), ui.todayDomains.map { it.domainId to it.position })
+        assertEquals(listOf("SERENITY", "TENACITY"), ui.todayDomains.map { it.name })
+        assertEquals(6, ui.todayDomains[0].rating)
+        assertEquals(listOf("Breathe"), ui.todayDomains[0].topics.single().items.map { it.name })
+        assertEquals(1, ui.integrity!!.position)
+
+        val failed = SnapshotRepository.merge(snapshot, Snapshot(failedSections = listOf("todayDomains")))
+        assertEquals(listOf("d2", "d5"), failed.todayDomains.map { it.domainId })
+        assertTrue(SnapshotRepository.merge(snapshot, Snapshot(failedSections = listOf("mail"))).todayDomains.isEmpty())
+
+        // Collapsing a topic and deleting an item of Serenity update the cached card
+        cache.update { CachedState(snapshot = snapshot) }
+        signIn()
+        val items = ItemRepository(api { json("{}") }, cache, dataKey = { null })
+        items.setTopicCollapsed("s2", true)
+        assertTrue(cache.current().snapshot!!.todayDomains[0].topics.single().collapsed)
+        items.delete("i2")
+        assertEquals(0, cache.current().snapshot!!.todayDomains[0].topics.single().items.size)
     }
 
     @Test
@@ -151,18 +187,40 @@ class SnapshotAndPresenterTest {
     }
 
     @Test
-    fun `tasks from connected task managers show their local time and can't be completed`() {
+    fun `mail tags are listed as the web E-Mails widget sends them, later horizons dimmed`() {
+        val snapshot = Snapshot(
+            today = "2026-10-31",
+            mail = Mail(
+                inboxUrl = "https://mail.google.com/#inbox",
+                tags = listOf(
+                    MailTag(name = null, tier = MailTag.TIER_INBOX, icon = "inbox", color = "#4CAF50", unread = 3, total = 12, url = "https://mail.google.com/#inbox"),
+                    MailTag(name = "In 7 days", tier = MailTag.TIER_7_DAYS, icon = "clock", color = "#FF9800", unread = 0, total = 4, url = ""),
+                    MailTag(name = "Receipts", tier = MailTag.TIER_OTHER, icon = "tag", unread = 1, total = 40, url = "https://mail.google.com/#label/Receipts"),
+                ),
+            ),
+        )
+        val ui = WidgetPresenter.present(CachedState(snapshot = snapshot), AuthState.SIGNED_IN, null, now, madrid)
+        assertEquals(listOf(null, "In 7 days", "Receipts"), ui.mailTags.map { it.name })
+        assertEquals(listOf(1f, 0.85f, 0.65f), ui.mailTags.map { it.fade })
+        assertEquals(listOf(3 to 12, 0 to 4, 1 to 40), ui.mailTags.map { it.unread to it.total })
+        // A blank link opens the web mail page instead
+        assertEquals(null, ui.mailTags[1].url)
+    }
+
+    @Test
+    fun `tasks from connected task managers show their local time, Todoist ones can be completed`() {
         val snapshot = Snapshot(
             today = "2026-10-31",
             tasks = listOf(
                 Task("local:1", "Local", dueDate = "2026-10-31"),
                 Task("todoist:7", "Call Bob", dueDate = "2026-10-31", dueTime = "18:00", source = "todoist"),
+                Task("google-tasks:3", "Groceries", dueDate = "2026-10-31", source = "google-tasks"),
             ),
             counts = Counts(tasks = 2),
         )
         val ui = WidgetPresenter.present(CachedState(snapshot = snapshot), AuthState.SIGNED_IN, null, now, madrid)
-        assertEquals(listOf(null, "18:00"), ui.tasks.map { it.dueLabel })
-        assertEquals(listOf(true, false), ui.tasks.map { it.completable })
+        assertEquals(listOf(null, "18:00", null), ui.tasks.map { it.dueLabel })
+        assertEquals(listOf(true, true, false), ui.tasks.map { it.completable })
     }
 
     @Test
@@ -182,6 +240,37 @@ class SnapshotAndPresenterTest {
         assertEquals(listOf("t2"), cache.current().snapshot!!.tasks.map { it.id })
         assertEquals(1, cache.current().snapshot!!.counts.tasks)
         assertTrue(cache.current().pendingCompletions.isEmpty())
+    }
+
+    @Test
+    fun `a Todoist task is closed at Todoist with the user's API key, decrypted when encryption is on`() = runTest {
+        signIn()
+        val dataKey = java.util.Base64.getEncoder().encodeToString(ByteArray(32) { it.toByte() })
+        val encryptedKey = Aes.encrypt("todoist-secret", dataKey).let { """{"encrypted":"${it.encrypted}","iv":"${it.iv}","tag":"${it.tag}"}""" }
+        cache.update { CachedState(snapshot = Snapshot(tasks = listOf(Task("todoist:42", "Call Bob", source = "todoist")), counts = Counts(tasks = 1))) }
+        val calls = mutableListOf<String>()
+        val repo = TaskRepository(
+            api { req ->
+                calls += "${req.method.value} ${req.url.host}${req.url.encodedPath} ${req.headers[HttpHeaders.Authorization]?.takeIf { "todoist" in req.url.host }.orEmpty()}".trim()
+                if (req.url.encodedPath.endsWith("lm_user_settings")) {
+                    json("""[{"task_api_key":null,"encrypted_api_key":${LifeMappJson.encodeToString(String.serializer(), encryptedKey)}}]""")
+                } else {
+                    respond("", HttpStatusCode.NoContent)
+                }
+            },
+            cache,
+            userId = { "u1" },
+            dataKey = { dataKey },
+        )
+
+        assertTrue(repo.complete("todoist:42"))
+        assertEquals("POST api.todoist.com/api/v1/tasks/42/close Bearer todoist-secret", calls.last())
+        assertTrue(cache.current().snapshot!!.tasks.isEmpty())
+
+        // Locked (no data key): nothing to send, the task comes back after the retries
+        cache.update { CachedState(snapshot = Snapshot(tasks = listOf(Task("todoist:43", "B", source = "todoist")))) }
+        val locked = TaskRepository(api { json("""[{"encrypted_api_key":"x"}]""") }, cache, userId = { "u1" })
+        assertFalse(locked.complete("todoist:43"))
     }
 
     @Test
@@ -320,5 +409,37 @@ class SnapshotAndPresenterTest {
         assertEquals(AuthState.SIGNED_OUT, ui.authState)
         assertNull(ui.username)
         assertNull(ui.weather)
+    }
+
+    @Test
+    fun `task color tier follows the web - priority, then horizon list, then due date`() {
+        assertEquals(4, WidgetPresenter.colorTier(4, null, null))
+        assertEquals(3, WidgetPresenter.colorTier(3, "Today", null)) // an explicit priority wins
+        assertEquals(4, WidgetPresenter.colorTier(1, "Heute", null))
+        assertEquals(3, WidgetPresenter.colorTier(1, "In 7 days", null))
+        assertEquals(4, WidgetPresenter.colorTier(1, null, -2)) // overdue
+        assertEquals(4, WidgetPresenter.colorTier(1, "LIFE MAPP", 0)) // a plain list name falls through to the due date
+        assertEquals(3, WidgetPresenter.colorTier(1, null, 5))
+        assertEquals(2, WidgetPresenter.colorTier(1, null, 20))
+        assertEquals(1, WidgetPresenter.colorTier(1, null, 90))
+        assertEquals(1, WidgetPresenter.colorTier(1, null, null))
+    }
+
+    @Test
+    fun `task tag is the web provider badge`() {
+        assertEquals("LIFE MAPP" to "#10B981", WidgetPresenter.providerTag("local", "Today"))
+        assertEquals("Todoist-LIF" to "#EF4444", WidgetPresenter.providerTag("todoist", "LIFE MAPP"))
+        assertEquals("Todoist" to "#EF4444", WidgetPresenter.providerTag("todoist", null))
+    }
+
+    @Test
+    fun `device color scheme overrides the web's and survives unknown ids`() {
+        val web = CachedState(snapshot = com.kalai73.lifemapp.widgets.core.model.Snapshot(
+            settings = com.kalai73.lifemapp.widgets.core.model.SnapshotSettings(colorScheme = "teal"),
+        ))
+        assertEquals(com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.TEAL, web.colorScheme)
+        assertEquals(com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.ROSE, web.copy(colorSchemeOverride = "rose").colorScheme)
+        assertEquals(com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.FOREST, CachedState(colorSchemeOverride = "forest").colorScheme)
+        assertEquals(com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.DEFAULT, CachedState().colorScheme)
     }
 }

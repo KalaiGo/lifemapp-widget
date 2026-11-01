@@ -70,7 +70,7 @@ internal fun LazyListScope.stackedHero(ui: WidgetUi, showStatus: Boolean) {
     item(itemId = ID_GREETING) { GreetingBlock(ui) }
     item(itemId = ID_DATE) { DateBlock(ui, showStatus) }
     item(itemId = ID_COUNTERS) {
-        Box(modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp, start = SIDE_INSET, end = SIDE_INSET)) {
+        Box(modifier = GlanceModifier.fillMaxWidth().padding(start = SIDE_INSET, end = SIDE_INSET)) {
             Counters(ui, caption = LocalContext.current.getString(R.string.and_you_have))
         }
     }
@@ -211,7 +211,7 @@ private fun DateBlock(ui: WidgetUi, showStatus: Boolean) {
             }
         }
     }
-    Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Row(modifier = GlanceModifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         if (pd != null) {
             PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.raised, fill = pd.raised, modifier = GlanceModifier.width(frameWidth)) { frame -> body(frame) }
         } else {
@@ -227,7 +227,7 @@ private fun WeatherCard(ui: WidgetUi) {
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
     val w = ui.weather
-    HeroCard(gap = 8.dp) { modifier ->
+    HeroCard(gap = 16.dp) { modifier ->
         Column(modifier = modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
             if (w != null) {
                 Caption(if (w.location.isNotBlank()) context.getString(R.string.weather_in, w.location) else context.getString(R.string.weather))

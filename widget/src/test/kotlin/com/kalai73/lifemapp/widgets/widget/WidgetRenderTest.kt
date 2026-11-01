@@ -67,8 +67,8 @@ class WidgetRenderTest {
             )),
         ),
         tasks = listOf(
-            TaskUi("t1", "Pay rent", "Th. 29/10/2026", overdue = true, priority = 4, listName = "Today", listColor = "#0d9488", recurring = true, completable = true),
-            TaskUi("t2", null, null, overdue = false, priority = 1, listName = null, listColor = null, recurring = false, completable = true),
+            TaskUi("t1", "Pay rent", "Th. 29/10/2026", overdue = true, priority = 4, listName = "Today", listColor = "#0d9488", recurring = true, completable = true, colorTier = 4, tagLabel = "LIFE MAPP", tagColor = "#10B981"),
+            TaskUi("t2", null, null, overdue = false, priority = 1, listName = null, listColor = null, recurring = false, completable = true, tagLabel = "LIFE MAPP", tagColor = "#10B981"),
         ),
         shortcuts = listOf(
             ShortcutUi("q1", "Spotify", "https://open.spotify.com", "Music", "#1db954"),
@@ -114,7 +114,8 @@ class WidgetRenderTest {
     @Test
     fun `mic button shows in the tall stacked hero`() = runGlanceAppWidgetUnitTest {
         dashboard(populated.copy(uiStyle = UiStyle.PREDATOR))
-        onNode(hasContentDescription("Add tasks or reminders by voice")).assertExists()
+        // The tall hero's mic sits in the footer, labelled "Record"
+        onNode(hasContentDescriptionEqualTo("Record")).assertExists()
     }
 
     @Test
@@ -250,6 +251,8 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("09:00 – 09:15 · Sa. 31/10/2026")).assertExists()
         onNode(hasTextEqualTo("All day · Su. 01/11/2026")).assertExists()
         onAllNodes(hasTextEqualTo("TODAY")).assertCountEquals(2) // events day divider and the tasks divider
+        onAllNodes(hasTextEqualTo("LIFE MAPP")).assertCountEquals(2) // both tasks carry the provider tag
+        onNode(hasTextEqualTo("No due date")).assertExists()
         onNode(hasTextEqualTo("TOMORROW")).assertExists()
     }
 
@@ -333,8 +336,8 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("8")).assertExists()
         onNode(hasTextEqualTo("Capture & Organize")).assertExists()
         onNode(hasTextEqualTo("RECEPTION")).assertExists()
-        // The Reception and the Reminders "+" both speak reminders
-        onAllNodes(hasContentDescriptionEqualTo("Create reminder")).assertCountEquals(2)
+        // The Reception's type button, the Reminders "+" and the empty Reminders chip all create reminders
+        onAllNodes(hasContentDescriptionEqualTo("Create reminder")).assertCountEquals(3)
         onNode(hasTextEqualTo("Reminders")).assertExists()
         onNode(hasTextEqualTo("No content yet")).assertExists()
         onNode(hasTextEqualTo("Topic 1")).assertExists()

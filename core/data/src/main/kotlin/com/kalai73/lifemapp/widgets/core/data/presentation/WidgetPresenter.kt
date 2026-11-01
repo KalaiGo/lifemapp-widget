@@ -7,6 +7,8 @@ import com.kalai73.lifemapp.widgets.core.model.CachedState
 import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.model.Integrity
+import com.kalai73.lifemapp.widgets.core.model.MailTag
+import com.kalai73.lifemapp.widgets.core.data.repository.TaskRepository
 import com.kalai73.lifemapp.widgets.core.model.Shortcut
 import com.kalai73.lifemapp.widgets.core.model.SyncError
 import com.kalai73.lifemapp.widgets.core.model.Task
@@ -37,6 +39,8 @@ data class WidgetUi(
     val mailCount: Int,
     val mailConnected: Boolean,
     val mailUrl: String?,
+    /** The web E-Mails widget's tags; empty when the server sends none (then the inbox row alone) */
+    val mailTags: List<MailTagUi> = emptyList(),
     /** Drive section badges (label, url); empty hides the section */
     val driveLinks: List<DriveLinkUi>,
     val calendarConnected: Boolean,
@@ -47,6 +51,8 @@ data class WidgetUi(
     val shortcuts: List<ShortcutUi>,
     /** The Integrity domain card, null when the user has none */
     val integrity: IntegrityUi?,
+    /** The other Today domains (positions 2–5), in order: the app's Today screen only, never the widgets */
+    val todayDomains: List<IntegrityUi> = emptyList(),
     /** Quick links are encrypted and this device is locked */
     val shortcutsLocked: Boolean,
     /** Local time of the last successful sync, null if never */
@@ -70,6 +76,20 @@ data class WidgetUi(
 }
 
 data class DriveLinkUi(val label: String, val url: String)
+
+/**
+ * A mail tag row as the web E-Mails widget draws it. [name] is null for the inbox ("Today").
+ * [fade] dims later horizons as the web does: 1 for the inbox and others, down to 0.4 for "In 365 days".
+ */
+data class MailTagUi(
+    val name: String?,
+    val icon: String,
+    val color: String?,
+    val unread: Int,
+    val total: Int,
+    val url: String?,
+    val fade: Float,
+)
 
 data class WeatherUi(val temperature: String, val low: String, val condition: String, val icon: String, val location: String)
 
@@ -100,18 +120,33 @@ data class TaskUi(
     val listName: String?,
     val listColor: String?,
     val recurring: Boolean,
-    /** Can be completed from the widget (LIFE MAPP tasks) */
+    /** Can be completed from the widget (LIFE MAPP and Todoist tasks) */
     val completable: Boolean,
     /** The web Task List Widget's segment: TODAY, TOMORROW, or OTHER ("Tomorrow ++ 1"). Only TODAY is at full strength. */
     val day: DayKind = DayKind.TODAY,
+    /**
+     * The web's task color tier (lib/tasks/task-style.ts getTaskColorTier), colouring the checkbox and bar:
+     * 4 red (P1, Today list, due today or overdue), 3 orange (P2, 7-day list, due within 7 days), 2 blue, 1 neutral.
+     */
+    val colorTier: Int = 1,
+    /** The web's provider badge: "LIFE MAPP", "TODOIST-LIF" (Todoist plus its project's first 3 letters), … */
+    val tagLabel: String? = null,
+    /** The provider badge's hex color (emerald for LIFE MAPP, red for Todoist, …) */
+    val tagColor: String? = null,
 ) {
     val upcoming: Boolean get() = day != DayKind.TODAY
 }
 
 data class ShortcutUi(val id: String, val label: String, val url: String, val icon: String, val color: String?)
 
-/** The Integrity domain card. Names are null when encrypted and this device is locked. */
+/**
+ * A domain card: Integrity, or one of the other Today domains (no Reminders topic, warnings 0). Names are null
+ * when encrypted and this device is locked.
+ */
 data class IntegrityUi(
+    val domainId: String = "",
+    /** 1 for Integrity, 2–5 for Serenity, Vitality, Stability, Tenacity */
+    val position: Int = 1,
     val name: String?,
     val infoBox: String?,
     /** 0–10, null when encrypted and locked */
@@ -135,7 +170,16 @@ data class TopicUi(
     val more: Int get() = (count - items.size).coerceAtLeast(0)
 }
 
-data class TopicItemUi(val id: String, val name: String?, val warning: Boolean, val isImage: Boolean)
+data class TopicItemUi(
+    val id: String,
+    val name: String?,
+    val warning: Boolean,
+    val isImage: Boolean,
+    /** The item's text as HTML, null when it has none or can't be decrypted */
+    val content: String? = null,
+    /** Collapsed on the web card: the header only */
+    val collapsed: Boolean = false,
+)
 
 object WidgetPresenter {
     const val STALE_AFTER_MS = 2 * 60 * 60 * 1000L
@@ -177,8 +221,12 @@ object WidgetPresenter {
         // The server counts the Today segment only
         val hiddenCount = snapshot.tasks.count { it.id in pending && it.segment == Task.SEGMENT_TODAY }
 
-        val tasks = visibleTasks.map { t ->
+        // Within a day, the server's earlier segments first: after midnight, yesterday's Tomorrow tasks join Today
+        // below the tasks that were already today's (a stable sort on the day alone would keep the input order)
+        val tasks = visibleTasks.sortedBy { segmentRank(it.segment) }.map { t ->
             val due = t.dueDate?.let(LocalDate::parse)
+            val listName = t.listName ?: key?.let { EncryptedField.decrypt(t.encryptedListName, it) }
+            val (tagLabel, tagColor) = providerTag(t.source, listName)
             TaskUi(
                 id = t.id,
                 title = t.title ?: key?.let { EncryptedField.decrypt(t.encryptedTitle, it) },
@@ -191,11 +239,14 @@ object WidgetPresenter {
                 },
                 overdue = due != null && due < today,
                 priority = t.priority,
-                listName = t.listName ?: key?.let { EncryptedField.decrypt(t.encryptedListName, it) },
+                listName = listName,
                 listColor = t.listColor,
                 recurring = t.recurring,
-                completable = t.source == "local",
+                completable = TaskRepository.canComplete(t.source),
                 day = taskDay(t.segment, due, today),
+                colorTier = colorTier(t.priority, listName, due?.let { java.time.temporal.ChronoUnit.DAYS.between(today, it) }),
+                tagLabel = tagLabel,
+                tagColor = tagColor,
             )
         }
             // Segments in order (Today, Tomorrow, Tomorrow ++ 1); the server's order within each is kept
@@ -247,7 +298,7 @@ object WidgetPresenter {
             authState = authState,
             encryption = encryption,
             hasData = true,
-            colorScheme = ColorSchemeName.from(settings?.colorScheme),
+            colorScheme = state.colorScheme,
             uiStyle = UiStyle.from(settings?.uiStyle),
             themeMode = state.themeMode,
             language = language,
@@ -268,6 +319,17 @@ object WidgetPresenter {
             mailCount = snapshot.counts.mail,
             mailConnected = snapshot.counts.mailConnected,
             mailUrl = snapshot.mail.inboxUrl,
+            mailTags = snapshot.mail.tags.map { t ->
+                MailTagUi(
+                    name = t.name,
+                    icon = t.icon,
+                    color = t.color,
+                    unread = t.unread,
+                    total = t.total,
+                    url = t.url?.takeIf { it.isNotBlank() },
+                    fade = mailTagFade(t.tier),
+                )
+            },
             driveLinks = snapshot.drive.links.filter { it.url.isNotBlank() }.map { DriveLinkUi(it.label.ifBlank { it.url }, it.url) },
             calendarConnected = snapshot.counts.calendarConnected,
             averageRating = averageRating,
@@ -278,6 +340,7 @@ object WidgetPresenter {
             tasks = tasks,
             shortcuts = shortcuts,
             integrity = snapshot.integrity?.let { integrity(it, key) },
+            todayDomains = snapshot.todayDomains.map { integrity(it, key) },
             shortcutsLocked = shortcutsLocked,
             updatedAt = state.lastSuccessAt.takeIf { it > 0 }?.let { DateLabels.time(Instant.ofEpochMilli(it), deviceZone, settings?.timeFormat) },
             stale = state.lastSuccessAt > 0 && now - state.lastSuccessAt > STALE_AFTER_MS,
@@ -307,12 +370,60 @@ object WidgetPresenter {
      * The task's segment on the device's date, so a cached snapshot rolls over at midnight: "today" stays Today
      * (Today list or overdue); a due date otherwise decides; undated upcoming tasks ("In 7 days" list) stay later.
      */
+    private fun segmentRank(segment: String): Int = when (segment) {
+        Task.SEGMENT_TODAY -> 0
+        Task.SEGMENT_TOMORROW -> 1
+        else -> 2
+    }
+
     internal fun taskDay(segment: String, due: LocalDate?, today: LocalDate): DayKind = when {
         segment == Task.SEGMENT_TODAY -> DayKind.TODAY
         due == null -> if (segment == Task.SEGMENT_TOMORROW) DayKind.TOMORROW else DayKind.OTHER
         !due.isAfter(today) -> DayKind.TODAY
         due == today.plusDays(1) -> DayKind.TOMORROW
         else -> DayKind.OTHER
+    }
+
+    /**
+     * The web's task color tier (lib/tasks/task-style.ts getTaskColorTier): an explicit priority, else the
+     * horizon list (Today, 7, 30, 365 days), else how soon it is due ([daysUntilDue] 0 today, negative overdue).
+     */
+    internal fun colorTier(priority: Int, listName: String?, daysUntilDue: Long?): Int {
+        if (priority > 1) return priority.coerceIn(1, 4)
+        val name = listName?.lowercase()?.trim().orEmpty()
+        if (name.isNotEmpty()) {
+            if ("today" in name || "hoy" in name || "heute" in name) return 4
+            if ('7' in name) return 3
+            if ("30" in name) return 2
+            if ("365" in name) return 1
+        }
+        if (daysUntilDue != null) {
+            if (daysUntilDue <= 0) return 4
+            if (daysUntilDue <= 7) return 3
+            if (daysUntilDue <= 30) return 2
+        }
+        return 1
+    }
+
+    /**
+     * The web's provider badge (components/tasks/task-list-item.tsx PROVIDER_CONFIG): label and hex color.
+     * Todoist adds its project's first three letters, as the web does.
+     */
+    internal fun providerTag(source: String, listName: String?): Pair<String, String> = when (source) {
+        "todoist" -> ("Todoist" + (listName?.trim()?.takeIf { it.isNotEmpty() }?.let { "-" + it.take(3) } ?: "")) to "#EF4444"
+        "google-tasks" -> "Google" to "#3B82F6"
+        "microsoft-todo" -> "To Do" to "#0EA5E9"
+        "ticktick" -> "TickTick" to "#F59E0B"
+        else -> "LIFE MAPP" to "#10B981"
+    }
+
+    /** The web widget's row opacity per horizon tier (gmail-labels-widget.tsx) */
+    internal fun mailTagFade(tier: String): Float = when (tier) {
+        MailTag.TIER_7_DAYS -> 0.85f
+        MailTag.TIER_30_DAYS -> 0.6f
+        MailTag.TIER_365_DAYS -> 0.4f
+        MailTag.TIER_OTHER -> 0.65f
+        else -> 1f
     }
 
     private fun toUi(s: Shortcut) = ShortcutUi(s.id, s.label, s.url, s.icon, s.color)
@@ -323,6 +434,8 @@ object WidgetPresenter {
         val rating = if (i.encryptedRating != null) key?.let { EncryptedField.decrypt(i.encryptedRating, it) }?.toDoubleOrNull()
         else i.rating
         return IntegrityUi(
+            domainId = i.domainId,
+            position = i.position,
             name = text(i.name, i.encryptedName),
             infoBox = text(i.infoBox, i.encryptedInfoBox)?.takeIf { it.isNotBlank() },
             rating = rating?.roundToInt()?.coerceIn(0, 10),
@@ -334,7 +447,13 @@ object WidgetPresenter {
                     reminders = t.reminders,
                     collapsed = t.collapsed && !t.reminders,
                     count = maxOf(t.count, t.items.size),
-                    items = t.items.map { item -> TopicItemUi(item.id, text(item.name, item.encryptedName), item.warning, item.isImage) },
+                    items = t.items.map { item ->
+                        TopicItemUi(
+                            item.id, text(item.name, item.encryptedName), item.warning, item.isImage,
+                            content = text(item.content, item.encryptedContent)?.takeIf { it.isNotBlank() },
+                            collapsed = item.collapsed,
+                        )
+                    },
                 )
             },
             warnings = i.warnings,

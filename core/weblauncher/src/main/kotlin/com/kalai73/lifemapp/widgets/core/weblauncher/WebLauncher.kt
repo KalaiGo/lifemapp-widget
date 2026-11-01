@@ -38,6 +38,9 @@ object WebRoutes {
     /** Its Warnings bar, as the digest email links it */
     const val WARNINGS = "/today#section-warnings"
 
+    /** A life domain card on the web's Today page (its element id is domain-<id>) */
+    fun domain(domainId: String) = "/today#domain-$domainId"
+
     /**
      * Fragment for [TODAY] that starts the web's own mic, for devices without a speech recognizer (the widget
      * otherwise handles voice input itself, see VoiceInputActivity).

@@ -47,8 +47,8 @@ class CacheStore(private val store: DataStore<CachedState>) {
 
     suspend fun update(transform: (CachedState) -> CachedState): CachedState = store.updateData(transform)
 
-    /** Drops the account data; the device's theme choice survives sign-out. */
+    /** Drops the account data; the device's theme and color scheme choices survive sign-out. */
     suspend fun clear() {
-        store.updateData { CachedState(themeMode = it.themeMode) }
+        store.updateData { CachedState(themeMode = it.themeMode, colorSchemeOverride = it.colorSchemeOverride) }
     }
 }

@@ -124,6 +124,7 @@ fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOp
                         onRenameItem = viewModel::renameItem,
                         onDeleteItem = viewModel::deleteItem,
                         onToggleTopic = viewModel::setTopicCollapsed,
+                        onToggleItem = viewModel::setItemCollapsed,
                         onUnlock = viewModel::showUnlock,
                         onOpenWeb = onOpenWeb,
                     )
@@ -480,6 +481,7 @@ private fun SettingsPanel(state: AppUiState, cache: CachedState, viewModel: AppV
                 }
             }
         }
+        ColorSchemePicker(cache, viewModel)
     }
 
     Section(stringResource(R.string.sync_title)) {
@@ -623,3 +625,51 @@ private fun SettingsPanel(state: AppUiState, cache: CachedState, viewModel: AppV
 
 private fun isIgnoringBatteryOptimizations(context: Context): Boolean =
     context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true
+
+/**
+ * Color scheme of this device, overriding the web's: "From web" (showing the web's current scheme), then each
+ * scheme. Applies to the app and every widget; the web account's setting is left unchanged.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun ColorSchemePicker(cache: CachedState, viewModel: AppViewModel) {
+    val style = LocalUiStyle.current
+    val pd = LocalPdPalette.current
+    Spacer(Modifier.height(10.dp))
+    Text(
+        stringResource(R.string.color_scheme_hint),
+        style = if (style == UiStyle.PREDATOR) pdCaptionStyle(size = 11.sp, color = pd.dim)
+        else MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+    )
+    val webScheme = com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.from(cache.snapshot?.settings?.colorScheme)
+    val override = cache.colorSchemeOverride?.let(com.kalai73.lifemapp.widgets.core.model.ColorSchemeName::from)
+    val options = listOf<com.kalai73.lifemapp.widgets.core.model.ColorSchemeName?>(null) +
+        com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.entries
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        for (option in options) {
+            val label = if (option == null) stringResource(R.string.color_scheme_web, schemeName(webScheme)) else schemeName(option)
+            val selected = override == option
+            if (style == UiStyle.PREDATOR) {
+                PdFilterChip(selected = selected, onClick = { viewModel.setColorScheme(option) }, label = label, palette = pd)
+            } else {
+                FilterChip(selected = selected, onClick = { viewModel.setColorScheme(option) }, label = { Text(label) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun schemeName(scheme: com.kalai73.lifemapp.widgets.core.model.ColorSchemeName): String = stringResource(
+    when (scheme) {
+        com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.DEFAULT -> R.string.color_scheme_default
+        com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.TEAL -> R.string.color_scheme_teal
+        com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.OCEAN -> R.string.color_scheme_ocean
+        com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.SUNSET -> R.string.color_scheme_sunset
+        com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.FOREST -> R.string.color_scheme_forest
+        com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.ROSE -> R.string.color_scheme_rose
+        com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.MIDNIGHT -> R.string.color_scheme_midnight
+    }
+)

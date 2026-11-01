@@ -33,8 +33,8 @@ class WebLaunchActivity : Activity() {
             val (uri, scheme) = withContext(Dispatchers.IO) {
                 val resolved = if (path != null) WebLauncher.resolve(applicationContext, path) else Uri.parse(url)
                 val target = if (fragment != null) resolved.buildUpon().encodedFragment(fragment).build() else resolved
-                val scheme = runCatching { graph.cache.current().snapshot?.settings?.colorScheme }.getOrNull()
-                target to ColorSchemeName.from(scheme)
+                val scheme = runCatching { graph.cache.current().colorScheme }.getOrNull()
+                target to (scheme ?: ColorSchemeName.DEFAULT)
             }
             WebLauncher.openCustomTab(this@WebLaunchActivity, uri, scheme)
             finish()

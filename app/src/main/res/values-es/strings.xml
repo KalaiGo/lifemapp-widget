@@ -49,10 +49,19 @@
     <string name="lock">Bloquear en este dispositivo</string>
 
     <string name="appearance_title">Apariencia</string>
-    <string name="appearance_hint">Tema claro u oscuro para esta app y sus widgets.</string>
+    <string name="appearance_hint">Tema claro u oscuro y esquema de color para esta app y sus widgets.</string>
     <string name="theme_system">Sistema</string>
     <string name="theme_light">Claro</string>
     <string name="theme_dark">Oscuro</string>
+    <string name="color_scheme_hint">Esquema de color en este dispositivo. El ajuste de la app web no cambia.</string>
+    <string name="color_scheme_web">Desde la web (%1$s)</string>
+    <string name="color_scheme_default">Naranja</string>
+    <string name="color_scheme_teal">Verde azulado</string>
+    <string name="color_scheme_ocean">Océano</string>
+    <string name="color_scheme_sunset">Atardecer</string>
+    <string name="color_scheme_forest">Bosque</string>
+    <string name="color_scheme_rose">Rosa</string>
+    <string name="color_scheme_midnight">Medianoche</string>
 
     <string name="battery_title">Actualización en segundo plano</string>
     <string name="battery_body">Android puede retrasar las actualizaciones de apps que abres poco. Permitir el uso de batería sin restricciones mantiene los widgets al día (cada 30 minutos).</string>
@@ -82,12 +91,14 @@
     <string name="today_weather">Tiempo</string>
     <string name="today_task_lists">Listas de tareas</string>
     <string name="today_inbox">Bandeja de entrada</string>
+    <!-- The web E-Mails widget's name for the inbox tag -->
+    <string name="today_mail_today">Hoy</string>
     <string name="today_links">Enlaces</string>
+    <string name="today_drive">Drive</string>
     <string name="today_shortcuts">Accesos directos</string>
     <string name="today_mail_not_connected">El correo no está conectado</string>
     <string name="today_connect_mail">Conectar correo</string>
     <string name="today_no_content">Aún sin contenido</string>
-    <string name="today_updated">Actualizado %1$s</string>
     <string name="today_reception">Recepción</string>
     <string name="today_create_reminder">Crear recordatorio</string>
     <string name="today_record">Grabar</string>
@@ -99,6 +110,8 @@
     <string name="today_greeting">Hola, %1$s</string>
     <string name="today_greeting_anon">Hola</string>
     <string name="today_events">Eventos</string>
+    <string name="today_nav">Navegación</string>
+    <string name="today_nav_top">Arriba</string>
     <string name="today_tasks">Tareas</string>
     <string name="today_mail">Correo</string>
     <string name="today_journal">Diario</string>
