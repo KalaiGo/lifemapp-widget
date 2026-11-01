@@ -122,9 +122,12 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
             PdHex(18.dp, edge = if (upcoming) pd.edge2 else pd.accent, fill = pd.panel) {
                 Text("$number", style = numberStyle(9.sp, color = if (upcoming) pd.faint else pd.ink))
             }
-            Spacer(GlanceModifier.width(5.dp))
-            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.row, fill = pd.row, modifier = GlanceModifier.defaultWeight().clickable(action)) { frame ->
-                Row(modifier = frame.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Secondary calendars are indented from the left, as on the web's events card
+            Spacer(GlanceModifier.width(if (event.secondary) 17.dp else 5.dp))
+            // ...and more compact, without the card frame, so primary events stand out
+            val vertical = if (event.secondary) 2.dp else 4.dp
+            val body: @Composable (GlanceModifier) -> Unit = { box ->
+                Row(modifier = box.padding(start = 6.dp, end = 6.dp, top = vertical, bottom = vertical), verticalAlignment = Alignment.CenterVertically) {
                     PdBar(barColor, height = 26.dp)
                     Spacer(GlanceModifier.width(6.dp))
                     Column(modifier = GlanceModifier.defaultWeight()) {
@@ -145,6 +148,13 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
                     }
                 }
             }
+            if (event.secondary) {
+                body(GlanceModifier.defaultWeight().clickable(action))
+            } else {
+                PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.row, fill = pd.row, modifier = GlanceModifier.defaultWeight().clickable(action)) { frame ->
+                    body(frame.fillMaxWidth())
+                }
+            }
         }
         return
     }
@@ -152,7 +162,7 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
     // Classic: the same structure, flat
     val faded = GlanceTheme.colors.onSurfaceVariant
     Row(
-        modifier = GlanceModifier.fillMaxWidth().clickable(action).padding(vertical = 3.dp),
+        modifier = GlanceModifier.fillMaxWidth().clickable(action).padding(vertical = if (event.secondary) 2.dp else 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -160,7 +170,7 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
             style = textStyle(size = 11.sp, weight = FontWeight.Bold, color = if (upcoming) faded else GlanceTheme.colors.primary).copy(textAlign = TextAlign.Center),
             modifier = GlanceModifier.width(16.dp),
         )
-        Spacer(GlanceModifier.width(4.dp))
+        Spacer(GlanceModifier.width(if (event.secondary) 16.dp else 4.dp))
         Dot(if (dimmed) color.copy(alpha = 0.45f) else color)
         Spacer(GlanceModifier.width(8.dp))
         Column(modifier = GlanceModifier.defaultWeight()) {

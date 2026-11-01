@@ -10,6 +10,7 @@ import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetPresenter
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.data.repository.EncryptionRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.ItemRepository
+import com.kalai73.lifemapp.widgets.core.data.repository.ScoringRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.SnapshotRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.TaskRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.VoiceRepository
@@ -36,7 +37,13 @@ class LifeMappGraph private constructor(context: Context) {
     val auth: AuthRepository = AuthRepository(authApi, secrets)
     val api = LifeMappApi(http, config, auth)
     val cache = CacheStore(appContext)
-    val snapshots = SnapshotRepository(api, cache)
+    val scoring = ScoringRepository(
+        api,
+        cache,
+        userId = { runCatching { secrets.read().session?.userId }.getOrNull() },
+        dataKey = { encryption.dataKey() },
+    )
+    val snapshots = SnapshotRepository(api, cache, scoring = { scoring.load() })
     val tasks = TaskRepository(
         api,
         cache,

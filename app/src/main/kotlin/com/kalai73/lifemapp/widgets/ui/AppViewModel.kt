@@ -236,6 +236,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setTopicCollapsed(topicId: String, collapsed: Boolean) =
         toggle { graph.items.setTopicCollapsed(topicId, collapsed) { LifeMappWidgets.updateAll(getApplication()) } }
 
+    /** Hides or shows a domain on Today (the scoring section's tap); Integrity and Tenacity always stay. */
+    fun toggleDomainHidden(domainId: String) {
+        val domain = _today.value.scoring?.domains?.firstOrNull { it.id == domainId } ?: return
+        if (domain.unhidable) return
+        toggle { graph.scoring.setHidden(mapOf(domainId to !domain.hidden)) }
+    }
+
+    /** Hides (true) or shows every domain that can be hidden (the scoring section's eye button). */
+    fun setAllDomainsHidden(hidden: Boolean) {
+        val domains = _today.value.scoring?.domains?.filterNot { it.unhidable } ?: return
+        toggle { graph.scoring.setHidden(domains.associate { it.id to hidden }) }
+    }
+
+    /**
+     * Saves new ratings (domain id → 1–10) with the web's bulk route, encrypted when the account is; the cached
+     * snapshot takes them at once, so the cards and the widgets' average follow without a sync.
+     */
+    fun rateDomains(ratings: Map<String, Int>) = run {
+        val encrypted = cache.value.snapshot?.settings?.encryptionEnabled == true
+        if (!graph.scoring.rate(ratings, encrypted)) fail(R.string.error_rating_locked)
+        LifeMappWidgets.updateAll(getApplication())
+    }
+
     private fun toggle(block: suspend () -> Unit) {
         viewModelScope.launch {
             try {

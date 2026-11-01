@@ -180,4 +180,43 @@
     <string name="item_copy_link">Link kopieren</string>
     <string name="item_link_copied">Link kopiert</string>
     <string name="item_delete">Löschen</string>
+
+    <!-- Today: scoring section (the web's ScoringCircles) and rating dialog -->
+    <string name="scoring_not_scored">Nicht bewertet</string>
+    <string name="scoring_scored">Bewertet</string>
+    <string name="scoring_yet">Bisher</string>
+    <string name="scoring_today">Heute</string>
+    <string name="scoring_history">Bewertungsverlauf anzeigen</string>
+    <string name="scoring_score_all">Alle Bereiche bewerten</string>
+    <string name="scoring_average">Alle Bereiche bewerten. Durchschnitt %1$s von 10</string>
+    <string name="scoring_domain_desc">%1$s: Bewertung %2$d von 10</string>
+    <string name="scoring_show_domain">Auf Heute zeigen</string>
+    <string name="scoring_hide_domain">Auf Heute ausblenden</string>
+    <string name="scoring_rate">Bewerten</string>
+    <string name="rating_next">Weiter</string>
+    <string name="rating_back">Zurück</string>
+    <string name="rating_step">%1$d von %2$d</string>
+    <string name="rating_title_all">Bereichsbewertung</string>
+    <string name="error_rating_locked">Entsperren, um verschlüsselte Bereiche zu bewerten.</string>
+    <string name="scoring_hide_all">Alle Bereiche ausblenden</string>
+    <string name="scoring_show_all">Alle Bereiche einblenden</string>
+    <plurals name="scoring_days_ago">
+        <item quantity="one">vor %d Tag</item>
+        <item quantity="other">vor %d Tagen</item>
+    </plurals>
+    <string name="rating_question_1">Hast du eingehende Aufgaben im Griff behalten und deine Zusagen eingehalten seit der letzten Bewertung?</string>
+    <string name="rating_question_2">Wie ruhig, gelassen und emotional ausgeglichen hast du dich gefühlt seit der letzten Bewertung?</string>
+    <string name="rating_question_3">Wie aktiv, energiegeladen und körperlich wohl hast du dich gefühlt seit der letzten Bewertung?</string>
+    <string name="rating_question_4">Haben dich deine täglichen Routinen und Anker geerdet und auf Kurs gehalten seit der letzten Bewertung?</string>
+    <string name="rating_question_5">Hast du Widerstände überwunden und deine wichtigsten Prioritäten durchgezogen seit der letzten Bewertung?</string>
+    <string name="rating_desc_1">Tiefpunkt</string>
+    <string name="rating_desc_2">Kämpfend</string>
+    <string name="rating_desc_3">Überlebend</string>
+    <string name="rating_desc_4">Herausgefordert</string>
+    <string name="rating_desc_5">Aufbauend</string>
+    <string name="rating_desc_6">Wachsend</string>
+    <string name="rating_desc_7">Im Fluss</string>
+    <string name="rating_desc_8">Gedeihend</string>
+    <string name="rating_desc_9">Abhebend</string>
+    <string name="rating_desc_10">Aufblühend</string>
 </resources>

@@ -5,6 +5,8 @@ import com.kalai73.lifemapp.widgets.core.data.LifeMappConfig
 import com.kalai73.lifemapp.widgets.core.data.LifeMappJson
 import com.kalai73.lifemapp.widgets.core.data.auth.AuthRepository
 import com.kalai73.lifemapp.widgets.core.data.auth.NotSignedInException
+import com.kalai73.lifemapp.widgets.core.model.Scoring
+import com.kalai73.lifemapp.widgets.core.model.ScoringDomain
 import com.kalai73.lifemapp.widgets.core.model.Snapshot
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -17,6 +19,7 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -345,6 +348,119 @@ class LifeMappApi(
         if (!response.status.isSuccess()) throw ServerException(response.status.value)
     }
 
+    /**
+     * The scoring section's state, read as the web's user-settings-service does: the hidden domains from
+     * preferences (legacy: user_settings.calendar_settings, then user_settings), the last scoring from its column
+     * (legacy: user_settings), and every domain's id, position, name and custom color.
+     */
+    suspend fun scoring(userId: String): Scoring {
+        val row = settingsRow(userId, "preferences,user_settings,monthly_scoring_last_completed")
+        val legacy = blob(row?.get("user_settings"))
+        val calendarSettings = blob(row?.get("preferences")) ?: blob(legacy?.get("calendar_settings"))
+        fun ids(element: kotlinx.serialization.json.JsonElement?): List<String>? =
+            (element as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+        val hidden = ids(calendarSettings?.get("hidden_domain_ids")) ?: ids(legacy?.get("hidden_domain_ids"))
+        val lastCompleted = text(row?.get("monthly_scoring_last_completed")) ?: text(legacy?.get("monthly_scoring_last_completed"))
+        val domains = authorized { token ->
+            http.get("${config.supabaseUrl}/rest/v1/lm_life_domains") {
+                supabase(token)
+                parameter("select", "id,position,name,color")
+                parameter("user_id", "eq.$userId")
+            }
+        }.body<JsonArray>().mapNotNull { element ->
+            val d = element as? JsonObject ?: return@mapNotNull null
+            ScoringDomain(
+                id = text(d["id"]) ?: return@mapNotNull null,
+                position = text(d["position"])?.toDoubleOrNull()?.toInt() ?: 0,
+                name = text(d["name"]),
+                color = text(d["color"]),
+            )
+        }
+        return Scoring(hiddenDomainIds = hidden, lastCompleted = lastCompleted, domains = domains)
+    }
+
+    /** Saves the hidden domains into preferences, keeping its other keys (updateHiddenDomains on the web). */
+    suspend fun setHiddenDomains(userId: String, ids: List<String>) {
+        val preferences = blob(settingsRow(userId, "preferences")?.get("preferences")) ?: JsonObject(emptyMap())
+        val updated = JsonObject(preferences + ("hidden_domain_ids" to JsonArray(ids.map(::JsonPrimitive))))
+        updateSettings(userId, JsonObject(mapOf("preferences" to updated)))
+    }
+
+    /** Records the last scoring (monthly_scoring_last_completed) as an ISO instant, as the web does. */
+    suspend fun setScoringCompleted(userId: String, isoInstant: String) {
+        updateSettings(userId, JsonObject(mapOf("monthly_scoring_last_completed" to JsonPrimitive(isoInstant))))
+    }
+
+    /** The life domains (positions below 20) with their stored ratings, for the bulk rating's sibling list. */
+    suspend fun lifeDomainRatings(userId: String): List<StoredRating> =
+        authorized { token ->
+            http.get("${config.supabaseUrl}/rest/v1/lm_life_domains") {
+                supabase(token)
+                parameter("select", "id,position,rating,encrypted_rating")
+                parameter("user_id", "eq.$userId")
+                parameter("position", "lt.20")
+            }
+        }.body<JsonArray>().mapNotNull { element ->
+            val d = element as? JsonObject ?: return@mapNotNull null
+            StoredRating(
+                id = text(d["id"]) ?: return@mapNotNull null,
+                position = text(d["position"])?.toDoubleOrNull()?.toInt() ?: 0,
+                rating = text(d["rating"])?.toDoubleOrNull() ?: 0.0,
+                encryptedRating = text(d["encrypted_rating"]),
+            )
+        }
+
+    @Serializable
+    data class RatingEntry(
+        val domainId: String,
+        val rating: Int,
+        @SerialName("encrypted_rating") val encryptedRating: String? = null,
+    )
+
+    @Serializable private data class RatingsBody(val entries: List<RatingEntry>)
+
+    /** Updates the ratings and records score history in one request (PUT /api/domains/scores/bulk). */
+    suspend fun saveRatings(entries: List<RatingEntry>) {
+        authorized { token ->
+            http.put("${config.webUrl}/api/domains/scores/bulk") {
+                bearerAuth(token)
+                contentType(ContentType.Application.Json)
+                setBody(RatingsBody(entries))
+            }
+        }
+    }
+
+    private suspend fun settingsRow(userId: String, columns: String): JsonObject? =
+        authorized { token ->
+            http.get("${config.supabaseUrl}/rest/v1/lm_user_settings") {
+                supabase(token)
+                parameter("select", columns)
+                parameter("user_id", "eq.$userId")
+            }
+        }.body<JsonArray>().firstOrNull() as? JsonObject
+
+    private suspend fun updateSettings(userId: String, fields: JsonObject) {
+        authorized { token ->
+            http.patch("${config.supabaseUrl}/rest/v1/lm_user_settings") {
+                supabase(token)
+                parameter("user_id", "eq.$userId")
+                header("Prefer", "return=minimal")
+                contentType(ContentType.Application.Json)
+                setBody(fields)
+            }
+        }
+    }
+
+    private fun text(element: kotlinx.serialization.json.JsonElement?): String? =
+        (element as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+
+    /** A JSONB column, which can arrive as a string */
+    private fun blob(element: kotlinx.serialization.json.JsonElement?): JsonObject? = when (element) {
+        is JsonObject -> element
+        is JsonPrimitive -> element.contentOrNull?.let { runCatching { LifeMappJson.parseToJsonElement(it).jsonObject }.getOrNull() }
+        else -> null
+    }
+
     /** A few encrypted task titles, to verify a legacy account's key that has no key_check. */
     suspend fun encryptedSamples(userId: String): List<String> {
         val response = authorized { token ->
@@ -395,6 +511,9 @@ data class StoredItemContent(
     /** ISO timestamp */
     val createdAt: String? = null,
 )
+
+/** A life domain's stored rating: [rating], or (end-to-end encrypted) [encryptedRating] with the column at 0. */
+data class StoredRating(val id: String, val position: Int, val rating: Double, val encryptedRating: String?)
 
 /** An API key from the settings row: [plain], or [encrypted] with the data key. */
 data class StoredApiKey(val plain: String?, val encrypted: String?)

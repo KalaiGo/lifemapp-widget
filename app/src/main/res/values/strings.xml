@@ -181,4 +181,43 @@
     <string name="item_copy_link">Copy link</string>
     <string name="item_link_copied">Link copied</string>
     <string name="item_delete">Delete</string>
+
+    <!-- Today: scoring section (the web's ScoringCircles) and rating dialog -->
+    <string name="scoring_not_scored">Not scored</string>
+    <string name="scoring_scored">Scored</string>
+    <string name="scoring_yet">Yet</string>
+    <string name="scoring_today">Today</string>
+    <string name="scoring_history">View scoring history</string>
+    <string name="scoring_score_all">Score all domains</string>
+    <string name="scoring_average">Score all domains. Average %1$s of 10</string>
+    <string name="scoring_domain_desc">%1$s: score %2$d of 10</string>
+    <string name="scoring_show_domain">Show on Today</string>
+    <string name="scoring_hide_domain">Hide from Today</string>
+    <string name="scoring_rate">Rate</string>
+    <string name="rating_next">Next</string>
+    <string name="rating_back">Back</string>
+    <string name="rating_step">%1$d of %2$d</string>
+    <string name="rating_title_all">Domains scoring</string>
+    <string name="error_rating_locked">Unlock to rate encrypted domains.</string>
+    <string name="scoring_hide_all">Hide all domains</string>
+    <string name="scoring_show_all">Show all domains</string>
+    <plurals name="scoring_days_ago">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
+    <string name="rating_question_1">Have you stayed on top of incoming inputs and kept your commitments since the last scoring?</string>
+    <string name="rating_question_2">How calm, centered, and emotionally balanced have you felt since the last scoring?</string>
+    <string name="rating_question_3">How active, energetic, and physically well have you felt since the last scoring?</string>
+    <string name="rating_question_4">Have your daily routines and anchors kept you grounded since the last scoring?</string>
+    <string name="rating_question_5">Have you pushed through resistance and followed through on your priorities since the last scoring?</string>
+    <string name="rating_desc_1">Rock Bottom</string>
+    <string name="rating_desc_2">Struggling</string>
+    <string name="rating_desc_3">Surviving</string>
+    <string name="rating_desc_4">Challenged</string>
+    <string name="rating_desc_5">Building</string>
+    <string name="rating_desc_6">Growing</string>
+    <string name="rating_desc_7">Flowing</string>
+    <string name="rating_desc_8">Thriving</string>
+    <string name="rating_desc_9">Soaring</string>
+    <string name="rating_desc_10">Flourishing</string>
 </resources>

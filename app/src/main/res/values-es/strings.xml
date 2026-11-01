@@ -182,4 +182,43 @@
     <string name="item_copy_link">Copiar enlace</string>
     <string name="item_link_copied">Enlace copiado</string>
     <string name="item_delete">Eliminar</string>
+
+    <!-- Today: scoring section (the web's ScoringCircles) and rating dialog -->
+    <string name="scoring_not_scored">Sin calificar</string>
+    <string name="scoring_scored">Calificado</string>
+    <string name="scoring_yet">Aún</string>
+    <string name="scoring_today">Hoy</string>
+    <string name="scoring_history">Ver historial de calificaciones</string>
+    <string name="scoring_score_all">Calificar todos los dominios</string>
+    <string name="scoring_average">Calificar todos los dominios. Promedio %1$s de 10</string>
+    <string name="scoring_domain_desc">%1$s: puntuación %2$d de 10</string>
+    <string name="scoring_show_domain">Mostrar en Hoy</string>
+    <string name="scoring_hide_domain">Ocultar de Hoy</string>
+    <string name="scoring_rate">Calificar</string>
+    <string name="rating_next">Siguiente</string>
+    <string name="rating_back">Atrás</string>
+    <string name="rating_step">%1$d de %2$d</string>
+    <string name="rating_title_all">Calificación de dominios</string>
+    <string name="error_rating_locked">Desbloquea para calificar dominios cifrados.</string>
+    <string name="scoring_hide_all">Ocultar todos los dominios</string>
+    <string name="scoring_show_all">Mostrar todos los dominios</string>
+    <plurals name="scoring_days_ago">
+        <item quantity="one">hace %d día</item>
+        <item quantity="other">hace %d días</item>
+    </plurals>
+    <string name="rating_question_1">¿Has gestionado bien las tareas y entradas entrantes y cumplido tus compromisos desde la última evaluación?</string>
+    <string name="rating_question_2">¿Qué tan calmado, centrado y emocionalmente equilibrado te has sentido desde la última evaluación?</string>
+    <string name="rating_question_3">¿Qué tan activo, enérgico y físicamente bien te has sentido desde la última evaluación?</string>
+    <string name="rating_question_4">¿Te han mantenido centrado y encaminado tus rutinas y hábitos diarios desde la última evaluación?</string>
+    <string name="rating_question_5">¿Has superado la resistencia y cumplido con tus prioridades desde la última evaluación?</string>
+    <string name="rating_desc_1">Fondo</string>
+    <string name="rating_desc_2">En apuros</string>
+    <string name="rating_desc_3">Sobreviviendo</string>
+    <string name="rating_desc_4">Con desafíos</string>
+    <string name="rating_desc_5">Construyendo</string>
+    <string name="rating_desc_6">Creciendo</string>
+    <string name="rating_desc_7">Fluyendo</string>
+    <string name="rating_desc_8">Prosperando</string>
+    <string name="rating_desc_9">Volando alto</string>
+    <string name="rating_desc_10">Floreciendo</string>
 </resources>

@@ -9,6 +9,7 @@ import com.kalai73.lifemapp.widgets.core.data.presentation.ItemHtml
 import com.kalai73.lifemapp.widgets.core.data.secure.DeviceLockedException
 import com.kalai73.lifemapp.widgets.core.model.CachedState
 import com.kalai73.lifemapp.widgets.core.model.Integrity
+import com.kalai73.lifemapp.widgets.core.model.Scoring
 import com.kalai73.lifemapp.widgets.core.model.Sections
 import com.kalai73.lifemapp.widgets.core.model.Snapshot
 import com.kalai73.lifemapp.widgets.core.model.SyncError
@@ -37,6 +38,8 @@ class SnapshotRepository(
     private val cache: CacheStore,
     private val clock: () -> Long = System::currentTimeMillis,
     private val timezone: () -> String = { TimeZone.getDefault().id },
+    /** The Today screen's scoring section state, read alongside the snapshot (not part of the web's payload) */
+    private val scoring: suspend () -> Scoring? = { null },
 ) {
     suspend fun markSyncing() {
         val now = clock()
@@ -53,9 +56,19 @@ class SnapshotRepository(
         cache.update { it.copy(syncing = true, syncStartedAt = startedAt, lastAttemptAt = startedAt) }
         return try {
             val fresh = api.snapshot(timezone(), daysAhead)
+            // A failed read keeps the cached copy, like a failed snapshot section
+            val freshScoring = try {
+                scoring()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logFailure(e)
+                null
+            }
             cache.update { old ->
                 old.copy(
                     snapshot = merge(old.snapshot, fresh),
+                    scoring = freshScoring ?: old.scoring,
                     lastSuccessAt = clock(),
                     lastError = null,
                     syncing = false,

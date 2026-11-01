@@ -26,6 +26,8 @@ data class CachedState(
      * Kept as the id so an unknown value from a newer version falls back instead of failing to load.
      */
     val colorSchemeOverride: String? = null,
+    /** The Today screen's scoring section state (hidden domains, last scoring); null until first read */
+    val scoring: Scoring? = null,
 ) {
     /** The scheme the app and widgets use: this device's choice, else the web's, else the default. */
     val colorScheme: ColorSchemeName

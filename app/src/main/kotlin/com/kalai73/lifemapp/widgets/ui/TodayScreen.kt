@@ -121,6 +121,12 @@ fun TodayScreen(
     onSetItemWarning: (String, Boolean) -> Unit,
     /** Topic id and the collapsed state to switch to */
     onToggleTopic: (String, Boolean) -> Unit,
+    /** Scoring section: hide or show one domain on Today */
+    onToggleDomainHidden: (String) -> Unit,
+    /** Scoring section: hide (true) or show every hidable domain */
+    onSetAllDomainsHidden: (Boolean) -> Unit,
+    /** Scoring section: new ratings, domain id → 1–10 */
+    onRateDomains: (Map<String, Int>) -> Unit,
     onUnlock: () -> Unit,
     onOpenWeb: (String) -> Unit,
 ) {
@@ -135,8 +141,11 @@ fun TodayScreen(
     val locked = ui.encryption == EncryptionState.LOCKED
     val keys = buildList {
         add("greeting"); add("date"); add("counters")
-        if (ui.weather != null || ui.averageRating != null) add("weather")
+        // The weather card carries the average only while there's no scoring section to show it
+        if (ui.weather != null || (ui.averageRating != null && ui.scoring == null)) add("weather")
         add("actions")
+        // The web's scoring circles, below the hero
+        if (ui.scoring != null) add("scoring")
         if (locked) add("locked")
         if (ui.integrity != null) add("integrity")
         add("events"); add("tasks"); add("shortcuts")
@@ -167,6 +176,15 @@ fun TodayScreen(
                         )
                         "weather" -> WeatherCard(ui) { onOpenWeb(WebRoutes.SETTINGS) }
                         "actions" -> QuickActions(onOpenWeb)
+                        "scoring" -> ScoringSection(
+                            ui.scoring!!, ui.averageRating,
+                            onToggleHidden = onToggleDomainHidden,
+                            onSetAllHidden = onSetAllDomainsHidden,
+                            onRate = onRateDomains,
+                            // The score history panel lives on the web's Today page
+                            onHistory = { onOpenWeb(WebRoutes.TODAY) },
+                            onUnlock = onUnlock,
+                        )
                         "locked" -> LockedBanner(onUnlock)
                         "integrity" -> DomainCard(ui.integrity!!, onOpenWeb, itemHandlers, onToggleTopic)
                         "events" -> EventsSection(ui, openLink, onOpenWeb)
@@ -249,7 +267,7 @@ private fun NavEntry(icon: Int, label: String, color: Color, onClick: () -> Unit
 // ── Style tokens ────────────────────────────────────────────────────────────
 
 /** The widgets' tokens for the current UI style: Predator palette, or the Material scheme for Classic. */
-private class Tok(val predator: Boolean, val pd: PdPalette, val dark: Boolean, private val cs: androidx.compose.material3.ColorScheme) {
+internal class Tok(val predator: Boolean, val pd: PdPalette, val dark: Boolean, private val cs: androidx.compose.material3.ColorScheme) {
     val page: Color = if (predator) pd.panel else cs.background
     val ink: Color = if (predator) pd.ink else cs.primary
     val text: Color = if (predator) pd.text else cs.onBackground
@@ -291,7 +309,7 @@ private class Tok(val predator: Boolean, val pd: PdPalette, val dark: Boolean, p
     fun priority(p: Int): Color? = LifeMappColors.priority(p, dark)
 }
 
-private val LocalTok = compositionLocalOf<Tok> { error("Tok") }
+internal val LocalTok = compositionLocalOf<Tok> { error("Tok") }
 
 @Composable
 private fun rememberTokens(): Tok {
@@ -301,7 +319,7 @@ private fun rememberTokens(): Tok {
 }
 
 /** The widgets' pd-frame: shape filled with [fill], 1dp [edge]. */
-private fun Modifier.framed(t: Tok, fill: Color, edge: Color = fill, cut: Dp = 6.dp, shape: Shape = t.shape(cut)): Modifier {
+internal fun Modifier.framed(t: Tok, fill: Color, edge: Color = fill, cut: Dp = 6.dp, shape: Shape = t.shape(cut)): Modifier {
     return clip(shape).background(fill, shape).border(1.dp, edge, shape)
 }
 
@@ -317,7 +335,7 @@ private val ArrowShape: Shape = GenericShape { size, _ ->
 }
 
 /** L-shaped brackets in the four corners plus short ticks at the middle of the top and bottom edges. */
-private fun Modifier.bracketCorners(color: Color, arm: Dp = 9.dp, stroke: Dp = 1.5.dp, tick: Dp = 5.dp): Modifier = drawBehind {
+internal fun Modifier.bracketCorners(color: Color, arm: Dp = 9.dp, stroke: Dp = 1.5.dp, tick: Dp = 5.dp): Modifier = drawBehind {
     val a = arm.toPx(); val s = stroke.toPx(); val h = s / 2f; val k = tick.toPx()
     val w = size.width; val ht = size.height
     fun line(x1: Float, y1: Float, x2: Float, y2: Float) = drawLine(color, Offset(x1, y1), Offset(x2, y2), strokeWidth = s)
@@ -364,7 +382,7 @@ private fun Bar(color: Color, height: Dp = 26.dp) {
 }
 
 @Composable
-private fun Ic(res: Int, size: Dp = 14.dp, tint: Color = LocalTok.current.ink, desc: String? = null) {
+internal fun Ic(res: Int, size: Dp = 14.dp, tint: Color = LocalTok.current.ink, desc: String? = null) {
     Icon(painterResource(res), desc, Modifier.size(size), tint = tint)
 }
 
@@ -532,7 +550,7 @@ private fun WeatherCard(ui: WidgetUi, onClick: () -> Unit) {
             } else {
                 Spacer(Modifier.weight(1f))
             }
-            ui.averageRating?.let { rating ->
+            ui.averageRating?.takeIf { ui.scoring == null }?.let { rating ->
                 if (w != null) {
                     Box(Modifier.width(1.dp).height(38.dp).background(t.line))
                     Spacer(Modifier.width(12.dp))
@@ -693,9 +711,12 @@ private fun EventRow(event: EventUi, number: Int, day: EventDayUi, openLink: (St
     val barColor = if (dimmed) color.copy(alpha = 0.45f) else color
     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         NumberBadge(number, faded = upcoming)
-        Spacer(Modifier.width(6.dp))
+        // Secondary calendars are indented from the left, as on the web's events card
+        Spacer(Modifier.width(if (event.secondary) 18.dp else 6.dp))
         Row(
-            Modifier.weight(1f).framed(t, t.row).clickable { openLink(event.link ?: WebRoutes.EVENTS) }.padding(horizontal = 8.dp, vertical = 5.dp),
+            // ...and more compact, without the card background, so primary events stand out
+            Modifier.weight(1f).framed(t, if (event.secondary) Color.Transparent else t.row).clickable { openLink(event.link ?: WebRoutes.EVENTS) }
+                .padding(horizontal = 8.dp, vertical = if (event.secondary) 3.dp else 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Bar(barColor, 30.dp)
@@ -1084,7 +1105,7 @@ private fun LinkGlyph(s: ShortcutUi, tint: Color?, size: Dp, linkFallback: Boole
 /** The semantic red → green ramp of the web's score gauge; dark mode brightens the greens. */
 private val RampLight = longArrayOf(0xFFE5484D, 0xFFEF5B3A, 0xFFF97316, 0xFFF59E0B, 0xFFEAB308, 0xFF93BC2A, 0xFF3DB45F, 0xFF1E9E52)
 private val RampDark = longArrayOf(0xFFE5484D, 0xFFEF5B3A, 0xFFF97316, 0xFFF59E0B, 0xFFEAB308, 0xFFA3C93A, 0xFF4CC26B, 0xFF22B35E)
-private val Warn = Color(0xFFF59E0B)
+internal val Warn = Color(0xFFF59E0B)
 
 private fun ramp(i: Int, dark: Boolean) = Color((if (dark) RampDark else RampLight)[minOf(i, 7)])
 

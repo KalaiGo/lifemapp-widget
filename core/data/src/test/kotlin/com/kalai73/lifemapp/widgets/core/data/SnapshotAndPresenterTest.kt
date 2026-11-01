@@ -14,6 +14,7 @@ import com.kalai73.lifemapp.widgets.core.data.presentation.DateLabels
 import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetPresenter
 import com.kalai73.lifemapp.widgets.core.data.repository.ItemRepository
+import com.kalai73.lifemapp.widgets.core.data.repository.ScoringRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.SnapshotRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.SyncResult
 import com.kalai73.lifemapp.widgets.core.data.repository.TaskRepository
@@ -28,6 +29,8 @@ import com.kalai73.lifemapp.widgets.core.model.Domains
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.model.Event
 import com.kalai73.lifemapp.widgets.core.model.Integrity
+import com.kalai73.lifemapp.widgets.core.model.Scoring
+import com.kalai73.lifemapp.widgets.core.model.ScoringDomain
 import com.kalai73.lifemapp.widgets.core.model.Topic
 import com.kalai73.lifemapp.widgets.core.model.TopicItem
 import com.kalai73.lifemapp.widgets.core.model.Shortcut
@@ -460,5 +463,109 @@ class SnapshotAndPresenterTest {
         assertEquals(com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.ROSE, web.copy(colorSchemeOverride = "rose").colorScheme)
         assertEquals(com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.FOREST, CachedState(colorSchemeOverride = "forest").colorScheme)
         assertEquals(com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.DEFAULT, CachedState().colorScheme)
+    }
+
+    @Test
+    fun `the scoring section follows the web's hidden rules, last scoring and colors`() {
+        val snapshot = Snapshot(
+            today = "2026-10-31",
+            integrity = Integrity(domainId = "d1", name = "INTEGRITY", rating = 8.0),
+            todayDomains = listOf(
+                Integrity(domainId = "d2", position = 2, name = "SERENITY", rating = 7.0),
+                Integrity(domainId = "d3", position = 3, name = "VITALITY", rating = 0.0),
+                Integrity(domainId = "d5", position = 5, name = "TENACITY", rating = 4.0),
+            ),
+        )
+        val domains = listOf(ScoringDomain("d1", 1, "INTEGRITY"), ScoringDomain("d2", 2, "SERENITY", color = "violet"), ScoringDomain("d3", 3, "VITALITY"), ScoringDomain("d5", 5, "TENACITY"))
+
+        // Not read yet: nothing hidden, nothing toggles
+        val unread = WidgetPresenter.present(CachedState(snapshot = snapshot), AuthState.SIGNED_IN, null, now, madrid)
+        assertEquals(false, unread.scoring!!.ready)
+        assertEquals(listOf("d2", "d3", "d5"), unread.todayDomains.map { it.domainId })
+
+        // Never set: every hidable domain hidden; Integrity and Tenacity stay
+        val never = WidgetPresenter.present(CachedState(snapshot = snapshot, scoring = Scoring(domains = domains)), AuthState.SIGNED_IN, null, now, madrid)
+        assertEquals(listOf(false, true, true, false), never.scoring!!.domains.map { it.hidden })
+        assertEquals(listOf("d5"), never.todayDomains.map { it.domainId })
+        assertTrue(never.scoring!!.allHidableHidden)
+        assertEquals(null, never.scoring!!.daysSinceScored)
+        assertTrue(never.scoring!!.scoringDue)
+
+        // A list: only its domains hidden; custom color, else the score's, none when unrated
+        val listed = WidgetPresenter.present(
+            CachedState(snapshot = snapshot, scoring = Scoring(hiddenDomainIds = listOf("d3", "d1"), lastCompleted = "2026-10-29T22:30:00.000Z", domains = domains)),
+            AuthState.SIGNED_IN, null, now, madrid,
+        )
+        val s = listed.scoring!!
+        assertEquals(listOf(false, false, true, false), s.domains.map { it.hidden })
+        assertEquals(listOf("green", "violet", null, "orange"), s.domains.map { it.colorName })
+        assertEquals(listOf("d2", "d5"), listed.todayDomains.map { it.domainId })
+        assertEquals(1, s.urgency)
+    }
+
+    @Test
+    fun `days since the last scoring count local days and accept the old month format`() {
+        val today = java.time.LocalDate.of(2026, 11, 1)
+        // 23:30 UTC on Oct 31 is already Nov 1 in Madrid
+        assertEquals(0, WidgetPresenter.daysSince("2026-10-31T23:30:00.000Z", today, madrid))
+        assertEquals(3, WidgetPresenter.daysSince("2026-10-29T08:00:00+00:00", today, madrid))
+        assertEquals(31, WidgetPresenter.daysSince("2026-10", today, madrid))
+        assertEquals(null, WidgetPresenter.daysSince("garbage", today, madrid))
+    }
+
+    @Test
+    fun `hiding a domain materializes a never-set list and keeps the other preferences`() = runTest {
+        signIn()
+        val domains = listOf(ScoringDomain("d1", 1, "INTEGRITY"), ScoringDomain("d2", 2, "SERENITY"), ScoringDomain("d3", 3, "VITALITY"), ScoringDomain("d5", 5, "TENACITY"))
+        cache.update { it.copy(scoring = Scoring(domains = domains)) }
+        val patches = mutableListOf<String>()
+        val repo = ScoringRepository(
+            api { request ->
+                if (request.method == io.ktor.http.HttpMethod.Patch) {
+                    patches += (request.body as io.ktor.http.content.TextContent).text
+                    json("")
+                } else {
+                    json("""[{"preferences":{"theme":"x"}}]""")
+                }
+            },
+            cache, userId = { "u1" }, dataKey = { null },
+        )
+        // Never set: Serenity and Vitality hidden; showing Serenity leaves Vitality hidden
+        repo.setHidden(mapOf("d2" to false))
+        assertEquals(listOf("d3"), cache.current().scoring!!.hiddenDomainIds)
+        assertEquals("""{"preferences":{"theme":"x","hidden_domain_ids":["d3"]}}""", patches.single())
+        // Integrity can't be hidden
+        repo.setHidden(mapOf("d1" to true, "d2" to true))
+        assertEquals(listOf("d3", "d2"), cache.current().scoring!!.hiddenDomainIds)
+    }
+
+    @Test
+    fun `rating sends every readable life domain, records the time and updates the cache`() = runTest {
+        signIn()
+        cache.update {
+            it.copy(snapshot = Snapshot(integrity = Integrity(domainId = "d1", rating = 3.0), domains = Domains(averageRating = 4.0, ratings = listOf(3, 5))))
+        }
+        var bulk: String? = null
+        var completed: String? = null
+        val repo = ScoringRepository(
+            api { request ->
+                when {
+                    request.url.encodedPath.endsWith("/scores/bulk") -> { bulk = (request.body as io.ktor.http.content.TextContent).text; json("{}") }
+                    request.method == io.ktor.http.HttpMethod.Patch -> { completed = (request.body as io.ktor.http.content.TextContent).text; json("") }
+                    else -> json("""[{"id":"d1","position":1,"rating":3},{"id":"d12","position":12,"rating":5},{"id":"dx","position":13,"rating":0,"encrypted_rating":"sealed"}]""")
+                }
+            },
+            cache, userId = { "u1" }, dataKey = { null }, clock = { 0 },
+        )
+        assertTrue(repo.rate(mapOf("d1" to 9), encrypted = false))
+        // The encrypted sibling this device can't read is left out
+        assertEquals("""{"entries":[{"domainId":"d1","rating":9},{"domainId":"d12","rating":5}]}""", bulk)
+        assertEquals("""{"monthly_scoring_last_completed":"1970-01-01T00:00:00Z"}""", completed)
+        val state = cache.current()
+        assertEquals(9.0, state.snapshot!!.integrity!!.rating!!, 0.0)
+        assertEquals(7.0, state.snapshot!!.domains.averageRating!!, 0.0)
+        assertEquals("1970-01-01T00:00:00Z", state.scoring!!.lastCompleted)
+        // Encrypted account without the key: nothing sent
+        assertFalse(repo.rate(mapOf("d1" to 2), encrypted = true))
     }
 }

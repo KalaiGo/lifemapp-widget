@@ -8,6 +8,8 @@ import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.model.Integrity
 import com.kalai73.lifemapp.widgets.core.model.MailTag
+import com.kalai73.lifemapp.widgets.core.model.Scoring
+import com.kalai73.lifemapp.widgets.core.model.ScoringDomain
 import com.kalai73.lifemapp.widgets.core.data.repository.TaskRepository
 import com.kalai73.lifemapp.widgets.core.model.Shortcut
 import com.kalai73.lifemapp.widgets.core.model.SyncError
@@ -51,8 +53,13 @@ data class WidgetUi(
     val shortcuts: List<ShortcutUi>,
     /** The Integrity domain card, null when the user has none */
     val integrity: IntegrityUi?,
-    /** The other Today domains (positions 2–5), in order: the app's Today screen only, never the widgets */
+    /**
+     * The other Today domains (positions 2–5) the Today page shows (hidden ones left out, as on the web), in order:
+     * the app's Today screen only, never the widgets
+     */
     val todayDomains: List<IntegrityUi> = emptyList(),
+    /** The Today screen's scoring section (the web's ScoringCircles); null without domains */
+    val scoring: ScoringUi? = null,
     /** Quick links are encrypted and this device is locked */
     val shortcutsLocked: Boolean,
     /** Local time of the last successful sync, null if never */
@@ -194,8 +201,50 @@ data class TopicItemUi(
     val hasContent: Boolean = content != null,
 )
 
+/** The web's ScoringCircles on Today: the domains of positions 1–5, the average and the last scoring. */
+data class ScoringUi(
+    val domains: List<ScoreDomainUi>,
+    /** Days since the last scoring, null when never scored */
+    val daysSinceScored: Int?,
+    /** Encryption on and this device locked: the average shows a lock and rating is disabled */
+    val locked: Boolean,
+    /** The hidden state is known (read from the server at least once); until then nothing can be toggled */
+    val ready: Boolean,
+) {
+    /** 0 scored today, 1 within two weeks, 2 within three, 3 later or never (scoring-circles.tsx) */
+    val urgency: Int get() = when (val d = daysSinceScored) {
+        null -> 3
+        0 -> 0
+        in 1..14 -> 1
+        in 15..21 -> 2
+        else -> 3
+    }
+    val scoringDue: Boolean get() = daysSinceScored == null || daysSinceScored >= 22
+    /** Domains that can be hidden, and whether every one of them is */
+    val allHidableHidden: Boolean get() = domains.any { !it.unhidable } && domains.filterNot { it.unhidable }.all { it.hidden }
+}
+
+data class ScoreDomainUi(
+    val id: String,
+    val position: Int,
+    /** Null when encrypted and locked */
+    val name: String?,
+    /** 0–10 (0 unrated), null when encrypted and locked */
+    val rating: Int?,
+    val hidden: Boolean,
+    val unhidable: Boolean,
+    /**
+     * The domain's color name (one of the 20 Tailwind families): its custom color, else the score's
+     * (resolveDomainColorName); null falls back to the scheme accent
+     */
+    val colorName: String?,
+)
+
 object WidgetPresenter {
     const val STALE_AFTER_MS = 2 * 60 * 60 * 1000L
+
+    /** domain-colors.ts SCORE_TO_COLOR: the color family of a 1–10 score */
+    private val SCORE_TO_COLOR = listOf("red", "red", "orange", "orange", "amber", "yellow", "lime", "green", "emerald", "emerald")
 
     fun present(
         state: CachedState,
@@ -307,6 +356,10 @@ object WidgetPresenter {
 
         val unit = if (snapshot.weather?.unit == "fahrenheit") "°F" else "°C"
 
+        val integrityUi = snapshot.integrity?.let { integrity(it, key) }
+        val todayDomainsUi = snapshot.todayDomains.map { integrity(it, key) }
+        val scoring = scoring(state.scoring, listOfNotNull(integrityUi) + todayDomainsUi, encryption, today, deviceZone)
+
         return WidgetUi(
             authState = authState,
             encryption = encryption,
@@ -359,8 +412,9 @@ object WidgetPresenter {
             eventDays = eventDays,
             tasks = tasks,
             shortcuts = shortcuts,
-            integrity = snapshot.integrity?.let { integrity(it, key) },
-            todayDomains = snapshot.todayDomains.map { integrity(it, key) },
+            integrity = integrityUi,
+            todayDomains = todayDomainsUi.filterNot { d -> scoring?.domains?.any { it.id == d.domainId && it.hidden } == true },
+            scoring = scoring,
             shortcutsLocked = shortcutsLocked,
             updatedAt = state.lastSuccessAt.takeIf { it > 0 }?.let { DateLabels.time(Instant.ofEpochMilli(it), deviceZone, settings?.timeFormat) },
             stale = state.lastSuccessAt > 0 && now - state.lastSuccessAt > STALE_AFTER_MS,
@@ -447,6 +501,54 @@ object WidgetPresenter {
     }
 
     private fun toUi(s: Shortcut) = ShortcutUi(s.id, s.label, s.url, s.icon, s.color)
+
+    /**
+     * The scoring section from the Today domain cards and the scoring state: a domain is hidden when listed in
+     * hiddenDomainIds, or (never set) whenever it can be hidden. Before the state is first read nothing is hidden.
+     */
+    internal fun scoring(state: Scoring?, cards: List<IntegrityUi>, encryption: EncryptionState, today: LocalDate, zone: ZoneId): ScoringUi? {
+        if (cards.isEmpty()) return null
+        val domains = cards.sortedBy { it.position }.map { card ->
+            val stored = state?.domains?.firstOrNull { it.id == card.domainId }
+            val unhidable = ScoringDomain.isUnhidable(card.position, stored?.name ?: card.name)
+            val hidden = state != null && !unhidable && (state.hiddenDomainIds?.contains(card.domainId) ?: true)
+            val custom = stored?.color?.takeIf { it in DOMAIN_COLOR_NAMES }
+            val rating = card.rating
+            ScoreDomainUi(
+                id = card.domainId,
+                position = card.position,
+                name = card.name,
+                rating = rating,
+                hidden = hidden,
+                unhidable = unhidable,
+                colorName = custom ?: rating?.takeIf { it > 0 }?.let { SCORE_TO_COLOR[(it - 1).coerceIn(0, 9)] },
+            )
+        }
+        return ScoringUi(
+            domains = domains,
+            daysSinceScored = state?.lastCompleted?.let { daysSince(it, today, zone) },
+            locked = encryption == EncryptionState.LOCKED,
+            ready = state != null,
+        )
+    }
+
+    /** Days from the stored scoring time (an ISO instant, or "YYYY-MM" from older rows) to [today]. */
+    internal fun daysSince(value: String, today: LocalDate, zone: ZoneId): Int? {
+        val date = if (value.length > 7) {
+            runCatching { java.time.OffsetDateTime.parse(value).atZoneSameInstant(zone).toLocalDate() }.getOrNull()
+                ?: runCatching { Instant.parse(value).atZone(zone).toLocalDate() }.getOrNull()
+                ?: runCatching { LocalDate.parse(value.take(10)) }.getOrNull()
+        } else {
+            runCatching { LocalDate.parse("$value-01") }.getOrNull()
+        } ?: return null
+        return java.time.temporal.ChronoUnit.DAYS.between(date, today).toInt().coerceAtLeast(0)
+    }
+
+    /** The 20 Tailwind color families a domain can take (domain-colors.ts DOMAIN_COLOR_NAMES) */
+    val DOMAIN_COLOR_NAMES = setOf(
+        "red", "orange", "amber", "yellow", "lime", "green", "emerald", "teal", "cyan", "sky",
+        "blue", "indigo", "violet", "purple", "fuchsia", "pink", "rose", "stone", "slate", "zinc",
+    )
 
     private fun integrity(i: Integrity, key: String?): IntegrityUi {
         fun text(plain: String?, encrypted: String?): String? =

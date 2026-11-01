@@ -127,6 +127,9 @@ fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOp
                         onMoveItem = viewModel::moveItem,
                         onSetItemWarning = viewModel::setItemWarning,
                         onToggleTopic = viewModel::setTopicCollapsed,
+                        onToggleDomainHidden = viewModel::toggleDomainHidden,
+                        onSetAllDomainsHidden = viewModel::setAllDomainsHidden,
+                        onRateDomains = viewModel::rateDomains,
                         onUnlock = viewModel::showUnlock,
                         onOpenWeb = onOpenWeb,
                     )

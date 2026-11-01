@@ -237,6 +237,12 @@ object LucideIcons {
     val ARROW_DOWN = R.drawable.lm_ic_arrow_down
     val LINK_2 = R.drawable.lm_ic_link_2
 
+    // The Today page's scoring section (scoring-circles.tsx)
+    val EYE = R.drawable.lm_ic_eye
+    val EYE_OFF = R.drawable.lm_ic_eye_off
+    val HISTORY = R.drawable.lm_ic_history
+    val CIRCLE_ALERT = R.drawable.lm_ic_circle_alert
+
     /** The web's icon for a Today life domain by position (domain-icons.ts): Integrity … Tenacity. */
     fun domain(position: Int): Int = when (position) {
         2 -> R.drawable.lm_ic_flower
