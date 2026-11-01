@@ -91,7 +91,18 @@ data class MailTagUi(
     val fade: Float,
 )
 
-data class WeatherUi(val temperature: String, val low: String, val condition: String, val icon: String, val location: String)
+data class WeatherUi(
+    val temperature: String,
+    val low: String,
+    val condition: String,
+    val icon: String,
+    val location: String,
+    /** The next days after today, for the forecast row; empty when the server sent none */
+    val forecast: List<ForecastDayUi> = emptyList(),
+)
+
+/** One forecast day: short weekday ("Mon"), high and low with unit. */
+data class ForecastDayUi(val day: String, val high: String, val low: String, val condition: String, val icon: String)
 
 enum class DayKind { TODAY, TOMORROW, OTHER }
 
@@ -179,6 +190,8 @@ data class TopicItemUi(
     val content: String? = null,
     /** Collapsed on the web card: the header only */
     val collapsed: Boolean = false,
+    /** The item has text, also when it's encrypted and this device is locked ([content] is null then) */
+    val hasContent: Boolean = content != null,
 )
 
 object WidgetPresenter {
@@ -334,7 +347,14 @@ object WidgetPresenter {
             calendarConnected = snapshot.counts.calendarConnected,
             averageRating = averageRating,
             weather = snapshot.weather?.let { w ->
-                WeatherUi("${w.high}$unit", "${w.low}$unit", w.condition, w.icon, w.location)
+                WeatherUi(
+                    "${w.high}$unit", "${w.low}$unit", w.condition, w.icon, w.location,
+                    forecast = w.forecast.mapNotNull { d ->
+                        val date = runCatching { LocalDate.parse(d.date) }.getOrNull() ?: return@mapNotNull null
+                        if (!date.isAfter(today)) return@mapNotNull null
+                        ForecastDayUi(DateLabels.shortDayName(date, language), "${d.high}°", "${d.low}°", d.condition, d.icon)
+                    }.take(5),
+                )
             },
             eventDays = eventDays,
             tasks = tasks,
@@ -448,10 +468,12 @@ object WidgetPresenter {
                     collapsed = t.collapsed && !t.reminders,
                     count = maxOf(t.count, t.items.size),
                     items = t.items.map { item ->
+                        val content = text(item.content, item.encryptedContent)?.takeIf { it.isNotBlank() }
                         TopicItemUi(
                             item.id, text(item.name, item.encryptedName), item.warning, item.isImage,
-                            content = text(item.content, item.encryptedContent)?.takeIf { it.isNotBlank() },
+                            content = content,
                             collapsed = item.collapsed,
+                            hasContent = content != null || (!item.isImage && !item.encryptedContent.isNullOrBlank()),
                         )
                     },
                 )

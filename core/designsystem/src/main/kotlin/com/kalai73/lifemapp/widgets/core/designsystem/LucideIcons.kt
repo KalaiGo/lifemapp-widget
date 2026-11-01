@@ -212,6 +212,30 @@ object LucideIcons {
     val NAVIGATION = R.drawable.lm_ic_navigation
     val ARROW_UP = R.drawable.lm_ic_arrow_up
     val CLOSE = R.drawable.lm_ic_x
+    /** An item (subsubdomain) with text */
+    val CONTENT = R.drawable.lm_ic_file_text
+
+    // The web rich text editor's toolbar (editor-toolbar.tsx)
+    val UNDO = R.drawable.lm_ic_undo
+    val REDO = R.drawable.lm_ic_redo
+    val BOLD = R.drawable.lm_ic_bold
+    val ITALIC = R.drawable.lm_ic_italic
+    val UNDERLINE = R.drawable.lm_ic_underline
+    val STRIKETHROUGH = R.drawable.lm_ic_strikethrough
+    val BULLET_LIST = R.drawable.lm_ic_list
+    val PALETTE = R.drawable.lm_ic_palette
+    val CLEAR_FORMATTING = R.drawable.lm_ic_remove_formatting
+
+    // The web's item editor modal (subsubdomain-editor-modal.tsx)
+    val MAXIMIZE = R.drawable.lm_ic_maximize_2
+    val MINIMIZE = R.drawable.lm_ic_minimize_2
+    val TRASH = R.drawable.lm_ic_trash_2
+    val CHECK = R.drawable.lm_ic_check
+
+    // The web item card's menu (subsubdomain-item.tsx): Edit3 is pen-line in this lucide version
+    val EDIT = R.drawable.lm_ic_pen_line
+    val ARROW_DOWN = R.drawable.lm_ic_arrow_down
+    val LINK_2 = R.drawable.lm_ic_link_2
 
     /** The web's icon for a Today life domain by position (domain-icons.ts): Integrity … Tenacity. */
     fun domain(position: Int): Int = when (position) {

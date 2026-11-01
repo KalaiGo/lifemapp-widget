@@ -28,11 +28,14 @@ import com.kalai73.lifemapp.widgets.core.data.auth.NotSignedInException
 import com.kalai73.lifemapp.widgets.core.data.repository.VoiceRepository.Understood
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebLauncher
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
+import com.kalai73.lifemapp.widgets.core.data.repository.SyncResult
+import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import com.kalai73.lifemapp.widgets.widget.R
 import com.kalai73.lifemapp.widgets.widget.sync.SyncScheduler
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -181,9 +184,32 @@ class VoiceInputActivity : Activity() {
             val results = attempt { graph.voice.file(items) } ?: return@launch
             val outcome = VoiceOutcome.of(results)
             Log.i(TAG, "filed: $outcome, encrypted=${graph.encryption.dataKey() != null}")
-            // New local tasks and reminders show on the widgets after a sync
-            if (outcome.added > 0) SyncScheduler.syncNow(applicationContext)
+            if (outcome.added > 0) reloadWidgets()
             finishWith(outcome.message(this@VoiceInputActivity))
+        }
+    }
+
+    /**
+     * Shows the new tasks and reminders at once: the snapshot is reloaded right here (the "Adding…" dialog stays
+     * up meanwhile) and every widget, and the app's Today screen, redraws from it. A queued sync, which the system
+     * may hold back for a while, only covers a failed or interrupted reload.
+     */
+    private suspend fun reloadWidgets() {
+        var reloaded = false
+        try {
+            graph.snapshots.markSyncing()
+            LifeMappWidgets.updateAll(applicationContext) // spinner
+            reloaded = graph.snapshots.refresh() == SyncResult.Success
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "reload failed: ${e::class.simpleName}")
+        } finally {
+            withContext(NonCancellable) {
+                graph.snapshots.clearSyncing()
+                LifeMappWidgets.updateAll(applicationContext)
+                if (!reloaded) SyncScheduler.syncNow(applicationContext)
+            }
         }
     }
 

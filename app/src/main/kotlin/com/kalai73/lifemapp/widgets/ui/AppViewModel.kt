@@ -8,6 +8,7 @@ import com.kalai73.lifemapp.widgets.core.data.LifeMappGraph
 import com.kalai73.lifemapp.widgets.core.data.auth.AuthException
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetPresenter
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
+import com.kalai73.lifemapp.widgets.core.data.repository.ItemText
 import com.kalai73.lifemapp.widgets.core.data.repository.UnlockResult
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.CachedState
@@ -40,6 +41,9 @@ data class AppUiState(
     val unlockSkipped: Boolean = false,
     val placedWidgets: Int = 0,
 )
+
+/** Opening the app syncs when the cached snapshot is older than this */
+private const val OPEN_SYNC_AFTER_MS = 5 * 60 * 1000L
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val graph = LifeMappGraph.get(app)
@@ -159,6 +163,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         SyncScheduler.syncNow(getApplication(), manual = true)
     }
 
+    /**
+     * Opening the app (each time it comes to the foreground) syncs when the cached snapshot is older than
+     * [OPEN_SYNC_AFTER_MS], so new data (e.g. after a server update) shows without waiting for the 30-minute
+     * worker or a tap on reload.
+     */
+    fun syncIfStale(now: Long = System.currentTimeMillis()) {
+        viewModelScope.launch {
+            if (runCatching { graph.secrets.read() }.getOrNull()?.session == null) return@launch
+            val state = graph.cache.current()
+            if (state.isSyncing(now) || now - state.lastSuccessAt < OPEN_SYNC_AFTER_MS) return@launch
+            SyncScheduler.syncNow(getApplication())
+        }
+    }
+
     /** Reload button / pull-to-refresh on the Today screen (debounced like the widgets' reload). */
     fun reload() {
         if (!SyncScheduler.canSyncManually()) return
@@ -177,14 +195,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Renames an Integrity item on the server and in the cached snapshot. */
-    fun renameItem(itemId: String, text: String) {
-        if (text.isBlank()) return
+    /** An item's whole text for the edit dialog, fresh from the server. Throws on network errors. */
+    suspend fun loadItemText(itemId: String): ItemText = graph.items.loadText(itemId)
+
+    /**
+     * Saves an item's new [name] and/or [html] text (null keeps it) on the server and in the cached snapshot,
+     * encrypted when the account is.
+     */
+    fun saveItem(itemId: String, name: String?, html: String?) {
+        if (name != null && name.isBlank()) return
+        if (name == null && html == null) return
         run {
             val encrypted = cache.value.snapshot?.settings?.encryptionEnabled == true
-            if (!graph.items.rename(itemId, text, encrypted)) fail(R.string.error_item_locked)
+            if (!graph.items.save(itemId, name, html, encrypted)) fail(R.string.error_item_locked)
             LifeMappWidgets.updateAll(getApplication())
         }
+    }
+
+    /** Moves an item one place up or down in its topic (the item menu's Move up / Move down). */
+    fun moveItem(itemId: String, topicId: String, up: Boolean) = run {
+        graph.items.move(itemId, topicId, up)
+        LifeMappWidgets.updateAll(getApplication())
+    }
+
+    /** Adds or removes an item's warning icon. */
+    fun setItemWarning(itemId: String, warning: Boolean) = run {
+        graph.items.setWarning(itemId, warning)
+        LifeMappWidgets.updateAll(getApplication())
     }
 
     fun deleteItem(itemId: String) = run {
@@ -198,10 +235,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun setTopicCollapsed(topicId: String, collapsed: Boolean) =
         toggle { graph.items.setTopicCollapsed(topicId, collapsed) { LifeMappWidgets.updateAll(getApplication()) } }
-
-    /** Collapses or expands an Integrity item's text, like [setTopicCollapsed]. */
-    fun setItemCollapsed(itemId: String, collapsed: Boolean) =
-        toggle { graph.items.setItemCollapsed(itemId, collapsed) { LifeMappWidgets.updateAll(getApplication()) } }
 
     private fun toggle(block: suspend () -> Unit) {
         viewModelScope.launch {

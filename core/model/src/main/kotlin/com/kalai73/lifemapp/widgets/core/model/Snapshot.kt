@@ -137,6 +137,18 @@ data class Weather(
     val condition: String = "",
     /** Visual Crossing icon id, e.g. "partly-cloudy-day" */
     val icon: String = "",
+    /** The next days after today (up to five), in date order; empty from an older server */
+    val forecast: List<WeatherDay> = emptyList(),
+)
+
+@Serializable
+data class WeatherDay(
+    /** yyyy-MM-dd */
+    val date: String = "",
+    val high: Int = 0,
+    val low: Int = 0,
+    val condition: String = "",
+    val icon: String = "",
 )
 
 @Serializable

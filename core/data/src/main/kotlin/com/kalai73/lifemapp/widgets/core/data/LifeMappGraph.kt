@@ -44,7 +44,12 @@ class LifeMappGraph private constructor(context: Context) {
         dataKey = { encryption.dataKey() },
     )
     val encryption = EncryptionRepository(api, secrets)
-    val items = ItemRepository(api, cache, dataKey = { encryption.dataKey() })
+    val items = ItemRepository(
+        api,
+        cache,
+        dataKey = { encryption.dataKey() },
+        userId = { runCatching { secrets.read().session?.userId }.getOrNull() },
+    )
     val voice = VoiceRepository(api, dataKey = { encryption.dataKey() })
 
     /** Set by the widget module: re-renders every placed widget from the cache. */

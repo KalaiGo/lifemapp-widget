@@ -106,9 +106,9 @@ Calling 6–10 separate routes in a background worker is slow and battery-intens
     "encryptedRatings": [ … ] 
   },
   "weather": { 
-    "tempC": 18, 
-    "code": 3, 
-    "location": "…" 
+    "location": "Zurich, CH", "unit": "celsius",
+    "high": 18, "low": 9, "condition": "Partially cloudy", "icon": "partly-cloudy-day",
+    "forecast": [ { "date": "2026-11-02", "high": 17, "low": 8, "condition": "Rain", "icon": "rain" }, … ] // next 5 days
   },
   "encryptedCalendarConfigs": "…" // present only when encrypted, so the app can proxy ICS/CalDAV directly
 }

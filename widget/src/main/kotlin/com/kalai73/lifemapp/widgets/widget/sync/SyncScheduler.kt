@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
  * When widgets refresh (see docs/androidWidgetsApp.md §5):
  * - every 30 min on any network (periodic, unique)
  * - right away when a widget is added or resized, settings change, or the user taps reload (expedited)
+ * - inline after tasks or reminders are added (VoiceInputActivity), with this as the fallback
  * - just after local midnight, so "today" rolls over (inexact alarm, no exact-alarm permission needed)
  * - on unlock when the cache is older than 15 min (registered at runtime by the app)
  */

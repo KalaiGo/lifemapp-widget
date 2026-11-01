@@ -37,6 +37,7 @@ import com.kalai73.lifemapp.widgets.core.model.SnapshotSettings
 import com.kalai73.lifemapp.widgets.core.model.SyncError
 import com.kalai73.lifemapp.widgets.core.model.Task
 import com.kalai73.lifemapp.widgets.core.model.Weather
+import com.kalai73.lifemapp.widgets.core.model.WeatherDay
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -400,6 +401,24 @@ class SnapshotAndPresenterTest {
         assertEquals("Mi. 23 Sep 2026", DateLabels.dayAndDate(d, "dd MMM yyyy", "de"))
         assertEquals("We. 09/23/2026", DateLabels.dayAndDate(d, "MM/dd/yyyy", "fr"))
         assertEquals("We. 2026-09-23", DateLabels.dayAndDate(d, "yyyy-MM-dd", null))
+    }
+
+    @Test
+    fun `the weather forecast lists the days after today with short weekday names`() {
+        val weather = Weather(
+            unit = "celsius", high = 21, low = 12,
+            forecast = listOf(
+                WeatherDay("2026-10-31", 21, 12, "Stale: today", "rain"),
+                WeatherDay("2026-11-01", 18, 10, "Rain", "rain"),
+                WeatherDay("2026-11-02", 19, 11, "Clear", "clear-day"),
+                WeatherDay("bad-date", 1, 1, "", ""),
+            ),
+        )
+        val snapshot = Snapshot(settings = SnapshotSettings(language = "de"), weather = weather)
+        val forecast = WidgetPresenter.present(CachedState(snapshot = snapshot), AuthState.SIGNED_IN, null, now, madrid).weather!!.forecast
+        assertEquals(listOf("2026-11-01", "2026-11-02").map { java.time.LocalDate.parse(it) }.map { DateLabels.shortDayName(it, "de") }, forecast.map { it.day })
+        assertEquals(listOf("18°", "19°"), forecast.map { it.high })
+        assertEquals("clear-day", forecast[1].icon)
     }
 
     @Test

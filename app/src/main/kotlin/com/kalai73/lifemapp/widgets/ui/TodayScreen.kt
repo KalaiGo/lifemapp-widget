@@ -1,5 +1,9 @@
 package com.kalai73.lifemapp.widgets.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.widget.Toast
+import com.kalai73.lifemapp.widgets.core.data.LifeMappConfig
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -7,12 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.fromHtml
-import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -29,13 +27,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
@@ -51,6 +46,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -72,6 +73,7 @@ import com.kalai73.lifemapp.widgets.core.data.presentation.TaskUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.TopicItemUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.TopicUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
+import com.kalai73.lifemapp.widgets.core.data.repository.ItemText
 import com.kalai73.lifemapp.widgets.core.designsystem.ColorContrast
 import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors
 import com.kalai73.lifemapp.widgets.core.designsystem.LocalPdPalette
@@ -108,16 +110,22 @@ fun TodayScreen(
     onOpenSettings: () -> Unit,
     onReload: () -> Unit,
     onCompleteTask: (String) -> Unit,
-    onRenameItem: (String, String) -> Unit,
+    /** An item's whole text for the edit dialog */
+    onLoadItemText: suspend (String) -> ItemText,
+    /** Item id, new name and new HTML text (null keeps either) */
+    onSaveItem: (String, String?, String?) -> Unit,
     onDeleteItem: (String) -> Unit,
+    /** Item id, its topic id and whether up */
+    onMoveItem: (String, String, Boolean) -> Unit,
+    /** Item id and whether it gets the warning icon */
+    onSetItemWarning: (String, Boolean) -> Unit,
     /** Topic id and the collapsed state to switch to */
     onToggleTopic: (String, Boolean) -> Unit,
-    /** Item id and the collapsed state to switch to */
-    onToggleItem: (String, Boolean) -> Unit,
     onUnlock: () -> Unit,
     onOpenWeb: (String) -> Unit,
 ) {
     val t = rememberTokens()
+    val itemHandlers = ItemHandlers(onLoadItemText, onSaveItem, onDeleteItem, onMoveItem, onSetItemWarning)
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
@@ -160,13 +168,13 @@ fun TodayScreen(
                         "weather" -> WeatherCard(ui) { onOpenWeb(WebRoutes.SETTINGS) }
                         "actions" -> QuickActions(onOpenWeb)
                         "locked" -> LockedBanner(onUnlock)
-                        "integrity" -> DomainCard(ui.integrity!!, onOpenWeb, onRenameItem, onDeleteItem, onToggleTopic, onToggleItem)
+                        "integrity" -> DomainCard(ui.integrity!!, onOpenWeb, itemHandlers, onToggleTopic)
                         "events" -> EventsSection(ui, openLink, onOpenWeb)
                         "tasks" -> TasksSection(ui, onCompleteTask, onOpenWeb)
                         "shortcuts" -> ShortcutsSection(ui, openLink, onOpenWeb, onUnlock)
                         "end" -> Spacer(Modifier.height(28.dp))
                         else -> ui.todayDomains.firstOrNull { domainKey(it) == key }?.let {
-                            DomainCard(it, onOpenWeb, onRenameItem, onDeleteItem, onToggleTopic, onToggleItem)
+                            DomainCard(it, onOpenWeb, itemHandlers, onToggleTopic)
                         }
                     }
                 }
@@ -495,7 +503,10 @@ private fun Counter(modifier: Modifier, icon: Int, value: String, label: String,
     }
 }
 
-/** "WEATHER IN ZURICH", today's icon, high / low and condition, and the average rating hex. */
+/**
+ * "WEATHER IN ZURICH", today's icon, high / low and condition, and the average rating hex; below, a second row with
+ * the next five days (weekday, icon, high / low).
+ */
 @Composable
 private fun WeatherCard(ui: WidgetUi, onClick: () -> Unit) {
     val t = LocalTok.current
@@ -534,6 +545,26 @@ private fun WeatherCard(ui: WidgetUi, onClick: () -> Unit) {
                         style = t.body(13.sp, t.onAccent, FontWeight.Bold),
                         modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(t.accent).padding(horizontal = 10.dp, vertical = 3.dp),
                     )
+                }
+            }
+        }
+        if (w != null && w.forecast.isNotEmpty()) {
+            Box(Modifier.padding(vertical = 8.dp).fillMaxWidth().height(1.dp).background(t.line))
+            Row(Modifier.fillMaxWidth()) {
+                w.forecast.forEach { d ->
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(t.s(d.day), style = t.caption(10.sp), maxLines = 1)
+                            Spacer(Modifier.width(4.dp))
+                            Ic(LucideIcons.weather(d.icon), 16.dp, t.ink, d.condition)
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(d.high, style = t.body(12.sp, t.text, FontWeight.Bold), maxLines = 1)
+                            Spacer(Modifier.width(4.dp))
+                            Text(d.low, style = t.caption(10.sp), maxLines = 1)
+                        }
+                    }
                 }
             }
         }
@@ -1078,20 +1109,43 @@ private fun domainName(domain: IntegrityUi): String = domain.name?.takeIf { it.i
 @Composable
 private fun DomainCard(
     integrity: IntegrityUi, onOpenWeb: (String) -> Unit,
-    onRenameItem: (String, String) -> Unit, onDeleteItem: (String) -> Unit,
-    onToggleTopic: (String, Boolean) -> Unit, onToggleItem: (String, Boolean) -> Unit,
+    items: ItemHandlers,
+    onToggleTopic: (String, Boolean) -> Unit,
 ) {
     val t = LocalTok.current
     val isIntegrity = integrity.position == 1
     val route = if (isIntegrity || integrity.domainId.isBlank()) WebRoutes.INTEGRITY else WebRoutes.domain(integrity.domainId)
-    var editing by remember { mutableStateOf<TopicItemUi?>(null) }
-    editing?.let { item ->
-        EditItemDialog(
-            item,
-            onSave = { onRenameItem(item.id, it); editing = null },
-            onDelete = { onDeleteItem(item.id); editing = null },
-            onDismiss = { editing = null },
-        )
+    val context = LocalContext.current
+    val linkCopied = stringResource(R.string.item_link_copied)
+    // The item with a dialog open from its long-press menu: the editor (Edit) or the delete confirmation
+    var editing by remember { mutableStateOf<Pair<TopicItemUi, ItemAction>?>(null) }
+    editing?.let { (item, action) ->
+        val close = { editing = null }
+        when (action) {
+            ItemAction.DELETE -> RemoveItemDialog(item, onConfirm = { items.delete(item.id); close() }, onDismiss = close)
+            else -> ItemEditorDialog(
+                item,
+                focusTitle = true,
+                loadText = items.loadText,
+                onSave = { name, html -> items.save(item.id, name, html); close() },
+                onDelete = { items.delete(item.id); close() },
+                onDismiss = close,
+            )
+        }
+    }
+    val onItemAction = { topic: TopicUi, item: TopicItemUi, action: ItemAction ->
+        when (action) {
+            ItemAction.EDIT, ItemAction.DELETE -> editing = item to action
+            ItemAction.MOVE_UP -> items.move(item.id, topic.id, true)
+            ItemAction.MOVE_DOWN -> items.move(item.id, topic.id, false)
+            ItemAction.TOGGLE_WARNING -> items.setWarning(item.id, !item.warning)
+            ItemAction.COPY_LINK -> {
+                // The web's item link (item-links.ts): Today domains open at /today/<topic>/<item>
+                val url = "${LifeMappConfig().webUrl}/today/${topic.id}/${item.id}"
+                context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(url, url))
+                Toast.makeText(context, linkCopied, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
     val name = domainName(integrity)
     // The web's domain card: one bordered, rounded (Predator: chamfered) surface around the whole domain
@@ -1136,8 +1190,10 @@ private fun DomainCard(
             else topic.items.forEachIndexed { i, item ->
                 ItemRow(
                     topic, item, i + 1,
-                    onToggle = { onToggleItem(item.id, !item.collapsed) },
-                    onEdit = { if (item.name != null) editing = item },
+                    canMoveUp = i > 0,
+                    // Items beyond the listed ones can still follow the last listed one
+                    canMoveDown = i < maxOf(topic.count, topic.items.size) - 1,
+                    onAction = { onItemAction(topic, item, it) },
                 )
             }
             if (topic.more > 0) {
@@ -1261,79 +1317,59 @@ private fun NoContent(topic: TopicUi, onClick: () -> Unit) {
     }
 }
 
-/** Rename or remove an item in the app; no detour through the web. */
-@Composable
-private fun EditItemDialog(item: TopicItemUi, onSave: (String) -> Unit, onDelete: () -> Unit, onDismiss: () -> Unit) {
-    var text by remember(item.id) { mutableStateOf(item.name.orEmpty()) }
-    var confirmDelete by remember(item.id) { mutableStateOf(false) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.item_edit_title)) },
-        text = {
-            OutlinedTextField(text, { text = it }, singleLine = false, maxLines = 4, modifier = Modifier.fillMaxWidth())
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(text) }, enabled = text.isNotBlank() && text.trim() != item.name) {
-                Text(stringResource(R.string.item_save))
-            }
-        },
-        dismissButton = {
-            Row {
-                TextButton(onClick = { if (confirmDelete) onDelete() else confirmDelete = true }) {
-                    Text(
-                        stringResource(R.string.item_delete) + if (confirmDelete) "?" else "",
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.item_cancel)) }
-            }
-        },
-    )
-}
-
-/** "⌄ 2.1 Item" indented under the topic's hex, as on the web card, with the warning icon when flagged. */
 /**
- * An item (subsubdomain): its header and, unless collapsed, its text. One tap on the header collapses or expands
- * the text, as the web card's title does; a long press opens the edit dialog. An item without text has nothing to
- * fold and shows a dot instead of the chevron.
+ * An item (subsubdomain), "• 2.1 Item" indented under the topic's hex as on the web card, with the warning icon
+ * when flagged and a text icon when it has content. Items don't expand in the app: a long press on the title opens a menu to rename the item, view and
+ * edit its text (in a dialog) or remove it.
  */
 @Composable
-private fun ItemRow(topic: TopicUi, item: TopicItemUi, number: Int, onToggle: () -> Unit, onEdit: () -> Unit) {
+private fun ItemRow(
+    topic: TopicUi, item: TopicItemUi, number: Int,
+    canMoveUp: Boolean, canMoveDown: Boolean,
+    onAction: (ItemAction) -> Unit,
+) {
     val t = LocalTok.current
     val name = item.name?.takeIf { it.isNotBlank() } ?: if (item.name == null) stringResource(R.string.today_locked) else ""
-    val content = item.content
-    val toggleLabel = stringResource(if (item.collapsed) R.string.today_expand else R.string.today_collapse)
-    val editLabel = stringResource(R.string.item_edit_title)
-    Row(
-        Modifier.fillMaxWidth()
-            .combinedClickable(
-                onClickLabel = if (content != null) toggleLabel else null,
-                onClick = { if (content != null) onToggle() },
-                onLongClickLabel = editLabel,
-                onLongClick = onEdit,
+    val menuLabel = stringResource(R.string.item_menu)
+    val haptics = LocalHapticFeedback.current
+    var menuOpen by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier.fillMaxWidth()
+                .pointerInput(item.id) {
+                    detectTapGestures(onLongPress = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        menuOpen = true
+                    })
+                }
+                .semantics { onLongClick(menuLabel) { menuOpen = true; true } }
+                .padding(start = 18.dp, top = 5.dp, bottom = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(11.dp), contentAlignment = Alignment.Center) { Box(Modifier.size(5.dp).clip(CircleShape).background(t.faint)) }
+            Spacer(Modifier.width(6.dp))
+            Text("${topic.number}.$number", style = t.caption(11.sp), maxLines = 1)
+            Spacer(Modifier.width(5.dp))
+            if (item.warning) {
+                Ic(LucideIcons.WARNING, 13.dp, if (t.dark) Color(0xFFFBBF4D) else Color(0xFFA04D05))
+                Spacer(Modifier.width(4.dp))
+            }
+            Text(
+                name, style = t.body(14.sp, if (item.name == null) t.dim else t.text, FontWeight.Bold),
+                // fill = false: the title only takes the width it needs, so the content icon sits right after it
+                // (a long title still ellipsizes and leaves room for the icon)
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
             )
-            .padding(start = 18.dp, top = 5.dp, bottom = 5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (content != null) Ic(if (item.collapsed) LucideIcons.CHEVRON_RIGHT else LucideIcons.CHEVRON_DOWN, 11.dp, t.dim, null)
-        else Box(Modifier.size(11.dp), contentAlignment = Alignment.Center) { Box(Modifier.size(5.dp).clip(CircleShape).background(t.faint)) }
-        Spacer(Modifier.width(6.dp))
-        Text("${topic.number}.$number", style = t.caption(11.sp), maxLines = 1)
-        Spacer(Modifier.width(5.dp))
-        if (item.warning) {
-            Ic(LucideIcons.WARNING, 13.dp, if (t.dark) Color(0xFFFBBF4D) else Color(0xFFA04D05))
-            Spacer(Modifier.width(4.dp))
+            // The text isn't listed here (items don't expand): the icon says there is some to see via Edit content
+            if (item.hasContent) {
+                Spacer(Modifier.width(6.dp))
+                Ic(LucideIcons.CONTENT, 13.dp, t.dim, stringResource(R.string.item_has_content))
+            }
         }
-        Text(
-            name, style = t.body(14.sp, if (item.name == null) t.dim else t.text, FontWeight.Bold),
-            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+        ItemMenu(
+            item, canMoveUp, canMoveDown,
+            expanded = menuOpen, onDismiss = { menuOpen = false }, onAction = { menuOpen = false; onAction(it) },
         )
-    }
-    if (content != null && !item.collapsed) {
-        val html = remember(content, t.accent) {
-            AnnotatedString.fromHtml(content, TextLinkStyles(SpanStyle(color = t.accent, textDecoration = TextDecoration.Underline)))
-        }
-        Text(html, style = t.body(13.sp, t.text), modifier = Modifier.fillMaxWidth().padding(start = 35.dp, end = 4.dp, bottom = 6.dp))
     }
 }
 
