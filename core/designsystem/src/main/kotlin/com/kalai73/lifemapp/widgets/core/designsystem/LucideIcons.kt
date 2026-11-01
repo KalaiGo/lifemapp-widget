@@ -205,7 +205,9 @@ object LucideIcons {
     val INBOX = R.drawable.lm_ic_inbox
     val CLOCK = R.drawable.lm_ic_clock
     val CHEVRON_DOWN = R.drawable.lm_ic_chevron_down
-    val PANEL = R.drawable.lm_ic_panel_left
+    val FOLDER = R.drawable.lm_ic_folder
+    val SMARTPHONE = R.drawable.lm_ic_smartphone
+    val PANEL =R.drawable.lm_ic_panel_left
 
     /** Visual Crossing icon ids (weather.icon) → bundled weather glyphs */
     fun weather(icon: String?): Int = when (icon) {

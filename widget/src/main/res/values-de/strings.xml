@@ -20,6 +20,7 @@
     <string name="record">Aufnehmen</string>
     <string name="add_task">Aufgabe hinzufügen</string>
     <string name="voice_input">Aufgaben oder Erinnerungen per Sprache hinzufügen</string>
+    <string name="open_app">App öffnen</string>
     <string name="voice_prompt">Sag deine Aufgaben oder Erinnerungen</string>
     <!-- Voice input, after speaking -->
     <string name="voice_analyzing">Wird analysiert…</string>
@@ -76,6 +77,7 @@
     <string name="mail_not_connected">E-Mail nicht verbunden</string>
     <string name="connect_mail">E-Mail verbinden</string>
     <string name="inbox">Posteingang</string>
+    <string name="drive">Drive</string>
     <string name="links">Links</string>
     <string name="manage">Verwalten</string>
     <string name="add_link">Link hinzufügen</string>

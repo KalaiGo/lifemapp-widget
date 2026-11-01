@@ -71,6 +71,8 @@ import com.kalai73.lifemapp.widgets.core.model.SyncError
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import com.kalai73.lifemapp.widgets.widget.events.EventsConfig
 import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
@@ -205,6 +207,21 @@ private val ArrowShape: Shape = GenericShape { size, _ ->
     lineTo(size.width - tip, size.height)
     lineTo(0f, size.height)
     close()
+}
+
+/** L-shaped brackets in the four corners plus short ticks at the middle of the top and bottom edges. */
+private fun Modifier.bracketCorners(color: Color, arm: Dp = 9.dp, stroke: Dp = 1.5.dp, tick: Dp = 5.dp): Modifier = drawBehind {
+    val a = arm.toPx(); val s = stroke.toPx(); val h = s / 2f; val k = tick.toPx()
+    val w = size.width; val ht = size.height
+    fun line(x1: Float, y1: Float, x2: Float, y2: Float) = drawLine(color, Offset(x1, y1), Offset(x2, y2), strokeWidth = s)
+    // corners
+    line(0f, h, a, h); line(h, 0f, h, a)
+    line(w, h, w - a, h); line(w - h, 0f, w - h, a)
+    line(0f, ht - h, a, ht - h); line(h, ht, h, ht - a)
+    line(w, ht - h, w - a, ht - h); line(w - h, ht, w - h, ht - a)
+    // center ticks
+    line(w / 2f, 0f, w / 2f, k)
+    line(w / 2f, ht, w / 2f, ht - k)
 }
 
 @Composable
@@ -834,8 +851,12 @@ private fun IntegritySection(integrity: IntegrityUi, onOpenWeb: (String) -> Unit
                 Spacer(Modifier.height(8.dp))
                 Text(
                     info,
-                    style = (if (t.predator) t.caption(11.sp, t.text) else t.body(12.sp, t.onTint)).copy(textAlign = TextAlign.Center),
-                    modifier = Modifier.fillMaxWidth().framed(t, t.tint, edge = if (t.predator) t.pd.edge2 else t.tint).padding(horizontal = 8.dp, vertical = 6.dp),
+                    style = (if (t.predator) t.caption(12.sp, t.text) else t.body(12.sp, t.onTint)).copy(textAlign = TextAlign.Center),
+                    modifier = Modifier.fillMaxWidth().let {
+                        // Predator: square tinted field, thin edge, bracket corners and center ticks (styleguide info box)
+                        if (t.predator) it.background(t.pd.accentTint).border(1.dp, t.pd.edge).bracketCorners(t.pd.edge2)
+                        else it.framed(t, t.tint)
+                    }.padding(horizontal = 12.dp, vertical = 10.dp),
                 )
             }
         }

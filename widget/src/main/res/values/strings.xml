@@ -20,6 +20,7 @@
     <string name="record">Record</string>
     <string name="add_task">Add task</string>
     <string name="voice_input">Add tasks or reminders by voice</string>
+    <string name="open_app">Open the app</string>
     <string name="voice_prompt">Say your tasks or reminders</string>
     <!-- Voice input, after speaking -->
     <string name="voice_analyzing">Understanding…</string>
@@ -76,6 +77,7 @@
     <string name="mail_not_connected">Mail not connected</string>
     <string name="connect_mail">Connect mail</string>
     <string name="inbox">Inbox</string>
+    <string name="drive">Drive</string>
     <string name="links">Links</string>
     <string name="manage">Manage</string>
     <string name="add_link">Add link</string>

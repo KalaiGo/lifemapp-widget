@@ -1,7 +1,7 @@
 package com.kalai73.lifemapp.widgets.widget.shortcuts
 
 // The Shortcuts card as on the web's Today page (components/domains/workspace-widget.tsx), simplified: a Mail
-// section (connect prompt or the inbox with its unread count) and the quick links as tiles. No Drive section.
+// section (connect prompt or the inbox with its unread count) and the quick links as tiles. The Drive section is just its service-link badges.
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
@@ -160,6 +160,36 @@ internal fun MailBody(ui: WidgetUi) {
             modifier = GlanceModifier.background(if (unread) GlanceTheme.colors.primary else GlanceTheme.colors.surfaceVariant)
                 .cornerRadius(10.dp).padding(horizontal = 8.dp, vertical = 1.dp),
         )
+    }
+}
+
+
+/** Drive: the user's service links as badges in one row (the web's footer badges), each opening its link. */
+@Composable
+internal fun DriveBody(ui: WidgetUi) {
+    val style = LocalWidgetStyle.current
+    val pd = LocalPd.current
+    Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp)) {
+        ui.driveLinks.take(3).forEach { link ->
+            Box(modifier = GlanceModifier.defaultWeight().padding(horizontal = 2.dp)) {
+                val content: @Composable (GlanceModifier) -> Unit = { m ->
+                    Row(modifier = m.padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(LucideIcons.FOLDER, null, size = 12.dp, tint = pd?.accent ?: GlanceTheme.colors.primary)
+                        Spacer(GlanceModifier.width(5.dp))
+                        Text(
+                            style.label(link.label),
+                            style = if (pd != null) labelStyle(size = 10.sp, color = pd.dim) else textStyle(size = 10.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.onSurfaceVariant),
+                            maxLines = 1,
+                        )
+                    }
+                }
+                if (pd != null) {
+                    PdWrapFrame(PdShape.PARA, edge = pd.edge, fill = pd.panel, modifier = GlanceModifier.fillMaxWidth().clickable(openExternal(link.url))) { frame -> content(frame.fillMaxWidth()) }
+                } else {
+                    content(GlanceModifier.fillMaxWidth().background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius).clickable(openExternal(link.url)))
+                }
+            }
+        }
     }
 }
 

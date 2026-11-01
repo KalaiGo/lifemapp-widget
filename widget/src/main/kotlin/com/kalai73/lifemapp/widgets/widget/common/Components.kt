@@ -263,6 +263,13 @@ fun VoiceButton() {
     HeaderButton(LucideIcons.MIC, context.getString(R.string.voice_input), actionStartActivity(VoiceInputActivity.intent(context)))
 }
 
+/** Button (top right corner) that opens the LIFE MAPP app. */
+@Composable
+fun OpenAppButton() {
+    val context = LocalContext.current
+    HeaderButton(LucideIcons.SMARTPHONE, context.getString(R.string.open_app), openApp(context))
+}
+
 /** "Updated 10:42", the stale warning, or the last sync error. */
 @Composable
 fun StatusLine(ui: WidgetUi) {

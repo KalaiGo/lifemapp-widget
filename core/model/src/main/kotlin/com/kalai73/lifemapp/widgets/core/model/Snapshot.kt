@@ -23,6 +23,8 @@ data class Snapshot(
     val domains: Domains = Domains(),
     val weather: Weather? = null,
     val mail: Mail = Mail(),
+    /** The Drive section's service links; empty from an older server */
+    val drive: Drive = Drive(),
     /** The Integrity domain card; null when the user has none (or an older server) */
     val integrity: Integrity? = null,
     /** Sections the server couldn't load this time; the app keeps its cached copy of those */
@@ -125,6 +127,17 @@ data class Weather(
 data class Mail(
     val inboxUrl: String? = null,
     val provider: String? = null,
+)
+
+@Serializable
+data class Drive(
+    val links: List<DriveLink> = emptyList(),
+)
+
+@Serializable
+data class DriveLink(
+    val label: String = "",
+    val url: String,
 )
 
 /**

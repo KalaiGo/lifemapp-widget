@@ -51,6 +51,8 @@ import com.kalai73.lifemapp.widgets.widget.common.PdIconWell
 import com.kalai73.lifemapp.widgets.widget.common.PdRule
 import com.kalai73.lifemapp.widgets.widget.common.ReloadButton
 import com.kalai73.lifemapp.widgets.widget.common.StatusLine
+import com.kalai73.lifemapp.widgets.widget.common.OpenAppButton
+import com.kalai73.lifemapp.widgets.widget.shortcuts.DriveBody
 import com.kalai73.lifemapp.widgets.widget.common.VoiceButton
 import com.kalai73.lifemapp.widgets.widget.common.WidgetRoot
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
@@ -160,6 +162,8 @@ private fun CompactHero(ui: WidgetUi, showStatus: Boolean, modifier: GlanceModif
             ReloadButton(ui)
             Spacer(GlanceModifier.width(4.dp))
             VoiceButton()
+            Spacer(GlanceModifier.width(4.dp))
+            OpenAppButton()
         }
         Spacer(GlanceModifier.height(6.dp))
         Counters(ui)
@@ -191,6 +195,8 @@ private const val ID_TASKS_DAY = -16L
 private const val ID_MAIL = -17L
 private const val ID_MAIL_BODY = -18L
 private const val ID_LINKS = -19L
+private const val ID_DRIVE = -40L
+private const val ID_DRIVE_BODY = -41L
 private const val ID_DAY_BASE = 1_000_000_000L
 private const val ID_SHORTCUT_ROW_BASE = 2_000_000_000L
 
@@ -276,6 +282,13 @@ private fun LazyListScope.shortcutsSection(ui: WidgetUi, columns: Int) {
         ShortcutsSubHeader(LucideIcons.MAIL, context.getString(R.string.mail), ui.mailUrl?.let(::openExternal) ?: openRoute(context, WebRoutes.MAIL))
     }
     item(itemId = ID_MAIL_BODY) { MailBody(ui) }
+    if (ui.driveLinks.isNotEmpty()) {
+        item(itemId = ID_DRIVE) {
+            val context = LocalContext.current
+            ShortcutsSubHeader(LucideIcons.FOLDER, context.getString(R.string.drive), openExternal(ui.driveLinks.first().url))
+        }
+        item(itemId = ID_DRIVE_BODY) { DriveBody(ui) }
+    }
     item(itemId = ID_LINKS) {
         val context = LocalContext.current
         ShortcutsSubHeader(

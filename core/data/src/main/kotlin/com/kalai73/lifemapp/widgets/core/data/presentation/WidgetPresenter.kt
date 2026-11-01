@@ -36,6 +36,8 @@ data class WidgetUi(
     val mailCount: Int,
     val mailConnected: Boolean,
     val mailUrl: String?,
+    /** Drive section badges (label, url); empty hides the section */
+    val driveLinks: List<DriveLinkUi>,
     val calendarConnected: Boolean,
     val averageRating: Double?,
     val weather: WeatherUi?,
@@ -59,12 +61,14 @@ data class WidgetUi(
             authState = AuthState.SIGNED_OUT, encryption = EncryptionState.DISABLED, hasData = false,
             colorScheme = ColorSchemeName.DEFAULT, uiStyle = UiStyle.PREDATOR, themeMode = ThemeMode.SYSTEM, language = "en", username = null,
             todayLabel = "", today = LocalDate.now(), eventsCount = 0, tasksCount = 0, mailCount = 0,
-            mailConnected = false, mailUrl = null, calendarConnected = false, averageRating = null, weather = null,
+            mailConnected = false, mailUrl = null, driveLinks = emptyList(), calendarConnected = false, averageRating = null, weather = null,
             eventDays = emptyList(), tasks = emptyList(), shortcuts = emptyList(), integrity = null, shortcutsLocked = false,
             updatedAt = null, stale = false, syncing = false, error = null, completionFailed = false,
         )
     }
 }
+
+data class DriveLinkUi(val label: String, val url: String)
 
 data class WeatherUi(val temperature: String, val low: String, val condition: String, val icon: String, val location: String)
 
@@ -246,6 +250,7 @@ object WidgetPresenter {
             mailCount = snapshot.counts.mail,
             mailConnected = snapshot.counts.mailConnected,
             mailUrl = snapshot.mail.inboxUrl,
+            driveLinks = snapshot.drive.links.filter { it.url.isNotBlank() }.map { DriveLinkUi(it.label.ifBlank { it.url }, it.url) },
             calendarConnected = snapshot.counts.calendarConnected,
             averageRating = averageRating,
             weather = snapshot.weather?.let { w ->

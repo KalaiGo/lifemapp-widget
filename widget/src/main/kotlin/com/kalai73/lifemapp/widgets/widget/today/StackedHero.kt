@@ -40,6 +40,7 @@ import com.kalai73.lifemapp.widgets.widget.common.PdHex
 import com.kalai73.lifemapp.widgets.widget.common.PdWrapFrame
 import com.kalai73.lifemapp.widgets.widget.common.ReloadButton
 import com.kalai73.lifemapp.widgets.widget.common.StatusLine
+import com.kalai73.lifemapp.widgets.widget.common.OpenAppButton
 import com.kalai73.lifemapp.widgets.widget.common.VoiceButton
 import com.kalai73.lifemapp.widgets.widget.common.captionStyle
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
@@ -110,12 +111,17 @@ private fun GreetingBlock(ui: WidgetUi) {
             )
         }
     }
-    Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        if (pd != null) {
-            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.raised, fill = pd.raised) { frame -> body(frame) }
-        } else {
-            body(GlanceModifier.background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius))
+    Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.Top) {
+        // Equal-width ends keep the greeting centered while the open-app button sits in the top right corner
+        Spacer(GlanceModifier.width(32.dp))
+        Row(modifier = GlanceModifier.defaultWeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (pd != null) {
+                PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.raised, fill = pd.raised) { frame -> body(frame) }
+            } else {
+                body(GlanceModifier.background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius))
+            }
         }
+        OpenAppButton()
     }
 }
 
