@@ -1,7 +1,7 @@
 package com.kalai73.lifemapp.widgets.widget.today
 
 // The hero stacked as on the web's mobile layout (components/layout/hero-section.tsx): Today chip, greeting,
-// date with reload, "And you have" counters, weather, Journal / Budget. Used by the Dashboard on tall sizes,
+// date with reload, "And you have" counters, weather; the mic button top right. Used by the Dashboard on tall sizes,
 // where it scrolls with the events, tasks and shortcuts below it.
 
 import androidx.compose.runtime.Composable
@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
+import androidx.glance.LocalSize
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyListScope
@@ -39,150 +40,124 @@ import com.kalai73.lifemapp.widgets.widget.common.PdHex
 import com.kalai73.lifemapp.widgets.widget.common.PdWrapFrame
 import com.kalai73.lifemapp.widgets.widget.common.ReloadButton
 import com.kalai73.lifemapp.widgets.widget.common.StatusLine
+import com.kalai73.lifemapp.widgets.widget.common.VoiceButton
 import com.kalai73.lifemapp.widgets.widget.common.captionStyle
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
 import com.kalai73.lifemapp.widgets.widget.common.numberStyle
 import com.kalai73.lifemapp.widgets.widget.common.openRoute
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 
+/** The date and counter frames sit slightly inside the panel edges, as on the web. */
+private val SIDE_INSET = 8.dp
+
+/** Room kept clear for the mic button (32dp Classic, 28dp Predator) and a small gap. */
+private val VOICE_BUTTON_INSET = 36.dp
+
+/** The date frame is 20% narrower than the counter frame below it. */
+private const val DATE_WIDTH_FRACTION = 0.8f
+
 // Item ids for the hero rows: below the Dashboard's own section ids (-1 … -14)
-private const val ID_CHIP = -100L
 private const val ID_GREETING = -101L
 private const val ID_DATE = -102L
 private const val ID_COUNTERS = -103L
 private const val ID_WEATHER = -104L
-private const val ID_BUTTONS = -105L
 private const val ID_STATUS = -106L
 
 /** The stacked hero as lazy items; each item is its own view tree, so the frames don't eat the root's depth. */
 internal fun LazyListScope.stackedHero(ui: WidgetUi, showStatus: Boolean) {
-    item(itemId = ID_CHIP) { TodayChip(ui) }
-    item(itemId = ID_GREETING) { HeroCard(gap = 6.dp) { GreetingBlock(ui, it) } }
+    item(itemId = ID_GREETING) { GreetingBlock(ui) }
     item(itemId = ID_DATE) { DateBlock(ui) }
     item(itemId = ID_COUNTERS) {
-        Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp)) {
-            Caption(LocalContext.current.getString(R.string.and_you_have))
-            Spacer(GlanceModifier.height(2.dp))
-            Counters(ui)
+        Box(modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp, start = SIDE_INSET, end = SIDE_INSET)) {
+            Counters(ui, caption = LocalContext.current.getString(R.string.and_you_have))
         }
     }
     if (ui.weather != null || ui.averageRating != null) item(itemId = ID_WEATHER) { WeatherCard(ui) }
-    item(itemId = ID_BUTTONS) {
-        val context = LocalContext.current
-        Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            QuickButton(LucideIcons.JOURNAL, context.getString(R.string.journal), openRoute(context, WebRoutes.JOURNAL), GlanceModifier.defaultWeight())
-            Spacer(GlanceModifier.width(8.dp))
-            QuickButton(LucideIcons.BUDGET, context.getString(R.string.budget), openRoute(context, WebRoutes.BUDGET), GlanceModifier.defaultWeight())
-        }
-    }
     if (showStatus) item(itemId = ID_STATUS) {
         Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp), horizontalAlignment = Alignment.End) { StatusLine(ui) }
     }
 }
 
-/** "TODAY" tag and the three counters in small, centered (the web's sticky Today bar). */
-@Composable
-private fun TodayChip(ui: WidgetUi) {
-    val context = LocalContext.current
-    val style = LocalWidgetStyle.current
-    val pd = LocalPd.current
-    val mail = if (ui.mailConnected) ui.mailCount.toString() else "–"
-    Row(
-        modifier = GlanceModifier.fillMaxWidth().clickable(openRoute(context, WebRoutes.EVENTS)),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val label = style.label(context.getString(R.string.today))
-        val counts: @Composable (GlanceModifier) -> Unit = { modifier ->
-            Row(modifier = modifier.padding(horizontal = 12.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                MiniCount(LucideIcons.CALENDAR, ui.eventsCount.toString())
-                Spacer(GlanceModifier.width(8.dp))
-                MiniCount(LucideIcons.TASKS, ui.tasksCount.toString())
-                Spacer(GlanceModifier.width(8.dp))
-                MiniCount(LucideIcons.MAIL, mail)
-            }
-        }
-        if (pd != null) {
-            PdWrapFrame(PdShape.PARA, edge = pd.edge, fill = pd.raised) { frame ->
-                Text(label, style = labelStyle(size = 11.sp), modifier = frame.padding(horizontal = 14.dp, vertical = 3.dp))
-            }
-            Spacer(GlanceModifier.width(4.dp))
-            PdWrapFrame(PdShape.PARA, edge = pd.edge, fill = pd.well) { frame -> counts(frame) }
-        } else {
-            Text(label, style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary), modifier = GlanceModifier.padding(end = 6.dp))
-            counts(GlanceModifier.background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius))
-        }
-    }
-}
-
-@Composable
-private fun MiniCount(icon: Int, value: String) {
-    val style = LocalWidgetStyle.current
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, size = 11.dp)
-        Spacer(GlanceModifier.width(3.dp))
-        Text(value, style = if (style.isPredator) numberStyle(11.sp) else textStyle(size = 11.sp, weight = FontWeight.Bold))
-    }
-}
-
-/** A full-width card: chamfered raised frame in Predator, surface with rounded corners in Classic. */
+/** A full-width card: chamfered raised fill without border (edge drawn in the fill) in Predator, surface with rounded corners in Classic. */
 @Composable
 private fun HeroCard(gap: androidx.compose.ui.unit.Dp, modifier: GlanceModifier = GlanceModifier.fillMaxWidth(), content: @Composable (GlanceModifier) -> Unit) {
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
     Box(modifier = GlanceModifier.fillMaxWidth().padding(top = gap)) {
         if (pd != null) {
-            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge, fill = pd.raised, modifier = modifier) { frame -> content(frame.fillMaxWidth()) }
+            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.raised, fill = pd.raised, modifier = modifier) { frame -> content(frame.fillMaxWidth()) }
         } else {
             content(modifier.background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius))
         }
     }
 }
 
+/** "HELLO," over the name, in a frame as wide as its text, centered; the mic button in the top right corner. */
 @Composable
-private fun GreetingBlock(ui: WidgetUi, modifier: GlanceModifier = GlanceModifier) {
+private fun GreetingBlock(ui: WidgetUi) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
+    val pd = LocalPd.current
     val name = ui.username ?: context.getString(R.string.welcome)
-    Column(modifier = modifier.padding(horizontal = 12.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Caption(context.getString(R.string.hello))
-        // The name is user content: display weight, not italic (styleguide §4)
-        Text(
-            name,
-            style = if (style.isPredator) {
-                textStyle(size = 24.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary).copy(fontFamily = WidgetStyle.Condensed, textAlign = TextAlign.Center)
+    val body: @Composable (GlanceModifier) -> Unit = { modifier ->
+        Column(modifier = modifier.padding(horizontal = 18.dp, vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Caption(context.getString(R.string.hello))
+            // Display face as on the web hero: condensed bold italic (Predator), bold (Classic)
+            Text(
+                name,
+                style = if (style.isPredator) numberStyle(26.sp, color = GlanceTheme.colors.primary).copy(textAlign = TextAlign.Center)
+                else textStyle(size = 24.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary).copy(textAlign = TextAlign.Center),
+                maxLines = 1,
+            )
+        }
+    }
+    // The button overlays the row's corner; the row keeps the same inset on both sides so a long name stays
+    // centered and clear of it
+    Box(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp), contentAlignment = Alignment.TopEnd) {
+        Row(modifier = GlanceModifier.fillMaxWidth().padding(horizontal = VOICE_BUTTON_INSET), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (pd != null) {
+                PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.raised, fill = pd.raised) { frame -> body(frame) }
             } else {
-                textStyle(size = 24.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary).copy(textAlign = TextAlign.Center)
-            },
-            maxLines = 1,
-        )
+                body(GlanceModifier.background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius))
+            }
+        }
+        VoiceButton()
     }
 }
 
-/** "TODAY IS," over the date, with the reload button beside it. */
+/** "TODAY IS," over the date, the reload button inside the same frame on the right. */
 @Composable
 private fun DateBlock(ui: WidgetUi) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
-    Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        val body: @Composable (GlanceModifier) -> Unit = { modifier ->
-            Column(modifier = modifier.padding(horizontal = 12.dp, vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    // DATE_WIDTH_FRACTION of the inset width, centered. Glance has no fractional widths, so it's computed from the widget size
+    // minus the panel padding (12dp a side) and the side inset.
+    val frameWidth = (LocalSize.current.width - 24.dp - SIDE_INSET * 2) * DATE_WIDTH_FRACTION
+    // Shrink the date to fit beside the reload button: text space is the frame minus padding (16dp) and the
+    // button with its gap (34dp); a condensed bold glyph averages about 0.55em.
+    val textWidth = (frameWidth - 50.dp).value
+    val dateSize = (textWidth / (ui.todayLabel.length.coerceAtLeast(1) * 0.55f)).coerceIn(13f, if (style.isPredator) 24f else 20f).sp
+    val body: @Composable (GlanceModifier) -> Unit = { modifier ->
+        Row(modifier = modifier.fillMaxWidth().padding(start = 10.dp, end = 6.dp, top = 3.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = GlanceModifier.defaultWeight()) {
                 Caption(context.getString(R.string.today_is) + ",")
                 Text(
                     ui.todayLabel,
-                    style = if (style.isPredator) numberStyle(20.sp, color = GlanceTheme.colors.primary) else textStyle(size = 18.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary),
+                    style = if (style.isPredator) numberStyle(dateSize, color = GlanceTheme.colors.primary) else textStyle(size = dateSize, weight = FontWeight.Bold, color = GlanceTheme.colors.primary),
                     maxLines = 1,
                 )
             }
+            Spacer(GlanceModifier.width(6.dp))
+            ReloadButton(ui, primary = true)
         }
+    }
+    Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         if (pd != null) {
-            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge, fill = pd.raised, modifier = GlanceModifier.defaultWeight()) { frame -> body(frame.fillMaxWidth()) }
+            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.raised, fill = pd.raised, modifier = GlanceModifier.width(frameWidth)) { frame -> body(frame) }
         } else {
-            body(GlanceModifier.defaultWeight().background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius))
+            body(GlanceModifier.width(frameWidth).background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius))
         }
-        Spacer(GlanceModifier.width(6.dp))
-        ReloadButton(ui)
     }
 }
 

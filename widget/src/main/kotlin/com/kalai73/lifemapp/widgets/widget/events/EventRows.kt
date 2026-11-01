@@ -40,6 +40,16 @@ import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
 import com.kalai73.lifemapp.widgets.widget.common.openExternal
 import com.kalai73.lifemapp.widgets.widget.common.openRoute
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
+import androidx.glance.action.Action
+import androidx.glance.appwidget.cornerRadius
+import androidx.glance.layout.Column
+import androidx.glance.text.TextAlign
+import androidx.glance.unit.ColorProvider
+import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
+import com.kalai73.lifemapp.widgets.widget.common.Icon
+import com.kalai73.lifemapp.widgets.widget.common.PdHex
+import com.kalai73.lifemapp.widgets.widget.common.ConnectCard
+import com.kalai73.lifemapp.widgets.widget.common.numberStyle
 
 /** Per-widget events settings, kept in the widget's Glance state (written by WidgetConfigActivity in the app). */
 object EventsConfig {
@@ -61,75 +71,133 @@ object EventsConfig {
     }
 }
 
+/** Centered day divider: a line, "TODAY" / "TOMORROW" / the date, a line. */
 @Composable
 internal fun DayHeader(day: EventDayUi) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
+    val pd = LocalPd.current
     val name = when (day.kind) {
         DayKind.TODAY -> context.getString(R.string.today)
         DayKind.TOMORROW -> context.getString(R.string.tomorrow)
-        DayKind.OTHER -> null
+        DayKind.OTHER -> day.label
     }
+    val line = pd?.edge ?: GlanceTheme.colors.outline
+    Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(GlanceModifier.defaultWeight().height(1.dp).background(line)) {}
+        Text(
+            style.label(name),
+            style = if (pd != null) labelStyle(size = 10.sp, color = pd.dim) else textStyle(size = 11.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.onSurfaceVariant),
+            maxLines = 1,
+            modifier = GlanceModifier.padding(horizontal = 10.dp),
+        )
+        Box(GlanceModifier.defaultWeight().height(1.dp).background(line)) {}
+    }
+}
+
+/**
+ * An event as on the web's events card: numbered hex, calendar color bar, title with the calendar tag, then
+ * clock, time and date. Days after today are faded.
+ */
+@Composable
+internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
+    val context = LocalContext.current
+    val style = LocalWidgetStyle.current
     val pd = LocalPd.current
+    val action = event.link?.let(::openExternal) ?: openRoute(context, WebRoutes.EVENTS)
+    val color = LifeMappColors.parseHex(event.color) ?: androidx.compose.ui.graphics.Color(0xFF3B82F6)
+    val upcoming = day.kind != DayKind.TODAY
+    val dimmed = upcoming || event.secondary
+    val time = listOfNotNull(event.timeLabel ?: context.getString(R.string.all_day), day.label.ifEmpty { null }).joinToString(" · ")
+    val calendar = event.calendarName?.takeIf { it.isNotBlank() }
+
     if (pd != null) {
-        // Day chip (parallelogram, accent tint, pd-label ink), mono date caption, then an edge line
-        Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (name != null) {
-                PdWrapFrame(PdShape.PARA, edge = pd.accent, fill = pd.accentTint) { frame ->
-                    Text(
-                        style.label(name), style = labelStyle(size = 10.sp, color = pd.ink), maxLines = 1,
-                        modifier = frame.padding(horizontal = 10.dp, vertical = 1.dp),
-                    )
+        val titleColor = if (upcoming) pd.faint else if (event.secondary) pd.dim else pd.text
+        val captionColor = if (upcoming) pd.faint else pd.dim
+        val tagColor = if (dimmed) pd.tint(color, 0.45f) else ColorProvider(color)
+        Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            PdHex(18.dp, edge = if (upcoming) pd.edge2 else pd.accent, fill = pd.panel) {
+                Text("$number", style = numberStyle(9.sp, color = if (upcoming) pd.faint else pd.ink))
+            }
+            Spacer(GlanceModifier.width(5.dp))
+            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge, fill = pd.row, modifier = GlanceModifier.defaultWeight().clickable(action)) { frame ->
+                Row(modifier = frame.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PdBar(tagColor, height = 26.dp)
+                    Spacer(GlanceModifier.width(6.dp))
+                    Column(modifier = GlanceModifier.defaultWeight()) {
+                        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                event.title,
+                                style = textStyle(size = 13.sp, weight = FontWeight.Bold, color = titleColor),
+                                maxLines = 1,
+                                modifier = GlanceModifier.defaultWeight(),
+                            )
+                            if (calendar != null) {
+                                Spacer(GlanceModifier.width(4.dp))
+                                Text(
+                                    style.label(calendar),
+                                    style = labelStyle(size = 8.sp, color = tagColor),
+                                    maxLines = 1,
+                                    modifier = GlanceModifier.background(pd.tint(color, if (dimmed) 0.06f else 0.14f)).padding(horizontal = 5.dp, vertical = 1.dp),
+                                )
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(LucideIcons.CLOCK, null, size = 10.dp, tint = captionColor)
+                            Spacer(GlanceModifier.width(3.dp))
+                            Text(time, style = captionStyle(size = 9.sp, color = captionColor), maxLines = 1)
+                        }
+                    }
                 }
-                Spacer(GlanceModifier.width(6.dp))
             }
-            if (day.label.isNotEmpty()) {
-                Text(style.label(day.label), style = captionStyle(size = 9.sp), maxLines = 1)
-                Spacer(GlanceModifier.width(6.dp))
-            }
-            Box(GlanceModifier.defaultWeight().height(1.dp).background(pd.edge)) {}
         }
         return
     }
-    Text(
-        style.label(listOfNotNull(name, day.label.ifEmpty { null }).joinToString(" · ")),
-        style = textStyle(size = 11.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary),
-        modifier = GlanceModifier.padding(top = 6.dp, bottom = 2.dp),
-    )
-}
 
-@Composable
-internal fun EventRow(event: EventUi) {
-    val context = LocalContext.current
-    val action = event.link?.let(::openExternal) ?: openRoute(context, WebRoutes.EVENTS)
-    val color = LifeMappColors.parseHex(event.color) ?: androidx.compose.ui.graphics.Color(0xFF3B82F6)
+    // Classic: the same structure, flat
+    val faded = GlanceTheme.colors.onSurfaceVariant
     Row(
         modifier = GlanceModifier.fillMaxWidth().clickable(action).padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val pd = LocalPd.current
-        if (pd != null) {
-            PdBar(if (event.secondary) pd.tint(color, 0.5f) else androidx.glance.unit.ColorProvider(color))
-            Spacer(GlanceModifier.width(6.dp))
-        } else {
-            Dot(if (event.secondary) color.copy(alpha = 0.5f) else color)
-            Spacer(GlanceModifier.width(8.dp))
+        Text(
+            "$number",
+            style = textStyle(size = 11.sp, weight = FontWeight.Bold, color = if (upcoming) faded else GlanceTheme.colors.primary).copy(textAlign = TextAlign.Center),
+            modifier = GlanceModifier.width(16.dp),
+        )
+        Spacer(GlanceModifier.width(4.dp))
+        Dot(if (dimmed) color.copy(alpha = 0.45f) else color)
+        Spacer(GlanceModifier.width(8.dp))
+        Column(modifier = GlanceModifier.defaultWeight()) {
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    event.title,
+                    style = textStyle(size = 13.sp, weight = FontWeight.Medium, color = if (dimmed) faded else GlanceTheme.colors.onBackground),
+                    maxLines = 1,
+                    modifier = GlanceModifier.defaultWeight(),
+                )
+                if (calendar != null) {
+                    Spacer(GlanceModifier.width(4.dp))
+                    Text(
+                        calendar,
+                        style = textStyle(size = 9.sp, weight = FontWeight.Bold, color = ColorProvider(if (dimmed) color.copy(alpha = 0.5f) else color)),
+                        maxLines = 1,
+                        modifier = GlanceModifier.background(color.copy(alpha = 0.14f)).cornerRadius(6.dp).padding(horizontal = 5.dp, vertical = 1.dp),
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(LucideIcons.CLOCK, null, size = 10.dp, tint = faded)
+                Spacer(GlanceModifier.width(3.dp))
+                Text(time, style = textStyle(size = 10.sp, color = faded), maxLines = 1)
+            }
         }
-        Text(
-            event.timeLabel ?: context.getString(R.string.all_day),
-            style = if (pd != null) captionStyle(size = 10.sp) else textStyle(size = 11.sp, color = GlanceTheme.colors.onSurfaceVariant),
-            maxLines = 1,
-            modifier = GlanceModifier.width(78.dp),
-        )
-        Text(
-            event.title,
-            style = textStyle(
-                size = 13.sp,
-                weight = if (event.secondary) FontWeight.Normal else FontWeight.Medium,
-                color = if (event.secondary) GlanceTheme.colors.onSurfaceVariant else GlanceTheme.colors.onBackground,
-            ),
-            maxLines = 1,
-            modifier = GlanceModifier.defaultWeight(),
-        )
     }
+}
+
+/** No calendar connected: icon, message and the "Add calendar" button (opens the web settings). */
+@Composable
+internal fun NoCalendarCard(onAdd: Action) {
+    val context = LocalContext.current
+    ConnectCard(LucideIcons.CALENDAR, context.getString(R.string.no_calendar), context.getString(R.string.add_calendar), onAdd)
 }

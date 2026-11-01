@@ -49,6 +49,7 @@ import com.kalai73.lifemapp.widgets.core.model.SyncError
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebLauncher
 import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
+import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
 import com.kalai73.lifemapp.widgets.widget.R
 
 val LocalWidgetStyle = staticCompositionLocalOf { WidgetStyle.of(UiStyle.CLASSIC) }
@@ -239,16 +240,26 @@ fun HeaderButton(
 }
 
 @Composable
-fun ReloadButton(ui: WidgetUi) {
+fun ReloadButton(ui: WidgetUi, primary: Boolean = false) {
     val description = LocalContext.current.getString(R.string.reload)
-    val predator = LocalPd.current != null
-    HeaderButton(LucideIcons.RELOAD, description, actionRunCallback<ReloadAction>()) {
+    val pd = LocalPd.current
+    val predator = pd != null
+    // Primary (stacked hero date frame): accent fill, icon in pd-on
+    val tint = if (primary && pd != null) pd.on else GlanceTheme.colors.primary
+    HeaderButton(LucideIcons.RELOAD, description, actionRunCallback<ReloadAction>(), primary = primary) {
         if (ui.syncing) {
-            CircularProgressIndicator(modifier = GlanceModifier.size(if (predator) 14.dp else 18.dp), color = GlanceTheme.colors.primary)
+            CircularProgressIndicator(modifier = GlanceModifier.size(if (predator) 14.dp else 18.dp), color = tint)
         } else {
-            Icon(LucideIcons.RELOAD, description, size = if (predator) 15.dp else 18.dp)
+            Icon(LucideIcons.RELOAD, description, size = if (predator) 15.dp else 18.dp, tint = tint)
         }
     }
+}
+
+/** Mic button (top right): add tasks and reminders by voice, see VoiceInputActivity. */
+@Composable
+fun VoiceButton() {
+    val context = LocalContext.current
+    HeaderButton(LucideIcons.MIC, context.getString(R.string.voice_input), actionStartActivity(VoiceInputActivity.intent(context)))
 }
 
 /** "Updated 10:42", the stale warning, or the last sync error. */

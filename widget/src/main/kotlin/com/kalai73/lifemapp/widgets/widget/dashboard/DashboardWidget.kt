@@ -21,6 +21,8 @@ import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.LazyListScope
 import androidx.glance.appwidget.lazy.items
+import androidx.glance.appwidget.lazy.itemsIndexed
+import com.kalai73.lifemapp.widgets.widget.events.NoCalendarCard
 import androidx.glance.appwidget.provideContent
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
@@ -42,7 +44,6 @@ import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.widget.R
 import com.kalai73.lifemapp.widgets.widget.common.DismissFailureAction
-import com.kalai73.lifemapp.widgets.widget.common.HeaderButton
 import com.kalai73.lifemapp.widgets.widget.common.Icon
 import com.kalai73.lifemapp.widgets.widget.common.LocalPd
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
@@ -50,6 +51,7 @@ import com.kalai73.lifemapp.widgets.widget.common.PdIconWell
 import com.kalai73.lifemapp.widgets.widget.common.PdRule
 import com.kalai73.lifemapp.widgets.widget.common.ReloadButton
 import com.kalai73.lifemapp.widgets.widget.common.StatusLine
+import com.kalai73.lifemapp.widgets.widget.common.VoiceButton
 import com.kalai73.lifemapp.widgets.widget.common.WidgetRoot
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
 import com.kalai73.lifemapp.widgets.widget.common.liveWidgetUi
@@ -59,13 +61,19 @@ import com.kalai73.lifemapp.widgets.widget.common.textStyle
 import com.kalai73.lifemapp.widgets.widget.events.DayHeader
 import com.kalai73.lifemapp.widgets.widget.events.EventRow
 import com.kalai73.lifemapp.widgets.widget.events.EventsConfig
+import com.kalai73.lifemapp.widgets.widget.shortcuts.MailBody
 import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutTile
+import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutRow
+import com.kalai73.lifemapp.widgets.widget.shortcuts.LINK_ROW_WIDTH
+import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutsSubHeader
+import com.kalai73.lifemapp.widgets.widget.common.openExternal
+import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
 import com.kalai73.lifemapp.widgets.widget.shortcuts.TILE_WIDTH
 import com.kalai73.lifemapp.widgets.widget.sync.SyncScheduler
+import com.kalai73.lifemapp.widgets.widget.tasks.TaskActions
 import com.kalai73.lifemapp.widgets.widget.tasks.TaskRow
 import com.kalai73.lifemapp.widgets.widget.today.Counters
 import com.kalai73.lifemapp.widgets.widget.today.HeroHeader
-import com.kalai73.lifemapp.widgets.widget.today.QuickButton
 import com.kalai73.lifemapp.widgets.widget.today.stackedHero
 
 /**
@@ -119,6 +127,7 @@ private val ROOT_PADDING = 12.dp
 internal fun DashboardContent(ui: WidgetUi, days: List<EventDayUi>, modifier: GlanceModifier = GlanceModifier) {
     val size = LocalSize.current
     val showStatus = size.width >= LOCATION_MIN_WIDTH || ui.stale || ui.error != null
+    val predator = LocalPd.current != null
     if (size.height < LIST_MIN_HEIGHT) {
         CompactHero(ui, showStatus, modifier)
         return
@@ -129,11 +138,11 @@ internal fun DashboardContent(ui: WidgetUi, days: List<EventDayUi>, modifier: Gl
         stackedHero(ui, showStatus)
         eventsSection(ui, days)
         tasksSection(ui)
-        shortcutsSection(ui, columns = shortcutColumns(size.width))
+        shortcutsSection(ui, columns = shortcutColumns(size.width, rows = predator))
     }
 }
 
-/** 4×2: greeting, date, weather and rating in one row, then counters and the quick buttons. */
+/** 4×2: greeting, date, weather and rating in one row with reload and the mic top right, then the counters. */
 @Composable
 private fun CompactHero(ui: WidgetUi, showStatus: Boolean, modifier: GlanceModifier) {
     val size = LocalSize.current
@@ -143,23 +152,24 @@ private fun CompactHero(ui: WidgetUi, showStatus: Boolean, modifier: GlanceModif
         HeroHeader(ui, showLocation = size.width >= LOCATION_MIN_WIDTH) {
             Spacer(GlanceModifier.width(4.dp))
             ReloadButton(ui)
+            Spacer(GlanceModifier.width(4.dp))
+            VoiceButton()
         }
         Spacer(GlanceModifier.height(6.dp))
         Counters(ui)
         Spacer(GlanceModifier.defaultWeight())
-        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            val context = LocalContext.current
-            QuickButton(LucideIcons.JOURNAL, context.getString(R.string.journal), openRoute(context, WebRoutes.JOURNAL))
-            Spacer(GlanceModifier.width(6.dp))
-            QuickButton(LucideIcons.BUDGET, context.getString(R.string.budget), openRoute(context, WebRoutes.BUDGET))
-            Spacer(GlanceModifier.defaultWeight())
-            if (showStatus) StatusLine(ui)
+        if (showStatus) {
+            Row(modifier = GlanceModifier.fillMaxWidth(), horizontalAlignment = Alignment.End) { StatusLine(ui) }
         }
     }
 }
 
-private fun shortcutColumns(width: Dp): Int =
-    ((width.value - 2 * ROOT_PADDING.value) / TILE_WIDTH.value).toInt().coerceIn(1, 8)
+/** Tiles (Classic) fit up to 8 per line; numbered link rows (Predator) up to 4. */
+private fun shortcutColumns(width: Dp, rows: Boolean): Int {
+    val available = width.value - 2 * ROOT_PADDING.value
+    return if (rows) (available / LINK_ROW_WIDTH.value).toInt().coerceIn(1, 4)
+    else (available / TILE_WIDTH.value).toInt().coerceIn(1, 8)
+}
 
 // Item ids: one range per section, so ids never collide across sections.
 private const val ID_EVENTS = -1L
@@ -170,24 +180,29 @@ private const val ID_TASKS_FAILED = -11L
 private const val ID_TASKS_LOCKED = -12L
 private const val ID_TASKS_EMPTY = -13L
 private const val ID_SHORTCUTS_EMPTY = -14L
+private const val ID_TASKS_ACTIONS = -15L
+private const val ID_TASKS_DAY = -16L
+private const val ID_MAIL = -17L
+private const val ID_MAIL_BODY = -18L
+private const val ID_LINKS = -19L
 private const val ID_DAY_BASE = 1_000_000_000L
 private const val ID_SHORTCUT_ROW_BASE = 2_000_000_000L
 
 private fun LazyListScope.eventsSection(ui: WidgetUi, days: List<EventDayUi>) {
     item(itemId = ID_EVENTS) {
         val context = LocalContext.current
-        SectionHeader(context.getString(R.string.events), LucideIcons.CALENDAR, openRoute(context, WebRoutes.EVENTS))
+        SectionHeader(context.getString(R.string.events), LucideIcons.CALENDAR, openRoute(context, WebRoutes.EVENTS), centered = true)
     }
     when {
         !ui.calendarConnected -> item(itemId = ID_EVENTS_EMPTY) {
-            val context = LocalContext.current
-            EmptyLine(context.getString(R.string.connect_calendar), openRoute(context, WebRoutes.SETTINGS))
+            NoCalendarCard(openRoute(LocalContext.current, WebRoutes.SETTINGS))
         }
         days.none { it.events.isNotEmpty() } -> item(itemId = ID_EVENTS_EMPTY) {
             val context = LocalContext.current
             EmptyLine(context.getString(R.string.no_events), openRoute(context, WebRoutes.EVENTS))
         }
-        else -> days.forEach { day ->
+        // Events are numbered across days (1, 2, 3 today, 4, 5 tomorrow), as on the web
+        else -> days.runningFold(0) { count, day -> count + day.events.size }.zip(days).forEach { (offset, day) ->
             val dayId = ID_DAY_BASE + day.date.toEpochDay() * 2
             item(itemId = dayId) { DayHeader(day) }
             if (day.events.isEmpty()) {
@@ -198,7 +213,9 @@ private fun LazyListScope.eventsSection(ui: WidgetUi, days: List<EventDayUi>) {
             }
             // Same ids as the Events widget: epochDay × 1_000_003 puts them around 2·10¹⁰, clear of the day
             // header (~10⁹), shortcut row (~2·10⁹) and task (~2⁴⁰) ranges
-            items(day.events, itemId = { (day.date.toEpochDay() * 1_000_003L) xor it.id.hashCode().toLong() }) { EventRow(it) }
+            itemsIndexed(day.events, itemId = { _, event -> (day.date.toEpochDay() * 1_000_003L) xor event.id.hashCode().toLong() }) { index, event ->
+                EventRow(event, number = offset + index + 1, day = day)
+            }
         }
     }
 }
@@ -206,13 +223,9 @@ private fun LazyListScope.eventsSection(ui: WidgetUi, days: List<EventDayUi>) {
 private fun LazyListScope.tasksSection(ui: WidgetUi) {
     item(itemId = ID_TASKS) {
         val context = LocalContext.current
-        SectionHeader(
-            context.getString(R.string.tasks), LucideIcons.TASKS, openRoute(context, WebRoutes.TASKS),
-            subtitle = context.getString(R.string.tasks_remaining, ui.tasksCount),
-        ) {
-            HeaderButton(LucideIcons.ADD, context.getString(R.string.add_task), openRoute(context, WebRoutes.NEW_TASK), primary = true)
-        }
+        SectionHeader(context.getString(R.string.tasks), LucideIcons.TASKS, openRoute(context, WebRoutes.TASKS), centered = true)
     }
+    item(itemId = ID_TASKS_ACTIONS) { TaskActions() }
     if (ui.completionFailed) {
         item(itemId = ID_TASKS_FAILED) {
             val context = LocalContext.current
@@ -240,15 +253,33 @@ private fun LazyListScope.tasksSection(ui: WidgetUi) {
             EmptyLine(context.getString(R.string.no_tasks), openRoute(context, WebRoutes.TASKS))
         }
     } else {
+        // The widget gets today's and overdue tasks only, so one "TODAY" divider as on the web
+        item(itemId = ID_TASKS_DAY) { DayHeader(EventDayUi(ui.today, DayKind.TODAY, "", emptyList())) }
         // Offset so a task can't share an id with an event (both are string hashes)
-        items(ui.tasks, itemId = { it.id.hashCode().toLong() + (1L shl 40) }) { TaskRow(it) }
+        itemsIndexed(ui.tasks, itemId = { _, task -> task.id.hashCode().toLong() + (1L shl 40) }) { index, task -> TaskRow(task, number = index + 1) }
     }
 }
 
 private fun LazyListScope.shortcutsSection(ui: WidgetUi, columns: Int) {
     item(itemId = ID_SHORTCUTS) {
         val context = LocalContext.current
-        SectionHeader(context.getString(R.string.shortcuts), LucideIcons.LINK, openRoute(context, WebRoutes.QUICK_LINKS))
+        SectionHeader(context.getString(R.string.shortcuts), LucideIcons.ZAP, openRoute(context, WebRoutes.QUICK_LINKS), centered = true)
+    }
+    item(itemId = ID_MAIL) {
+        val context = LocalContext.current
+        ShortcutsSubHeader(LucideIcons.MAIL, context.getString(R.string.mail), ui.mailUrl?.let(::openExternal) ?: openRoute(context, WebRoutes.MAIL))
+    }
+    item(itemId = ID_MAIL_BODY) { MailBody(ui) }
+    item(itemId = ID_LINKS) {
+        val context = LocalContext.current
+        ShortcutsSubHeader(
+            LucideIcons.LINK, context.getString(R.string.links), openRoute(context, WebRoutes.QUICK_LINKS),
+            count = ui.shortcuts.size.takeUnless { ui.shortcutsLocked },
+            actionLabel = context.getString(R.string.manage),
+            actionIcon = LucideIcons.PANEL,
+            onAdd = openRoute(context, WebRoutes.QUICK_LINKS).takeUnless { ui.shortcutsLocked },
+            chevron = true,
+        )
     }
     when {
         ui.shortcutsLocked -> item(itemId = ID_SHORTCUTS_EMPTY) {
@@ -262,7 +293,11 @@ private fun LazyListScope.shortcutsSection(ui: WidgetUi, columns: Int) {
         else -> ui.shortcuts.chunked(columns).forEachIndexed { index, row ->
             item(itemId = ID_SHORTCUT_ROW_BASE + index) {
                 Row(modifier = GlanceModifier.fillMaxWidth()) {
-                    row.forEach { ShortcutTile(it, GlanceModifier.defaultWeight()) }
+                    row.forEachIndexed { i, shortcut ->
+                        // Predator: numbered rows; Classic: icon tiles
+                        if (LocalPd.current != null) ShortcutRow(shortcut, number = index * columns + i + 1, modifier = GlanceModifier.defaultWeight())
+                        else ShortcutTile(shortcut, GlanceModifier.defaultWeight())
+                    }
                     // Keep the last row's tiles the same width as the full rows above
                     repeat(columns - row.size) { Spacer(GlanceModifier.defaultWeight()) }
                 }
@@ -278,10 +313,29 @@ private fun SectionHeader(
     icon: Int,
     onClick: Action,
     subtitle: String? = null,
+    centered: Boolean = false,
     trailing: @Composable () -> Unit = {},
 ) {
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
+    if (centered) {
+        // Events: calendar icon and title centered, no rule (the day dividers below carry the lines)
+        Row(
+            modifier = GlanceModifier.fillMaxWidth().clickable(onClick).padding(top = 12.dp, bottom = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, null, size = 14.dp, tint = pd?.accent ?: GlanceTheme.colors.primary)
+            Spacer(GlanceModifier.width(6.dp))
+            Text(
+                style.label(title),
+                style = if (pd != null) labelStyle(size = 15.sp, color = pd.accent)
+                else textStyle(size = 14.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary),
+                maxLines = 1,
+            )
+        }
+        return
+    }
     Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp)) {
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(modifier = GlanceModifier.defaultWeight().clickable(onClick), verticalAlignment = Alignment.CenterVertically) {

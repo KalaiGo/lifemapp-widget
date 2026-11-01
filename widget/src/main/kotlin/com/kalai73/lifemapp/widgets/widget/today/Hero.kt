@@ -54,7 +54,7 @@ internal fun HeroHeader(ui: WidgetUi, showLocation: Boolean, trailing: @Composab
         val pd = LocalPd.current
         if (pd != null) {
             // Hero banner (styleguide §7): arrow frame, raised fill, pointing at the weather. As tall as its text.
-            PdWrapFrame(PdShape.ARROW, edge = pd.edge, fill = pd.raised, modifier = GlanceModifier.defaultWeight()) { frame ->
+            PdWrapFrame(PdShape.ARROW, edge = pd.raised, fill = pd.raised, modifier = GlanceModifier.defaultWeight()) { frame ->
                 Column(modifier = frame.fillMaxWidth().padding(start = 12.dp, end = 20.dp, top = 4.dp, bottom = 5.dp)) {
                     Greeting(ui, compact = false)
                     DateLine(ui)
@@ -140,7 +140,7 @@ private fun WeatherAndRating(ui: WidgetUi, showLocation: Boolean) {
 }
 
 @Composable
-internal fun Counters(ui: WidgetUi) {
+internal fun Counters(ui: WidgetUi, caption: String? = null) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
@@ -154,12 +154,29 @@ internal fun Counters(ui: WidgetUi) {
             Counter(LucideIcons.MAIL, if (ui.mailConnected) ui.mailCount.toString() else "–", context.getString(R.string.mail), mailAction)
         }
     }
+    // With [caption] ("AND YOU HAVE:"), it sits inside the frame above the counters (stacked hero)
+    val body: @Composable (GlanceModifier) -> Unit = { modifier ->
+        if (caption == null) {
+            row(modifier)
+        } else {
+            Column(modifier = modifier.fillMaxWidth()) {
+                Text(
+                    style.label(caption),
+                    style = if (style.isPredator) captionStyle(size = 9.sp, color = GlanceTheme.colors.primary)
+                    else textStyle(size = 9.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.onSurfaceVariant),
+                    maxLines = 1,
+                    modifier = GlanceModifier.padding(start = 10.dp, top = 2.dp),
+                )
+                row(GlanceModifier)
+            }
+        }
+    }
     if (pd != null) {
-        PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge, fill = pd.raised, modifier = GlanceModifier.fillMaxWidth()) { frame ->
-            row(frame.padding(vertical = 3.dp))
+        PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.raised, fill = pd.raised, modifier = GlanceModifier.fillMaxWidth()) { frame ->
+            body(frame.padding(vertical = 3.dp))
         }
     } else {
-        row(GlanceModifier.background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius).padding(vertical = 4.dp))
+        body(GlanceModifier.background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius).padding(vertical = 4.dp))
     }
 }
 
@@ -180,38 +197,5 @@ private fun androidx.glance.layout.RowScope.Counter(icon: Int, value: String, la
             style = if (style.isPredator) captionStyle(size = 8.sp) else textStyle(size = 9.sp, color = GlanceTheme.colors.onSurfaceVariant),
             maxLines = 1,
         )
-    }
-}
-
-@Composable
-internal fun QuickButton(icon: Int, label: String, onClick: Action, modifier: GlanceModifier? = null) {
-    val style = LocalWidgetStyle.current
-    val pd = LocalPd.current
-    // [modifier] given: the button stretches to it (stacked hero, two buttons sharing the width), content centered
-    val fill = modifier != null
-    if (pd != null) {
-        // Secondary button: parallelogram, framed raised fill, pd-label (styleguide §6 Button)
-        PdWrapFrame(PdShape.PARA, edge = pd.edge, fill = pd.raised, modifier = (modifier ?: GlanceModifier).clickable(onClick)) { frame ->
-            Row(
-                modifier = (if (fill) frame.fillMaxWidth() else frame).padding(horizontal = 14.dp, vertical = if (fill) 7.dp else 5.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(icon, null, size = 13.dp, tint = pd.ink)
-                Spacer(GlanceModifier.width(5.dp))
-                Text(style.label(label), style = labelStyle(size = 11.sp, color = pd.text))
-            }
-        }
-        return
-    }
-    Row(
-        modifier = (modifier ?: GlanceModifier).background(GlanceTheme.colors.primaryContainer).cornerRadius(style.innerRadius)
-            .clickable(onClick).padding(horizontal = 10.dp, vertical = if (fill) 7.dp else 5.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, null, size = 14.dp, tint = GlanceTheme.colors.onPrimaryContainer)
-        Spacer(GlanceModifier.width(4.dp))
-        Text(style.label(label), style = textStyle(size = 12.sp, weight = FontWeight.Medium, color = GlanceTheme.colors.onPrimaryContainer))
     }
 }

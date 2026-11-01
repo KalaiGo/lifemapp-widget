@@ -190,6 +190,7 @@ object LucideIcons {
     val BUDGET = R.drawable.lm_ic_wallet
     val RELOAD = R.drawable.lm_ic_refresh_cw
     val ADD = R.drawable.lm_ic_plus
+    val MIC = R.drawable.lm_ic_mic
     val LOCK = R.drawable.lm_ic_lock
     val CHECK_OFF = R.drawable.lm_ic_circle
     val CHECK_ON = R.drawable.lm_ic_circle_check
@@ -199,6 +200,11 @@ object LucideIcons {
     val HEXAGON = R.drawable.lm_ic_hexagon
     val STAR = R.drawable.lm_ic_star
     val LINK = R.drawable.lm_ic_link
+    val ZAP = R.drawable.lm_ic_zap
+    val INBOX = R.drawable.lm_ic_inbox
+    val CLOCK = R.drawable.lm_ic_clock
+    val CHEVRON_DOWN = R.drawable.lm_ic_chevron_down
+    val PANEL = R.drawable.lm_ic_panel_left
 
     /** Visual Crossing icon ids (weather.icon) → bundled weather glyphs */
     fun weather(icon: String?): Int = when (icon) {

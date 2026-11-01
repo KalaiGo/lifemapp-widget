@@ -8,6 +8,7 @@ import androidx.glance.appwidget.testing.unit.hasRunCallbackClickAction
 import androidx.glance.appwidget.testing.unit.runGlanceAppWidgetUnitTest
 import androidx.glance.testing.unit.hasContentDescription
 import androidx.glance.testing.unit.hasText
+import androidx.glance.testing.unit.hasContentDescriptionEqualTo
 import androidx.glance.testing.unit.hasTextEqualTo
 import androidx.test.core.app.ApplicationProvider
 import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
@@ -90,15 +91,27 @@ class WidgetRenderTest {
     }
 
     @Test
-    fun `hero shows greeting, date, weather, rating, counters and quick buttons`() = runGlanceAppWidgetUnitTest {
+    fun `hero shows greeting, date, weather, rating, and counters, without quick buttons`() = runGlanceAppWidgetUnitTest {
         dashboard(populated, HERO)
         onNode(hasText("Ana")).assertExists()
         onNode(hasText("Today is Sa. 31/10/2026")).assertExists()
         onNode(hasText("18°C")).assertExists()
         onNode(hasText("★ 7.4")).assertExists()
         onNode(hasText("12")).assertExists()
-        onNode(hasText("Journal")).assertExists()
-        onNode(hasText("Budget")).assertExists()
+        onNode(hasText("Journal")).assertDoesNotExist()
+        onNode(hasText("Budget")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `mic button shows in the compact hero`() = runGlanceAppWidgetUnitTest {
+        dashboard(populated, HERO)
+        onNode(hasContentDescription("Add tasks or reminders by voice")).assertExists()
+    }
+
+    @Test
+    fun `mic button shows in the tall stacked hero`() = runGlanceAppWidgetUnitTest {
+        dashboard(populated.copy(uiStyle = UiStyle.PREDATOR))
+        onNode(hasContentDescription("Add tasks or reminders by voice")).assertExists()
     }
 
     @Test
@@ -113,7 +126,7 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("18°C")).assertExists()
         onNode(hasTextEqualTo("9°C")).assertExists()
         onNode(hasTextEqualTo("★ 7.4")).assertExists()
-        onAllNodes(hasTextEqualTo("12")).assertCountEquals(2) // Today chip and counter strip
+        onAllNodes(hasTextEqualTo("12")).assertCountEquals(2) // mail counter and the inbox row
         onNode(hasContentDescription("Reload")).assertExists()
         onNode(hasTextEqualTo("Standup")).assertExists()
     }
@@ -125,7 +138,8 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("AND YOU HAVE:")).assertExists()
         onNode(hasTextEqualTo("WEATHER IN MADRID, ES")).assertExists()
         onNode(hasTextEqualTo("7.4")).assertExists()
-        onNode(hasTextEqualTo("JOURNAL")).assertExists()
+        onNode(hasText("JOURNAL")).assertDoesNotExist()
+        onNode(hasText("BUDGET")).assertDoesNotExist()
         onNode(hasTextEqualTo("Ana")).assertExists()
     }
 
@@ -145,7 +159,6 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("Standup")).assertExists()
         onNode(hasTextEqualTo("Pay rent")).assertExists()
         onNode(hasTextEqualTo("Spotify")).assertExists()
-        onNode(hasText("Journal")).assertExists()
     }
 
     @Test
@@ -157,9 +170,8 @@ class WidgetRenderTest {
     }
 
     @Test
-    fun `predator hero uppercases labels and shows the hex rating`() = runGlanceAppWidgetUnitTest {
+    fun `predator hero uppercases the date and shows the hex rating`() = runGlanceAppWidgetUnitTest {
         dashboard(populated.copy(uiStyle = UiStyle.PREDATOR), HERO)
-        onNode(hasText("JOURNAL")).assertExists()
         onNode(hasText("TODAY IS SA. 31/10/2026")).assertExists()
         onNode(hasTextEqualTo("7.4")).assertExists()
         // User content keeps its case
@@ -170,9 +182,15 @@ class WidgetRenderTest {
     fun `predator events, tasks and shortcuts render`() = runGlanceAppWidgetUnitTest {
         dashboard(populated.copy(uiStyle = UiStyle.PREDATOR), DpSize(320.dp, 400.dp))
         onNode(hasTextEqualTo("Pay rent")).assertExists()
-        onNode(hasTextEqualTo("Today")).assertExists() // list name: user content, not uppercased
-        onNode(hasText("5 OPEN")).assertExists()
+        onNode(hasTextEqualTo("ADD TASK")).assertExists()
+        onNode(hasTextEqualTo("TASK LISTS")).assertExists()
+        onNode(hasTextEqualTo("Th. 29/10/2026")).assertExists() // due date: data, not uppercased
         onAllNodes(hasContentDescription("Complete task")).assertCountEquals(2)
+        onNode(hasTextEqualTo("SHORTCUTS")).assertExists()
+        onAllNodes(hasTextEqualTo("MAIL")).assertCountEquals(2) // hero counter label and the mail section
+        onNode(hasTextEqualTo("Inbox")).assertExists()
+        onNode(hasTextEqualTo("LINKS")).assertExists()
+        onNode(hasTextEqualTo("MANAGE")).assertExists()
         onNode(hasTextEqualTo("TOMORROW")).assertExists()
         onNode(hasTextEqualTo("Standup")).assertExists()
         onNode(hasTextEqualTo("Coffee")).assertExists()
@@ -211,8 +229,25 @@ class WidgetRenderTest {
     @Test
     fun `events ask to connect a calendar, and tasks still show`() = runGlanceAppWidgetUnitTest {
         dashboard(populated.copy(calendarConnected = false, eventDays = emptyList()))
-        onNode(hasText("Connect a calendar in LIFE MAPP")).assertExists()
+        onNode(hasTextEqualTo("No calendar connected yet")).assertExists()
+        onNode(hasTextEqualTo("Add calendar")).assertExists()
         onNode(hasTextEqualTo("Pay rent")).assertExists()
+    }
+
+    @Test
+    fun `events are numbered across days with calendar tag and time line`() = runGlanceAppWidgetUnitTest {
+        dashboard(populated.copy(uiStyle = UiStyle.PREDATOR), daysAhead = 7)
+        // Events, tasks and links are numbered separately; "2" is also the hero's events counter, "3" the links count
+        onAllNodes(hasTextEqualTo("1")).assertCountEquals(3)
+        onAllNodes(hasTextEqualTo("2")).assertCountEquals(4)
+        onAllNodes(hasTextEqualTo("3")).assertCountEquals(3)
+        onNode(hasContentDescriptionEqualTo("Add link")).assertExists()
+        onNode(hasTextEqualTo("WORK")).assertExists()
+        onAllNodes(hasTextEqualTo("HOME")).assertCountEquals(2)
+        onNode(hasTextEqualTo("09:00 – 09:15 · Sa. 31/10/2026")).assertExists()
+        onNode(hasTextEqualTo("All day · Su. 01/11/2026")).assertExists()
+        onAllNodes(hasTextEqualTo("TODAY")).assertCountEquals(2) // events day divider and the tasks divider
+        onNode(hasTextEqualTo("TOMORROW")).assertExists()
     }
 
     @Test
@@ -220,7 +255,8 @@ class WidgetRenderTest {
         dashboard(populated.copy(encryption = EncryptionState.LOCKED))
         onNode(hasText("Pay rent")).assertExists()
         onNode(hasText("🔒 Locked")).assertExists()
-        onNode(hasText("5 open")).assertExists()
+        onNode(hasTextEqualTo("Add task")).assertExists()
+        onNode(hasTextEqualTo("Task lists")).assertExists()
         onAllNodes(hasContentDescription("Complete task")).assertCountEquals(2)
         onAllNodes(hasRunCallbackClickAction<CompleteTaskAction>(androidx.glance.action.actionParametersOf(CompleteTaskAction.TaskIdKey to "t1"))).assertCountEquals(1)
     }
@@ -246,6 +282,23 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("B")).assertExists()
         onNode(hasText("☕")).assertExists()
         onNode(hasText("Coffee")).assertExists()
+    }
+
+    @Test
+    fun `mail shows the connect prompt until mail is connected, then the inbox count`() = runGlanceAppWidgetUnitTest {
+        dashboard(populated.copy(mailConnected = false))
+        onNode(hasTextEqualTo("Mail not connected")).assertExists()
+        onNode(hasTextEqualTo("Connect mail")).assertExists()
+        onNode(hasTextEqualTo("Inbox")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `connected mail shows the inbox with its unread count`() = runGlanceAppWidgetUnitTest {
+        dashboard(populated)
+        onNode(hasTextEqualTo("Inbox")).assertExists()
+        onNode(hasTextEqualTo("Mail not connected")).assertDoesNotExist()
+        onNode(hasTextEqualTo("Links")).assertExists()
+        onNode(hasTextEqualTo("Manage")).assertExists()
     }
 
     @Test

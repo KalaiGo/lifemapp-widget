@@ -30,6 +30,18 @@ object WebRoutes {
     const val JOURNAL = "/today?journal=true"
     const val BUDGET = "/today?budget=true"
     const val SETTINGS = "/today?settings=true"
+
+    /**
+     * Fragment for [TODAY] that hands a spoken transcript to the web's voice input (floating-action-buttons.tsx),
+     * which splits it into tasks and reminders. A fragment, not a query: it never reaches the server's logs.
+     */
+    fun voiceFragment(transcript: String): String = "voice=" + Uri.encode(transcript.trim().take(MAX_VOICE_CHARS))
+
+    /** Fragment for [TODAY] that starts the web's own mic, for devices without a speech recognizer. */
+    const val VOICE_RECORD_FRAGMENT = "voice-record"
+
+    /** As /api/parse-voice-items accepts */
+    const val MAX_VOICE_CHARS = 5000
 }
 
 object WebLauncher {
@@ -39,11 +51,17 @@ object WebLauncher {
 
     const val EXTRA_PATH = "com.kalai73.lifemapp.widgets.extra.PATH"
     const val EXTRA_URL = "com.kalai73.lifemapp.widgets.extra.URL"
+    const val EXTRA_FRAGMENT = "com.kalai73.lifemapp.widgets.extra.FRAGMENT"
 
-    /** Intent for a widget tap that opens a LIFE MAPP route, signed in. */
-    fun routeIntent(context: Context, path: String): Intent =
+    /**
+     * Intent for a widget tap that opens a LIFE MAPP route, signed in. [fragment] (already encoded) is added to
+     * the URL that opens rather than to the handoff's redirect, so it stays in the browser; /auth/exchange carries
+     * it over to the route.
+     */
+    fun routeIntent(context: Context, path: String, fragment: String? = null): Intent =
         Intent(context, WebLaunchActivity::class.java)
             .putExtra(EXTRA_PATH, path)
+            .apply { if (fragment != null) putExtra(EXTRA_FRAGMENT, fragment) }
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
             // Distinct data so PendingIntents for different routes don't collapse into one
             .setData(Uri.parse("lifemapp-route:$path"))

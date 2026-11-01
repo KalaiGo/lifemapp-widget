@@ -23,6 +23,7 @@ class WebLaunchActivity : Activity() {
         super.onCreate(savedInstanceState)
         val path = intent.getStringExtra(WebLauncher.EXTRA_PATH)
         val url = intent.getStringExtra(WebLauncher.EXTRA_URL)
+        val fragment = intent.getStringExtra(WebLauncher.EXTRA_FRAGMENT)
         if (path == null && url == null) {
             finish()
             return
@@ -30,7 +31,8 @@ class WebLaunchActivity : Activity() {
         scope.launch {
             val graph = LifeMappGraph.get(applicationContext)
             val (uri, scheme) = withContext(Dispatchers.IO) {
-                val target = if (path != null) WebLauncher.resolve(applicationContext, path) else Uri.parse(url)
+                val resolved = if (path != null) WebLauncher.resolve(applicationContext, path) else Uri.parse(url)
+                val target = if (fragment != null) resolved.buildUpon().encodedFragment(fragment).build() else resolved
                 val scheme = runCatching { graph.cache.current().snapshot?.settings?.colorScheme }.getOrNull()
                 target to ColorSchemeName.from(scheme)
             }

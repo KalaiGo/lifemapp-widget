@@ -17,6 +17,8 @@
     <string name="shortcuts">Shortcuts</string>
     <string name="reload">Reload</string>
     <string name="add_task">Add task</string>
+    <string name="voice_input">Add tasks or reminders by voice</string>
+    <string name="voice_prompt">Say your tasks or reminders</string>
     <string name="complete_task">Complete task</string>
     <string name="today">Today</string>
     <string name="tomorrow">Tomorrow</string>
@@ -31,9 +33,9 @@
     <string name="loading">Loading…</string>
     <string name="no_events_today">No events today</string>
     <string name="no_events">No upcoming events</string>
-    <string name="connect_calendar">Connect a calendar in LIFE MAPP</string>
+    <string name="no_calendar">No calendar connected yet</string>
+    <string name="add_calendar">Add calendar</string>
     <string name="no_tasks">Nothing due. Well done!</string>
-    <string name="tasks_remaining">%1$d open</string>
     <string name="no_shortcuts">Add quick links in LIFE MAPP</string>
     <string name="shortcuts_locked">Quick links are encrypted. Unlock them in the app.</string>
     <string name="error_offline">Offline. Showing saved data.</string>
@@ -44,4 +46,11 @@
     <string name="sync_notification">Updating LIFE MAPP widgets…</string>
     <string name="first_sync_failed">Couldn\'t reach LIFE MAPP. Tap to retry.</string>
     <string name="first_sync_offline">No connection. Tap to retry.</string>
+    <string name="task_lists">Task lists</string>
+    <string name="mail_not_connected">Mail not connected</string>
+    <string name="connect_mail">Connect mail</string>
+    <string name="inbox">Inbox</string>
+    <string name="links">Links</string>
+    <string name="manage">Manage</string>
+    <string name="add_link">Add link</string>
 </resources>

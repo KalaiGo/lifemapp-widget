@@ -17,6 +17,8 @@
     <string name="shortcuts">Links</string>
     <string name="reload">Neu laden</string>
     <string name="add_task">Aufgabe hinzufügen</string>
+    <string name="voice_input">Aufgaben oder Erinnerungen per Sprache hinzufügen</string>
+    <string name="voice_prompt">Sag deine Aufgaben oder Erinnerungen</string>
     <string name="complete_task">Aufgabe erledigen</string>
     <string name="today">Heute</string>
     <string name="tomorrow">Morgen</string>
@@ -31,9 +33,9 @@
     <string name="loading">Wird geladen…</string>
     <string name="no_events_today">Heute keine Termine</string>
     <string name="no_events">Keine anstehenden Termine</string>
-    <string name="connect_calendar">Verbinde einen Kalender in LIFE MAPP</string>
+    <string name="no_calendar">Noch kein Kalender verbunden</string>
+    <string name="add_calendar">Kalender hinzufügen</string>
     <string name="no_tasks">Nichts fällig. Gut gemacht!</string>
-    <string name="tasks_remaining">%1$d offen</string>
     <string name="no_shortcuts">Füge Schnelllinks in LIFE MAPP hinzu</string>
     <string name="shortcuts_locked">Schnelllinks sind verschlüsselt. Entsperre sie in der App.</string>
     <string name="error_offline">Offline. Gespeicherte Daten werden angezeigt.</string>
@@ -44,4 +46,11 @@
     <string name="sync_notification">LIFE MAPP-Widgets werden aktualisiert…</string>
     <string name="first_sync_failed">LIFE MAPP ist nicht erreichbar. Zum Wiederholen tippen.</string>
     <string name="first_sync_offline">Keine Verbindung. Zum Wiederholen tippen.</string>
+    <string name="task_lists">Aufgabenlisten</string>
+    <string name="mail_not_connected">E-Mail nicht verbunden</string>
+    <string name="connect_mail">E-Mail verbinden</string>
+    <string name="inbox">Posteingang</string>
+    <string name="links">Links</string>
+    <string name="manage">Verwalten</string>
+    <string name="add_link">Link hinzufügen</string>
 </resources>

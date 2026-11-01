@@ -9,7 +9,23 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <queries>
+        <!-- The system speech recognizer, for the mic button -->
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <application>
+        <!-- Mic button: system speech dialog, then the web turns what was said into tasks and reminders.
+             Not noHistory: it must stay alive to receive the dialog's result -->
+        <activity
+            android:name=".voice.VoiceInputActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.LifeMapp.Trampoline" />
+
         <receiver
             android:name=".dashboard.DashboardWidgetReceiver"
             android:exported="true"
