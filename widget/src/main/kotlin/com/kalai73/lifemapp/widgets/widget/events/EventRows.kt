@@ -120,7 +120,7 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
                 Text("$number", style = numberStyle(9.sp, color = if (upcoming) pd.faint else pd.ink))
             }
             Spacer(GlanceModifier.width(5.dp))
-            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge, fill = pd.row, modifier = GlanceModifier.defaultWeight().clickable(action)) { frame ->
+            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.row, fill = pd.row, modifier = GlanceModifier.defaultWeight().clickable(action)) { frame ->
                 Row(modifier = frame.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     PdBar(tagColor, height = 26.dp)
                     Spacer(GlanceModifier.width(6.dp))

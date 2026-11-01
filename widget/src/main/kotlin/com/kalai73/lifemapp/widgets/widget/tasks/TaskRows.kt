@@ -108,7 +108,7 @@ internal fun TaskRow(task: TaskUi, number: Int) {
                 Text("$number", style = numberStyle(9.sp, color = pd.ink))
             }
             Spacer(GlanceModifier.width(5.dp))
-            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge, fill = pd.row, modifier = GlanceModifier.defaultWeight()) { frame ->
+            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.row, fill = pd.row, modifier = GlanceModifier.defaultWeight()) { frame ->
                 Row(modifier = frame.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                     PdBar(listColor?.let(::color) ?: pd.edge2, height = 26.dp)
                     Checkbox(task, PdDrawables.CHECK_SQUARE, size = 18.dp, tint = priority?.let(::color) ?: pd.dim)

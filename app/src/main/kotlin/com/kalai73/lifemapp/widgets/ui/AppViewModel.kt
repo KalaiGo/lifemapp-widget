@@ -11,6 +11,7 @@ import com.kalai73.lifemapp.widgets.core.data.repository.UnlockResult
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.CachedState
 import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
+import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebLauncher
 import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import com.kalai73.lifemapp.widgets.widget.sync.SyncScheduler
@@ -44,6 +45,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val cache: StateFlow<CachedState> = graph.cache.state.stateIn(viewModelScope, SharingStarted.Eagerly, CachedState())
 
     val colorScheme: ColorSchemeName get() = ColorSchemeName.from(cache.value.snapshot?.settings?.colorScheme)
+    val uiStyle: UiStyle get() = UiStyle.from(cache.value.snapshot?.settings?.uiStyle)
 
     init {
         viewModelScope.launch {

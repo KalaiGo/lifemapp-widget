@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Predator score gauge segment (pd-segment-gauge.tsx): a parallelogram whose slant scales with its size, about
+     -22° at the gauge's 20 × 8dp. White mask, tinted at render time. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="10dp"
+    android:viewportWidth="24"
+    android:viewportHeight="10">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,0 L24,0 L20,10 L0,10 Z" />
+</vector>

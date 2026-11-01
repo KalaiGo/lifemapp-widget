@@ -23,6 +23,8 @@ data class Snapshot(
     val domains: Domains = Domains(),
     val weather: Weather? = null,
     val mail: Mail = Mail(),
+    /** The Integrity domain card; null when the user has none (or an older server) */
+    val integrity: Integrity? = null,
     /** Sections the server couldn't load this time; the app keeps its cached copy of those */
     val failedSections: List<String> = emptyList(),
 )
@@ -125,6 +127,48 @@ data class Mail(
     val provider: String? = null,
 )
 
+/**
+ * The Integrity domain card of the web's Today page (integrity-domain-with-widgets.tsx). Encrypted values are
+ * self-contained `{"encrypted","iv","tag"}` JSON; the plaintext field is then null.
+ */
+@Serializable
+data class Integrity(
+    val domainId: String,
+    val name: String? = null,
+    val encryptedName: String? = null,
+    /** e.g. "Capture & Organize" */
+    val infoBox: String? = null,
+    val encryptedInfoBox: String? = null,
+    /** 0–10 (a Double so an unexpected fraction can't fail the whole snapshot) */
+    val rating: Double? = null,
+    val encryptedRating: String? = null,
+    val topics: List<Topic> = emptyList(),
+    /** Items flagged with a warning in any domain */
+    val warnings: Int = 0,
+)
+
+/** A topic (subdomain) in position order, with its first items. */
+@Serializable
+data class Topic(
+    val id: String,
+    val name: String? = null,
+    val encryptedName: String? = null,
+    /** The Reminders topic, which the Reception adds to */
+    val reminders: Boolean = false,
+    /** Every item, also those beyond the list cap */
+    val count: Int = 0,
+    val items: List<TopicItem> = emptyList(),
+)
+
+@Serializable
+data class TopicItem(
+    val id: String,
+    val name: String? = null,
+    val encryptedName: String? = null,
+    val warning: Boolean = false,
+    val isImage: Boolean = false,
+)
+
 /** Section names used in [Snapshot.failedSections]. */
 object Sections {
     const val EVENTS = "events"
@@ -133,4 +177,5 @@ object Sections {
     const val DOMAINS = "domains"
     const val WEATHER = "weather"
     const val SHORTCUTS = "shortcuts"
+    const val INTEGRITY = "integrity"
 }

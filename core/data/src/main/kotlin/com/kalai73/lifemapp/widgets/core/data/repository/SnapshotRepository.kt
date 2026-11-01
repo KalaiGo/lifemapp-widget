@@ -111,6 +111,7 @@ class SnapshotRepository(
             }
             if (Sections.DOMAINS in failed) merged = merged.copy(domains = old.domains)
             if (Sections.WEATHER in failed) merged = merged.copy(weather = old.weather)
+            if (Sections.INTEGRITY in failed) merged = merged.copy(integrity = old.integrity)
             return merged
         }
     }

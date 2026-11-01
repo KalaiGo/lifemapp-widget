@@ -30,12 +30,17 @@ object WebRoutes {
     const val JOURNAL = "/today?journal=true"
     const val BUDGET = "/today?budget=true"
     const val SETTINGS = "/today?settings=true"
+    /** The Integrity domain card (integrity-domain-with-widgets.tsx) */
+    const val INTEGRITY = "/today#integrity-section"
+    /** Its Warnings bar, as the digest email links it */
+    const val WARNINGS = "/today#section-warnings"
 
     /**
      * Fragment for [TODAY] that hands a spoken transcript to the web's voice input (floating-action-buttons.tsx),
      * which splits it into tasks and reminders. A fragment, not a query: it never reaches the server's logs.
      */
-    fun voiceFragment(transcript: String): String = "voice=" + Uri.encode(transcript.trim().take(MAX_VOICE_CHARS))
+    fun voiceFragment(transcript: String, asReminders: Boolean = false): String =
+        "voice=" + Uri.encode(transcript.trim().take(MAX_VOICE_CHARS)) + if (asReminders) "&as=reminder" else ""
 
     /** Fragment for [TODAY] that starts the web's own mic, for devices without a speech recognizer. */
     const val VOICE_RECORD_FRAGMENT = "voice-record"

@@ -14,6 +14,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
 import com.kalai73.lifemapp.widgets.core.data.presentation.EventDayUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.EventUi
+import com.kalai73.lifemapp.widgets.core.data.presentation.IntegrityUi
+import com.kalai73.lifemapp.widgets.core.data.presentation.TopicItemUi
+import com.kalai73.lifemapp.widgets.core.data.presentation.TopicUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.ShortcutUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.TaskUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.WeatherUi
@@ -305,5 +308,58 @@ class WidgetRenderTest {
     fun `encrypted shortcuts on a locked device ask to unlock`() = runGlanceAppWidgetUnitTest {
         dashboard(populated.copy(shortcuts = emptyList(), shortcutsLocked = true))
         onNode(hasText("Quick links are encrypted. Unlock them in the app.")).assertExists()
+    }
+
+    private val integrity = IntegrityUi(
+        name = "Integrity",
+        infoBox = "Capture & Organize",
+        rating = 8,
+        topics = listOf(
+            TopicUi("s1", 1, "Reminders", reminders = true, count = 0, items = emptyList()),
+            TopicUi("s2", 2, "Topic 1", reminders = false, count = 10, items = listOf(
+                TopicItemUi("i1", "Item", warning = false, isImage = false),
+                TopicItemUi("i2", "Call the bank", warning = true, isImage = false),
+                TopicItemUi("i3", null, warning = false, isImage = false),
+            )),
+        ),
+        warnings = 2,
+    )
+
+    @Test
+    fun `integrity card shows the header, reception, topics, items and warnings`() = runGlanceAppWidgetUnitTest {
+        dashboard(populated.copy(integrity = integrity))
+        onNode(hasTextEqualTo("01")).assertExists()
+        onNode(hasTextEqualTo("Integrity")).assertExists()
+        onNode(hasTextEqualTo("8")).assertExists()
+        onNode(hasTextEqualTo("Capture & Organize")).assertExists()
+        onNode(hasTextEqualTo("RECEPTION")).assertExists()
+        // The Reception and the Reminders "+" both speak reminders
+        onAllNodes(hasContentDescriptionEqualTo("Create reminder")).assertCountEquals(2)
+        onNode(hasTextEqualTo("Reminders")).assertExists()
+        onNode(hasTextEqualTo("No content yet")).assertExists()
+        onNode(hasTextEqualTo("Topic 1")).assertExists()
+        onNode(hasTextEqualTo("(10)")).assertExists()
+        onNode(hasTextEqualTo("2.1")).assertExists()
+        onNode(hasTextEqualTo("Item")).assertExists()
+        onNode(hasTextEqualTo("Call the bank")).assertExists()
+        onAllNodes(hasTextEqualTo("🔒 Locked")).assertCountEquals(2) // the locked task and the locked item
+        onNode(hasTextEqualTo("+7 more")).assertExists()
+        onNode(hasTextEqualTo("Warnings")).assertExists()
+    }
+
+    @Test
+    fun `predator integrity card uppercases labels`() = runGlanceAppWidgetUnitTest {
+        dashboard(populated.copy(uiStyle = UiStyle.PREDATOR, integrity = integrity))
+        onNode(hasTextEqualTo("INTEGRITY")).assertExists()
+        onNode(hasTextEqualTo("RECEPTION")).assertExists()
+        onNode(hasTextEqualTo("TOPIC 1")).assertExists()
+        onNode(hasTextEqualTo("WARNINGS")).assertExists()
+    }
+
+    @Test
+    fun `no integrity card without the domain`() = runGlanceAppWidgetUnitTest {
+        dashboard(populated)
+        onNode(hasTextEqualTo("RECEPTION")).assertDoesNotExist()
+        onNode(hasTextEqualTo("Warnings")).assertDoesNotExist()
     }
 }

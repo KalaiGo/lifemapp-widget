@@ -21,6 +21,9 @@ import com.kalai73.lifemapp.widgets.core.model.Counts
 import com.kalai73.lifemapp.widgets.core.model.Domains
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.model.Event
+import com.kalai73.lifemapp.widgets.core.model.Integrity
+import com.kalai73.lifemapp.widgets.core.model.Topic
+import com.kalai73.lifemapp.widgets.core.model.TopicItem
 import com.kalai73.lifemapp.widgets.core.model.Shortcut
 import com.kalai73.lifemapp.widgets.core.model.Shortcuts
 import com.kalai73.lifemapp.widgets.core.model.Snapshot
@@ -187,6 +190,48 @@ class SnapshotAndPresenterTest {
         assertEquals(8.0, locked.averageRating!!, 0.0)
         assertTrue(locked.shortcutsLocked)
         assertTrue(locked.shortcuts.isEmpty())
+    }
+
+    @Test
+    fun `presenter builds the Integrity card, decrypting names and the rating when unlocked`() {
+        val key = java.util.Base64.getEncoder().encodeToString(ByteArray(32) { it.toByte() })
+        fun enc(text: String) = Aes.encrypt(text, key).let { """{"encrypted":"${it.encrypted}","iv":"${it.iv}","tag":"${it.tag}"}""" }
+        val integrity = Integrity(
+            domainId = "d1",
+            encryptedName = enc("INTEGRITY"),
+            infoBox = "Capture & Organize",
+            encryptedRating = enc("8"),
+            topics = listOf(
+                Topic("s1", name = "Reminders", reminders = true, count = 0),
+                Topic("s2", encryptedName = enc("Topic 1"), count = 11, items = listOf(
+                    TopicItem("i1", encryptedName = enc("Item"), warning = true),
+                    TopicItem("i2", name = "Plain"),
+                )),
+            ),
+            warnings = 3,
+        )
+        val state = CachedState(snapshot = Snapshot(settings = SnapshotSettings(encryptionEnabled = true), integrity = integrity))
+
+        val unlocked = WidgetPresenter.present(state, AuthState.SIGNED_IN, key, now, madrid).integrity!!
+        assertEquals("INTEGRITY", unlocked.name)
+        assertEquals(8, unlocked.rating)
+        assertEquals(listOf(1, 2), unlocked.topics.map { it.number })
+        assertEquals("Topic 1", unlocked.topics[1].name)
+        assertEquals(listOf("Item", "Plain"), unlocked.topics[1].items.map { it.name })
+        assertTrue(unlocked.topics[1].items[0].warning)
+        assertEquals(9, unlocked.topics[1].more)
+        assertEquals(3, unlocked.warnings)
+
+        val locked = WidgetPresenter.present(state, AuthState.SIGNED_IN, null, now, madrid).integrity!!
+        assertNull(locked.name)
+        assertNull(locked.rating)
+        assertNull(locked.topics[1].name)
+        assertEquals(listOf(null, "Plain"), locked.topics[1].items.map { it.name })
+        assertEquals("Capture & Organize", locked.infoBox)
+
+        // A failed integrity section keeps the cached card
+        val merged = SnapshotRepository.merge(Snapshot(integrity = integrity), Snapshot(failedSections = listOf("integrity")))
+        assertEquals(integrity, merged.integrity)
     }
 
     @Test

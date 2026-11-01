@@ -27,4 +27,6 @@ object PdDrawables {
     val DIVIDER = R.drawable.pd_divider
     /** Square checkbox. */
     val CHECK_SQUARE = R.drawable.pd_check_square
+    /** Score gauge segment, a parallelogram whose slant scales with its width. */
+    val SEGMENT = R.drawable.pd_segment
 }

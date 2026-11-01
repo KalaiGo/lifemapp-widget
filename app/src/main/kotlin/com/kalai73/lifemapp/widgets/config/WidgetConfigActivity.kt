@@ -43,7 +43,14 @@ import androidx.lifecycle.lifecycleScope
 import com.kalai73.lifemapp.widgets.R
 import com.kalai73.lifemapp.widgets.core.data.LifeMappGraph
 import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappAppTheme
+import com.kalai73.lifemapp.widgets.core.designsystem.LocalPdPalette
+import com.kalai73.lifemapp.widgets.core.designsystem.LocalUiStyle
+import com.kalai73.lifemapp.widgets.core.designsystem.PdButton
+import com.kalai73.lifemapp.widgets.core.designsystem.PdFilterChip
+import com.kalai73.lifemapp.widgets.core.designsystem.PdSectionHeader
+import com.kalai73.lifemapp.widgets.core.designsystem.pdLabelStyle
 import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
+import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import com.kalai73.lifemapp.widgets.widget.dashboard.DashboardWidget
 import com.kalai73.lifemapp.widgets.widget.events.EventsConfig
 import com.kalai73.lifemapp.widgets.widget.sync.SyncScheduler
@@ -72,9 +79,10 @@ class WidgetConfigActivity : ComponentActivity() {
             val snapshot = graph.cache.current().snapshot
             val calendars = snapshot?.events?.mapNotNull { it.calendarName }?.distinct()?.sorted().orEmpty()
             val scheme = ColorSchemeName.from(snapshot?.settings?.colorScheme)
+            val uiStyle = UiStyle.from(snapshot?.settings?.uiStyle)
 
             setContent {
-                LifeMappAppTheme(scheme) {
+                LifeMappAppTheme(scheme = scheme, style = uiStyle) {
                     ConfigScreen(
                         initialDays = prefs[EventsConfig.DaysAhead] ?: EventsConfig.DEFAULT_DAYS,
                         initialHidden = prefs[EventsConfig.HiddenCalendars] ?: emptySet(),
@@ -105,25 +113,46 @@ private fun ConfigScreen(
     calendars: List<String>,
     onSave: (Int, Set<String>) -> Unit,
 ) {
+    val style = LocalUiStyle.current
+    val pd = LocalPdPalette.current
     var days by remember { mutableStateOf(initialDays) }
     var hidden by remember { mutableStateOf(initialHidden) }
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(stringResource(R.string.config_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(stringResource(R.string.config_days), style = MaterialTheme.typography.titleMedium)
+            if (style == UiStyle.PREDATOR) {
+                PdSectionHeader(title = stringResource(R.string.config_title), palette = pd)
+                Text(stringResource(R.string.config_days).uppercase(), style = pdLabelStyle(color = pd.dim))
+            } else {
+                Text(stringResource(R.string.config_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.config_days), style = MaterialTheme.typography.titleMedium)
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 EventsConfig.DAY_OPTIONS.forEach { option ->
-                    FilterChip(
-                        selected = days == option,
-                        onClick = { days = option },
-                        label = { Text(androidx.compose.ui.res.pluralStringResource(R.plurals.config_days_option, option, option)) },
-                    )
+                    val label = androidx.compose.ui.res.pluralStringResource(R.plurals.config_days_option, option, option)
+                    if (style == UiStyle.PREDATOR) {
+                        PdFilterChip(
+                            selected = days == option,
+                            onClick = { days = option },
+                            label = label,
+                            palette = pd,
+                        )
+                    } else {
+                        FilterChip(
+                            selected = days == option,
+                            onClick = { days = option },
+                            label = { Text(label) },
+                        )
+                    }
                 }
             }
-            Text(stringResource(R.string.config_calendars), style = MaterialTheme.typography.titleMedium)
+            if (style == UiStyle.PREDATOR) {
+                Text(stringResource(R.string.config_calendars).uppercase(), style = pdLabelStyle(color = pd.dim))
+            } else {
+                Text(stringResource(R.string.config_calendars), style = MaterialTheme.typography.titleMedium)
+            }
             if (calendars.isEmpty()) {
                 Text(stringResource(R.string.config_no_calendars), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -137,7 +166,13 @@ private fun ConfigScreen(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Button(onClick = { onSave(days, hidden) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.save)) }
+            if (style == UiStyle.PREDATOR) {
+                PdButton(onClick = { onSave(days, hidden) }, modifier = Modifier.fillMaxWidth(), palette = pd) {
+                    Text(stringResource(R.string.save).uppercase())
+                }
+            } else {
+                Button(onClick = { onSave(days, hidden) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.save)) }
+            }
         }
     }
 }

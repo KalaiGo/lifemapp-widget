@@ -29,7 +29,9 @@ class MainActivity : ComponentActivity() {
         handleAuthCallback(intent)
         setContent {
             val cache by viewModel.cache.collectAsState()
-            LifeMappAppTheme(viewModel.colorScheme.takeIf { cache.snapshot != null } ?: com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.DEFAULT) {
+            val scheme = viewModel.colorScheme.takeIf { cache.snapshot != null } ?: com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.DEFAULT
+            val style = viewModel.uiStyle.takeIf { cache.snapshot != null } ?: com.kalai73.lifemapp.widgets.core.model.UiStyle.PREDATOR
+            LifeMappAppTheme(scheme = scheme, style = style) {
                 LifeMappAppContent(
                     viewModel = viewModel,
                     onGoogleSignIn = ::startGoogleSignIn,

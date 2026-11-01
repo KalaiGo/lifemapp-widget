@@ -6,6 +6,7 @@ import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.CachedState
 import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
+import com.kalai73.lifemapp.widgets.core.model.Integrity
 import com.kalai73.lifemapp.widgets.core.model.Shortcut
 import com.kalai73.lifemapp.widgets.core.model.SyncError
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
@@ -38,6 +39,8 @@ data class WidgetUi(
     val eventDays: List<EventDayUi>,
     val tasks: List<TaskUi>,
     val shortcuts: List<ShortcutUi>,
+    /** The Integrity domain card, null when the user has none */
+    val integrity: IntegrityUi?,
     /** Quick links are encrypted and this device is locked */
     val shortcutsLocked: Boolean,
     /** Local time of the last successful sync, null if never */
@@ -54,7 +57,7 @@ data class WidgetUi(
             colorScheme = ColorSchemeName.DEFAULT, uiStyle = UiStyle.PREDATOR, language = "en", username = null,
             todayLabel = "", today = LocalDate.now(), eventsCount = 0, tasksCount = 0, mailCount = 0,
             mailConnected = false, mailUrl = null, calendarConnected = false, averageRating = null, weather = null,
-            eventDays = emptyList(), tasks = emptyList(), shortcuts = emptyList(), shortcutsLocked = false,
+            eventDays = emptyList(), tasks = emptyList(), shortcuts = emptyList(), integrity = null, shortcutsLocked = false,
             updatedAt = null, stale = false, syncing = false, error = null, completionFailed = false,
         )
     }
@@ -94,6 +97,31 @@ data class TaskUi(
 )
 
 data class ShortcutUi(val id: String, val label: String, val url: String, val icon: String, val color: String?)
+
+/** The Integrity domain card. Names are null when encrypted and this device is locked. */
+data class IntegrityUi(
+    val name: String?,
+    val infoBox: String?,
+    /** 0–10, null when encrypted and locked */
+    val rating: Int?,
+    val topics: List<TopicUi>,
+    val warnings: Int,
+)
+
+data class TopicUi(
+    val id: String,
+    /** 1-based, as the web numbers topics */
+    val number: Int,
+    val name: String?,
+    val reminders: Boolean,
+    val count: Int,
+    val items: List<TopicItemUi>,
+) {
+    /** Items not listed (beyond the snapshot's cap) */
+    val more: Int get() = (count - items.size).coerceAtLeast(0)
+}
+
+data class TopicItemUi(val id: String, val name: String?, val warning: Boolean, val isImage: Boolean)
 
 object WidgetPresenter {
     const val STALE_AFTER_MS = 2 * 60 * 60 * 1000L
@@ -221,6 +249,7 @@ object WidgetPresenter {
             eventDays = eventDays,
             tasks = tasks,
             shortcuts = shortcuts,
+            integrity = snapshot.integrity?.let { integrity(it, key) },
             shortcutsLocked = shortcutsLocked,
             updatedAt = state.lastSuccessAt.takeIf { it > 0 }?.let { DateLabels.time(Instant.ofEpochMilli(it), deviceZone, settings?.timeFormat) },
             stale = state.lastSuccessAt > 0 && now - state.lastSuccessAt > STALE_AFTER_MS,
@@ -247,4 +276,27 @@ object WidgetPresenter {
     }
 
     private fun toUi(s: Shortcut) = ShortcutUi(s.id, s.label, s.url, s.icon, s.color)
+
+    private fun integrity(i: Integrity, key: String?): IntegrityUi {
+        fun text(plain: String?, encrypted: String?): String? =
+            if (encrypted != null) key?.let { EncryptedField.decrypt(encrypted, it) } else plain
+        val rating = if (i.encryptedRating != null) key?.let { EncryptedField.decrypt(i.encryptedRating, it) }?.toDoubleOrNull()
+        else i.rating
+        return IntegrityUi(
+            name = text(i.name, i.encryptedName),
+            infoBox = text(i.infoBox, i.encryptedInfoBox)?.takeIf { it.isNotBlank() },
+            rating = rating?.roundToInt()?.coerceIn(0, 10),
+            topics = i.topics.mapIndexed { index, t ->
+                TopicUi(
+                    id = t.id,
+                    number = index + 1,
+                    name = text(t.name, t.encryptedName),
+                    reminders = t.reminders,
+                    count = maxOf(t.count, t.items.size),
+                    items = t.items.map { item -> TopicItemUi(item.id, text(item.name, item.encryptedName), item.warning, item.isImage) },
+                )
+            },
+            warnings = i.warnings,
+        )
+    }
 }

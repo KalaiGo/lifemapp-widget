@@ -170,7 +170,7 @@ internal fun ShortcutRow(shortcut: ShortcutUi, number: Int, modifier: GlanceModi
     val tint = LifeMappColors.parseHex(shortcut.color)?.let(::color)
     val drawable = LucideIcons.resolve(shortcut.icon)
     Box(modifier = modifier.padding(horizontal = 2.dp, vertical = 2.dp)) {
-        PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge, fill = pd.row, modifier = GlanceModifier.fillMaxWidth().clickable(openExternal(shortcut.url))) { frame ->
+        PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.row, fill = pd.row, modifier = GlanceModifier.fillMaxWidth().clickable(openExternal(shortcut.url))) { frame ->
             Row(modifier = frame.fillMaxWidth().padding(start = 4.dp, end = 6.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 PdHex(16.dp, edge = pd.accent, fill = pd.panel) {
                     Text("$number", style = numberStyle(8.sp, color = pd.ink))

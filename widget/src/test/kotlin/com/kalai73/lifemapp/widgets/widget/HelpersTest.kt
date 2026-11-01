@@ -6,6 +6,7 @@ import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.R
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebLauncher
 import com.kalai73.lifemapp.widgets.widget.sync.SyncScheduler
+import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -13,6 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.Locale
 
 class HelpersTest {
     @Test
@@ -62,5 +64,13 @@ class HelpersTest {
         assertEquals("whatsapp://send?phone=1", WebLauncher.normalizeUrl("whatsapp://send?phone=1"))
         assertEquals("spotify:track:1", WebLauncher.normalizeUrl(" spotify:track:1 "))
         assertEquals("https://a.b/c", WebLauncher.normalizeUrl("https://a.b/c"))
+    }
+
+    @Test
+    fun `voice input listens in the LIFE MAPP language when it differs from the phone's`() {
+        assertNull(VoiceInputActivity.recognizerLanguage("es", Locale.forLanguageTag("es-MX")))
+        assertNull(VoiceInputActivity.recognizerLanguage(null, Locale.US))
+        assertEquals("es", VoiceInputActivity.recognizerLanguage("es", Locale.US))
+        assertEquals("de", VoiceInputActivity.recognizerLanguage("de-CH", Locale.US))
     }
 }

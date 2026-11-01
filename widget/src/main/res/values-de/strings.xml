@@ -53,4 +53,14 @@
     <string name="links">Links</string>
     <string name="manage">Verwalten</string>
     <string name="add_link">Link hinzufügen</string>
+    <!-- Integrity domain card -->
+    <string name="voice_prompt_reminder">Sag deine Erinnerungen</string>
+    <string name="integrity">Integrität</string>
+    <string name="integrity_reception">Empfang</string>
+    <string name="integrity_create_reminder">Erinnerung erstellen</string>
+    <string name="integrity_no_content">Noch kein Inhalt</string>
+    <string name="integrity_warnings">Warnungen</string>
+    <string name="integrity_more">+%d weitere</string>
+    <string name="integrity_image">Bild</string>
+    <string name="integrity_add_item">Element hinzufügen</string>
 </resources>

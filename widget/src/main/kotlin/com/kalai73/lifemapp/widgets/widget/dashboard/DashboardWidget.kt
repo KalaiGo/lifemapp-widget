@@ -61,6 +61,7 @@ import com.kalai73.lifemapp.widgets.widget.common.textStyle
 import com.kalai73.lifemapp.widgets.widget.events.DayHeader
 import com.kalai73.lifemapp.widgets.widget.events.EventRow
 import com.kalai73.lifemapp.widgets.widget.events.EventsConfig
+import com.kalai73.lifemapp.widgets.widget.integrity.integritySection
 import com.kalai73.lifemapp.widgets.widget.shortcuts.MailBody
 import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutTile
 import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutRow
@@ -78,7 +79,7 @@ import com.kalai73.lifemapp.widgets.widget.today.stackedHero
 
 /**
  * Everything in one widget: on tall sizes the hero (greeting, date, counters, weather), stacked as on the web's
- * mobile layout, then events, tasks and shortcuts, all in a single scrolling list; at 4×2 a compact hero alone. Glance can't nest scrolling lists, so the shortcut
+ * mobile layout, then events, tasks, the Integrity card and shortcuts, all in a single scrolling list; at 4×2 a compact hero alone. Glance can't nest scrolling lists, so the shortcut
  * grid is laid out as rows of tiles inside that list.
  *
  * Per-instance events settings (days ahead, hidden calendars) come from WidgetConfigActivity, see [EventsConfig].
@@ -138,6 +139,7 @@ internal fun DashboardContent(ui: WidgetUi, days: List<EventDayUi>, modifier: Gl
         stackedHero(ui, showStatus)
         eventsSection(ui, days)
         tasksSection(ui)
+        ui.integrity?.let { integritySection(it) }
         shortcutsSection(ui, columns = shortcutColumns(size.width, rows = predator))
     }
 }
@@ -321,7 +323,7 @@ private fun SectionHeader(
     if (centered) {
         // Events: calendar icon and title centered, no rule (the day dividers below carry the lines)
         Row(
-            modifier = GlanceModifier.fillMaxWidth().clickable(onClick).padding(top = 12.dp, bottom = 2.dp),
+            modifier = GlanceModifier.fillMaxWidth().clickable(onClick).padding(top = 32.dp, bottom = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically,
         ) {
