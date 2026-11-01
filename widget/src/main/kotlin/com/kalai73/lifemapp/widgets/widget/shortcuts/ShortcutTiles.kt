@@ -43,6 +43,7 @@ import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.widget.common.Icon
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
 import com.kalai73.lifemapp.widgets.widget.common.LocalPd
+import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetColors
 import com.kalai73.lifemapp.widgets.widget.common.PdHex
 import com.kalai73.lifemapp.widgets.widget.common.numberStyle
 import com.kalai73.lifemapp.widgets.widget.common.color
@@ -70,7 +71,7 @@ internal fun ShortcutsSubHeader(
 ) {
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
-    val accent = pd?.accent ?: GlanceTheme.colors.primary
+    val accent = pd?.ink ?: GlanceTheme.colors.primary
     val dim = pd?.dim ?: GlanceTheme.colors.onSurfaceVariant
     Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp)) {
         Box(GlanceModifier.fillMaxWidth().height(1.dp).background(pd?.edge ?: GlanceTheme.colors.outline)) {}
@@ -167,7 +168,7 @@ internal fun MailBody(ui: WidgetUi) {
 @Composable
 internal fun ShortcutRow(shortcut: ShortcutUi, number: Int, modifier: GlanceModifier = GlanceModifier.fillMaxWidth()) {
     val pd = LocalPd.current ?: return ShortcutTile(shortcut, modifier)
-    val tint = LifeMappColors.parseHex(shortcut.color)?.let(::color)
+    val tint = LifeMappColors.parseHex(shortcut.color)?.let(LocalWidgetColors.current::graphic)
     val drawable = LucideIcons.resolve(shortcut.icon)
     Box(modifier = modifier.padding(horizontal = 2.dp, vertical = 2.dp)) {
         PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.row, fill = pd.row, modifier = GlanceModifier.fillMaxWidth().clickable(openExternal(shortcut.url))) { frame ->
@@ -179,9 +180,9 @@ internal fun ShortcutRow(shortcut: ShortcutUi, number: Int, modifier: GlanceModi
                 PdDivider(height = 16.dp)
                 Spacer(GlanceModifier.width(3.dp))
                 when {
-                    drawable != null -> Icon(drawable, null, size = 12.dp, tint = tint ?: pd.accent)
+                    drawable != null -> Icon(drawable, null, size = 12.dp, tint = tint ?: pd.ink)
                     LucideIcons.isEmoji(shortcut.icon) -> Text(shortcut.icon!!, style = textStyle(size = 11.sp))
-                    else -> Icon(LucideIcons.LINK, null, size = 12.dp, tint = tint ?: pd.accent)
+                    else -> Icon(LucideIcons.LINK, null, size = 12.dp, tint = tint ?: pd.ink)
                 }
                 Spacer(GlanceModifier.width(5.dp))
                 // Labels are user content: no uppercase
@@ -197,19 +198,23 @@ internal fun ShortcutTile(shortcut: ShortcutUi, modifier: GlanceModifier = Glanc
     val tint = LifeMappColors.parseHex(shortcut.color)
     val drawable = LucideIcons.resolve(shortcut.icon)
     val pd = LocalPd.current
+    val colors = LocalWidgetColors.current
+    // The link color as drawn on the tile: icons at least 3:1, the fallback letter 4.5:1 over its tinted well
+    val iconTint = tint?.let(colors::graphic)
+    val letterTint = tint?.let { colors.text(it, over = if (pd != null) 0.12f else 0.16f) }
     if (pd != null) {
         // Hex icon well per link: edge in the link color, raised fill (styleguide §7)
         Column(
             modifier = modifier.padding(3.dp).clickable(openExternal(shortcut.url)),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            PdHex(38.dp, edge = tint?.let(::color) ?: pd.accent, fill = tint?.let { pd.tint(it, 0.12f) } ?: pd.raised) {
+            PdHex(38.dp, edge = iconTint ?: pd.accent, fill = tint?.let { pd.tint(it, 0.12f) } ?: pd.raised) {
                 when {
-                    drawable != null -> Icon(drawable, shortcut.label, size = 18.dp, tint = tint?.let(::color) ?: pd.ink)
+                    drawable != null -> Icon(drawable, shortcut.label, size = 18.dp, tint = iconTint ?: pd.ink)
                     LucideIcons.isEmoji(shortcut.icon) -> Text(shortcut.icon, style = textStyle(size = 17.sp))
                     else -> Text(
                         (shortcut.label.firstOrNull() ?: '?').uppercase(),
-                        style = numberStyle(16.sp, color = tint?.let(::color) ?: pd.ink),
+                        style = numberStyle(16.sp, color = letterTint ?: pd.ink),
                     )
                 }
             }
@@ -225,17 +230,17 @@ internal fun ShortcutTile(shortcut: ShortcutUi, modifier: GlanceModifier = Glanc
     ) {
         Box(
             modifier = GlanceModifier.size(40.dp)
-                .background(tint?.copy(alpha = 0.16f)?.let(::color) ?: GlanceTheme.colors.primaryContainer)
+                .background(tint?.let { colors.tint(it, 0.16f) } ?: GlanceTheme.colors.primaryContainer)
                 .cornerRadius(style.innerRadius),
             contentAlignment = Alignment.Center,
         ) {
             when {
-                drawable != null -> Icon(drawable, shortcut.label, size = 22.dp, tint = tint?.let(::color) ?: GlanceTheme.colors.primary)
+                drawable != null -> Icon(drawable, shortcut.label, size = 22.dp, tint = iconTint ?: GlanceTheme.colors.primary)
                 LucideIcons.isEmoji(shortcut.icon) -> Text(shortcut.icon, style = textStyle(size = 20.sp))
                 // Unknown icon: first letter of the label on the colored tile
                 else -> Text(
                     (shortcut.label.firstOrNull() ?: '?').uppercase(),
-                    style = textStyle(size = 18.sp, weight = FontWeight.Bold, color = tint?.let(::color) ?: GlanceTheme.colors.primary),
+                    style = textStyle(size = 18.sp, weight = FontWeight.Bold, color = letterTint ?: GlanceTheme.colors.primary),
                 )
             }
         }

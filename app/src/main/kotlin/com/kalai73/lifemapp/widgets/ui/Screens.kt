@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -59,6 +60,7 @@ import com.kalai73.lifemapp.widgets.core.designsystem.LocalUiStyle
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdButton
 import com.kalai73.lifemapp.widgets.core.designsystem.PdDestructiveButton
+import com.kalai73.lifemapp.widgets.core.designsystem.PdFilterChip
 import com.kalai73.lifemapp.widgets.core.designsystem.PdHexIconWell
 import com.kalai73.lifemapp.widgets.core.designsystem.PdOutlinedButton
 import com.kalai73.lifemapp.widgets.core.designsystem.PdSectionHeader
@@ -69,6 +71,7 @@ import com.kalai73.lifemapp.widgets.core.designsystem.pdPanel
 import com.kalai73.lifemapp.widgets.core.designsystem.pdTitleStyle
 import com.kalai73.lifemapp.widgets.core.model.CachedState
 import com.kalai73.lifemapp.widgets.core.model.SyncError
+import com.kalai73.lifemapp.widgets.core.model.ThemeMode
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.widget.dashboard.DashboardWidgetReceiver
@@ -423,6 +426,31 @@ private fun HomeScreen(state: AppUiState, cache: CachedState, viewModel: AppView
                     onClick = { manager.requestPinAppWidget(ComponentName(context, DashboardWidgetReceiver::class.java), null, null) },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(stringResource(R.string.pin_dashboard)) }
+            }
+        }
+    }
+
+    Section(stringResource(R.string.appearance_title)) {
+        Text(
+            stringResource(R.string.appearance_hint),
+            style = if (style == UiStyle.PREDATOR) pdCaptionStyle(size = 11.sp, color = pd.dim)
+            else MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (mode in ThemeMode.entries) {
+                val label = stringResource(
+                    when (mode) {
+                        ThemeMode.SYSTEM -> R.string.theme_system
+                        ThemeMode.LIGHT -> R.string.theme_light
+                        ThemeMode.DARK -> R.string.theme_dark
+                    }
+                )
+                val selected = cache.themeMode == mode
+                if (style == UiStyle.PREDATOR) {
+                    PdFilterChip(selected = selected, onClick = { viewModel.setThemeMode(mode) }, label = label, palette = pd)
+                } else {
+                    FilterChip(selected = selected, onClick = { viewModel.setThemeMode(mode) }, label = { Text(label) })
+                }
             }
         }
     }

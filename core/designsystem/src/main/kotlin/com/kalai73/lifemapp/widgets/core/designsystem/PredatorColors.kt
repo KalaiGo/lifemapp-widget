@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.glance.color.ColorProviders
 import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors.hsl
 import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
+import com.kalai73.lifemapp.widgets.core.model.ThemeMode
 
 /**
  * Predator tokens (lifeMappMob docs/predator-styleguide.md §3, values as in lifeMappMob constants/predator.ts).
@@ -44,7 +45,9 @@ data class PdPalette(
 
 object PredatorColors {
     private val OnDark = Color(0xFF1A0A02)
+    /** The web's red reads on the dark panel; on the light one it's 3.4:1, so light mode uses a deeper red. */
     private val Destructive = hsl(0f, 84.2f, 60.2f)
+    private val DestructiveLight = hsl(0f, 72f, 45f)
 
     private class Accent(val fill: Color, val ink: Color, val on: Color, val hi: Color? = null, val lo: Color? = null)
 
@@ -93,7 +96,7 @@ object PredatorColors {
             ink = a.ink,
             on = a.on,
             onInk = if (dark) OnDark else Color.White,
-            destructive = Destructive,
+            destructive = if (dark) Destructive else DestructiveLight,
             row = mix(panel, raised, 0.4f),
         )
     }
@@ -128,10 +131,12 @@ object PredatorColors {
         )
     }
 
-    fun glance(scheme: ColorSchemeName): ColorProviders = androidx.glance.material3.ColorProviders(
-        light = scheme(palette(scheme, dark = false)),
-        dark = scheme(palette(scheme, dark = true)),
-    )
+    /** Day/night providers; a forced [mode] uses the same palette for both. */
+    fun glance(scheme: ColorSchemeName, mode: ThemeMode = ThemeMode.SYSTEM): ColorProviders {
+        val light = scheme(palette(scheme, dark = mode == ThemeMode.DARK))
+        val dark = scheme(palette(scheme, dark = mode != ThemeMode.LIGHT))
+        return androidx.glance.material3.ColorProviders(light = light, dark = dark)
+    }
 
     /** sRGB mix of [b] into [a] (0 → a, 1 → b), always opaque. */
     fun mix(a: Color, b: Color, amount: Float): Color = Color(

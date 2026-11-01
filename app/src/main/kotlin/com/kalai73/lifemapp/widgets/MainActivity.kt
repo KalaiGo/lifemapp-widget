@@ -4,9 +4,12 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.lifecycleScope
@@ -31,7 +34,13 @@ class MainActivity : ComponentActivity() {
             val cache by viewModel.cache.collectAsState()
             val scheme = viewModel.colorScheme.takeIf { cache.snapshot != null } ?: com.kalai73.lifemapp.widgets.core.model.ColorSchemeName.DEFAULT
             val style = viewModel.uiStyle.takeIf { cache.snapshot != null } ?: com.kalai73.lifemapp.widgets.core.model.UiStyle.PREDATOR
-            LifeMappAppTheme(scheme = scheme, style = style) {
+            val dark = cache.themeMode.isDark(isSystemInDarkTheme())
+            // Status and navigation bar icons follow the chosen theme, not only the system one
+            LaunchedEffect(dark) {
+                val bars = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { dark }
+                enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+            }
+            LifeMappAppTheme(scheme = scheme, style = style, dark = dark) {
                 LifeMappAppContent(
                     viewModel = viewModel,
                     onGoogleSignIn = ::startGoogleSignIn,

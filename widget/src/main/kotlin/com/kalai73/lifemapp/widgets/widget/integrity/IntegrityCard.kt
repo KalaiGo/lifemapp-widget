@@ -40,6 +40,7 @@ import androidx.glance.unit.ColorProvider
 import com.kalai73.lifemapp.widgets.core.data.presentation.IntegrityUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.TopicItemUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.TopicUi
+import com.kalai73.lifemapp.widgets.core.designsystem.ColorContrast
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdDrawables
 import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
@@ -47,6 +48,7 @@ import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.widget.R
 import com.kalai73.lifemapp.widgets.widget.common.Icon
 import com.kalai73.lifemapp.widgets.widget.common.LocalPd
+import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetColors
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
 import com.kalai73.lifemapp.widgets.widget.common.PdHex
 import com.kalai73.lifemapp.widgets.widget.common.PdWrapFrame
@@ -56,7 +58,6 @@ import com.kalai73.lifemapp.widgets.widget.common.numberStyle
 import com.kalai73.lifemapp.widgets.widget.common.openRoute
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
-import androidx.glance.color.ColorProvider as DayNight
 
 private const val ID_HEADER = -30L
 private const val ID_WARNINGS = -31L
@@ -91,16 +92,31 @@ private val RampLight = longArrayOf(0xFFE5484D, 0xFFEF5B3A, 0xFFF97316, 0xFFF59E
 private val RampDark = longArrayOf(0xFFE5484D, 0xFFEF5B3A, 0xFFF97316, 0xFFF59E0B, 0xFFEAB308, 0xFFA3C93A, 0xFF4CC26B, 0xFF22B35E)
 
 /** Segment [i] (0-based): the top three share the darkest green. */
+@Composable
 private fun ramp(i: Int): ColorProvider {
     val k = minOf(i, 7)
-    return DayNight(day = Color(RampLight[k]), night = Color(RampDark[k]))
+    return LocalWidgetColors.current.of(day = Color(RampLight[k]), night = Color(RampDark[k]))
+}
+
+/** The rating number on its ramp color: white on red and green, dark on orange and yellow (white is < 2.2:1 there). */
+@Composable
+private fun onRamp(rating: Int): ColorProvider {
+    val k = (rating - 1).coerceIn(0, 7)
+    return LocalWidgetColors.current.of(
+        day = ColorContrast.onFill(Color(RampLight[k])),
+        night = ColorContrast.onFill(Color(RampDark[k])),
+    )
 }
 
 /** --pd-warn and its ink, the same amber on every scheme */
 private val Warn = Color(0xFFF59E0B)
-private val WarnInk = DayNight(day = Color(0xFFA04D05), night = Color(0xFFFBBF4D))
 private val WarnOn = ColorProvider(Color(0xFF1A1004))
-private val WarnTintClassic = DayNight(day = Color(0xFFFEF3C7), night = Color(0xFF3A2A08))
+
+@Composable
+private fun warnInk(): ColorProvider = LocalWidgetColors.current.of(day = Color(0xFFA04D05), night = Color(0xFFFBBF4D))
+
+@Composable
+private fun warnTintClassic(): ColorProvider = LocalWidgetColors.current.of(day = Color(0xFFFEF3C7), night = Color(0xFF3A2A08))
 
 // ── Rows ────────────────────────────────────────────────────────────────────
 
@@ -118,7 +134,7 @@ private fun IntegrityHeader(integrity: IntegrityUi) {
             Spacer(GlanceModifier.width(8.dp))
             Text(
                 style.label(name),
-                style = if (pd != null) labelStyle(size = 16.sp, color = pd.accent)
+                style = if (pd != null) labelStyle(size = 16.sp, color = pd.ink)
                 else textStyle(size = 15.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary),
                 maxLines = 1,
                 modifier = GlanceModifier.defaultWeight(),
@@ -137,14 +153,14 @@ private fun RatingBadge(rating: Int) {
     val fill = if (rating > 0) ramp(rating - 1) else pd?.well ?: GlanceTheme.colors.surfaceVariant
     if (pd != null) {
         PdHex(22.dp, edge = pd.edge2, fill = fill) {
-            Text("$rating", style = numberStyle(11.sp, color = ColorProvider(Color.White)), maxLines = 1)
+            Text("$rating", style = numberStyle(11.sp, color = if (rating > 0) onRamp(rating) else pd.dim), maxLines = 1)
         }
     } else {
         Box(
             modifier = GlanceModifier.size(24.dp).cornerRadius(12.dp).background(fill),
             contentAlignment = Alignment.Center,
         ) {
-            Text("$rating", style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = ColorProvider(Color.White)), maxLines = 1)
+            Text("$rating", style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = if (rating > 0) onRamp(rating) else GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
         }
     }
 }
@@ -155,15 +171,16 @@ private fun Gauge(rating: Int?) {
     val pd = LocalPd.current
     val off = pd?.well ?: GlanceTheme.colors.surfaceVariant
     val filled = (rating ?: 0).coerceIn(0, SEGMENTS)
+    // RemoteViews rows take at most 10 children, so the 3dp gaps are padding on the segments, not spacers
     Row(modifier = GlanceModifier.fillMaxWidth().height(12.dp), verticalAlignment = Alignment.CenterVertically) {
         for (i in 0 until SEGMENTS) {
-            if (i > 0) Spacer(GlanceModifier.width(3.dp))
             Image(
                 provider = ImageProvider(PdDrawables.SEGMENT),
                 contentDescription = null,
                 contentScale = ContentScale.FillBounds,
                 colorFilter = ColorFilter.tint(if (i < filled) ramp(i) else off),
-                modifier = GlanceModifier.defaultWeight().height(if (i == filled - 1) 12.dp else 7.dp),
+                modifier = GlanceModifier.defaultWeight().height(if (i == filled - 1) 12.dp else 7.dp)
+                    .padding(start = if (i > 0) 1.5.dp else 0.dp, end = if (i < SEGMENTS - 1) 1.5.dp else 0.dp),
             )
         }
     }
@@ -206,7 +223,7 @@ private fun Reception() {
         if (pd != null) {
             PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge2, fill = pd.well, modifier = GlanceModifier.fillMaxWidth().clickable(speak)) { frame ->
                 Column(modifier = frame.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    PdHex(32.dp, edge = pd.accent, fill = pd.panel) { Icon(LucideIcons.MIC, hint, size = 15.dp, tint = pd.accent) }
+                    PdHex(32.dp, edge = pd.accent, fill = pd.panel) { Icon(LucideIcons.MIC, hint, size = 15.dp, tint = pd.ink) }
                     Spacer(GlanceModifier.height(6.dp))
                     Text(style.label(label), style = labelStyle(size = 13.sp, color = pd.text), maxLines = 1)
                     Text(hint, style = captionStyle(size = 10.sp, color = pd.dim), maxLines = 1)
@@ -230,13 +247,13 @@ private fun Reception() {
     }
 }
 
-/** Numbered hex, name, item count, and "+" (by voice for Reminders, else the web card). */
+/** Numbered hex, name, item count, and "+" to edit on the web card (none for Reminders). */
 @Composable
 private fun TopicHeader(topic: TopicUi) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
-    val accent = pd?.accent ?: GlanceTheme.colors.primary
+    val accent = pd?.ink ?: GlanceTheme.colors.primary
     val dim = pd?.dim ?: GlanceTheme.colors.onSurfaceVariant
     val name = topic.name ?: context.getString(R.string.locked)
     Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -266,39 +283,55 @@ private fun TopicHeader(topic: TopicUi) {
                 Text("(${topic.count})", style = if (pd != null) captionStyle(size = 10.sp, color = dim) else textStyle(size = 11.sp, color = dim), maxLines = 1)
             }
         }
-        Box(modifier = GlanceModifier.size(28.dp).clickable(addAction(topic)), contentAlignment = Alignment.Center) {
-            Icon(
-                if (topic.reminders) LucideIcons.MIC else LucideIcons.ADD,
-                context.getString(if (topic.reminders) R.string.integrity_create_reminder else R.string.integrity_add_item),
-                size = 14.dp,
-                tint = pd?.ink ?: GlanceTheme.colors.primary,
-            )
+        // Reminders have no header button: the Reception landing zone above them speaks reminders
+        if (!topic.reminders) {
+            Box(modifier = GlanceModifier.size(28.dp).clickable(addAction(topic)), contentAlignment = Alignment.Center) {
+                Icon(LucideIcons.ADD, context.getString(R.string.integrity_add_item), size = 14.dp, tint = pd?.ink ?: GlanceTheme.colors.primary)
+            }
         }
     }
 }
 
-/** An empty topic: the web's dashed "No content yet" box. */
+/**
+ * An empty topic: a recessed, tappable row — an accent icon chip (mic for Reminders, "+" otherwise), "No content
+ * yet", and a dim hint saying what the tap does. Indented to the item rows so it reads as the topic's content.
+ */
 @Composable
 private fun NoContent(topic: TopicUi) {
     val context = LocalContext.current
     val pd = LocalPd.current
-    val text = context.getString(R.string.integrity_no_content)
-    Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp)) {
+    val title = context.getString(R.string.integrity_no_content)
+    val hint = context.getString(if (topic.reminders) R.string.integrity_create_reminder else R.string.integrity_add_item)
+    val icon = if (topic.reminders) LucideIcons.MIC else LucideIcons.ADD
+    val add = addAction(topic)
+    Column(modifier = GlanceModifier.fillMaxWidth().padding(start = 10.dp, top = 3.dp, bottom = 3.dp)) {
         if (pd != null) {
-            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge, fill = pd.panel, modifier = GlanceModifier.fillMaxWidth().clickable(addAction(topic))) { frame ->
-                Column(modifier = frame.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(LucideIcons.ADD, null, size = 12.dp, tint = pd.faint)
-                    Text(text, style = captionStyle(size = 10.sp, color = pd.dim), maxLines = 1)
+            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge, fill = pd.well, modifier = GlanceModifier.fillMaxWidth().clickable(add)) { frame ->
+                Row(modifier = frame.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PdHex(26.dp, edge = pd.accent, fill = pd.accentTint) { Icon(icon, hint, size = 12.dp, tint = pd.accent) }
+                    Spacer(GlanceModifier.width(10.dp))
+                    Column(modifier = GlanceModifier.defaultWeight()) {
+                        Text(title, style = textStyle(size = 12.sp, weight = FontWeight.Medium, color = pd.text), maxLines = 1)
+                        Text(hint, style = captionStyle(size = 10.sp, color = pd.dim), maxLines = 1)
+                    }
                 }
             }
         } else {
-            Text(
-                text,
-                style = textStyle(size = 12.sp, color = GlanceTheme.colors.onSurfaceVariant).copy(textAlign = TextAlign.Center),
-                maxLines = 1,
+            Row(
                 modifier = GlanceModifier.fillMaxWidth().background(GlanceTheme.colors.surfaceVariant)
-                    .cornerRadius(LocalWidgetStyle.current.innerRadius).clickable(addAction(topic)).padding(vertical = 8.dp),
-            )
+                    .cornerRadius(LocalWidgetStyle.current.innerRadius).clickable(add).padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = GlanceModifier.size(28.dp).cornerRadius(14.dp).background(GlanceTheme.colors.secondaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(icon, hint, size = 14.dp, tint = GlanceTheme.colors.primary) }
+                Spacer(GlanceModifier.width(10.dp))
+                Column(modifier = GlanceModifier.defaultWeight()) {
+                    Text(title, style = textStyle(size = 13.sp, weight = FontWeight.Medium, color = GlanceTheme.colors.onSurface), maxLines = 1)
+                    Text(hint, style = textStyle(size = 11.sp, color = GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
+                }
+            }
         }
     }
 }
@@ -321,7 +354,7 @@ private fun ItemRow(topic: TopicUi, item: TopicItemUi, number: Int) {
         Text("${topic.number}.$number", style = if (pd != null) captionStyle(size = 10.sp, color = dim) else textStyle(size = 10.sp, color = dim), maxLines = 1)
         Spacer(GlanceModifier.width(5.dp))
         if (item.warning) {
-            Icon(LucideIcons.WARNING, context.getString(R.string.integrity_warnings), size = 12.dp, tint = WarnInk)
+            Icon(LucideIcons.WARNING, context.getString(R.string.integrity_warnings), size = 12.dp, tint = warnInk())
             Spacer(GlanceModifier.width(4.dp))
         }
         Text(
@@ -357,12 +390,12 @@ private fun WarningsBar(count: Int) {
     Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp)) {
         if (pd != null) {
             PdWrapFrame(PdShape.CHAMFER_SM, edge = ColorProvider(Warn), fill = pd.tint(Warn, 0.14f), modifier = GlanceModifier.fillMaxWidth().clickable(open)) { frame ->
-                WarningsContent(frame, style.label(label), count, labelStyle(size = 14.sp, color = WarnInk), badgeSize = 22.dp)
+                WarningsContent(frame, style.label(label), count, labelStyle(size = 14.sp, color = warnInk()), badgeSize = 22.dp)
             }
         } else {
             WarningsContent(
-                GlanceModifier.background(WarnTintClassic).cornerRadius(style.innerRadius).clickable(open),
-                label, count, textStyle(size = 13.sp, weight = FontWeight.Bold, color = WarnInk), badgeSize = 22.dp,
+                GlanceModifier.background(warnTintClassic()).cornerRadius(style.innerRadius).clickable(open),
+                label, count, textStyle(size = 13.sp, weight = FontWeight.Bold, color = warnInk()), badgeSize = 22.dp,
             )
         }
     }
@@ -372,7 +405,7 @@ private fun WarningsBar(count: Int) {
 private fun WarningsContent(modifier: GlanceModifier, label: String, count: Int, labelStyle: androidx.glance.text.TextStyle, badgeSize: Dp) {
     Row(modifier = modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
         Spacer(GlanceModifier.defaultWeight())
-        Icon(LucideIcons.WARNING, null, size = 13.dp, tint = WarnInk)
+        Icon(LucideIcons.WARNING, null, size = 13.dp, tint = warnInk())
         Spacer(GlanceModifier.width(6.dp))
         Text(label, style = labelStyle, maxLines = 1)
         Spacer(GlanceModifier.defaultWeight())

@@ -11,6 +11,7 @@ import com.kalai73.lifemapp.widgets.core.data.repository.UnlockResult
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.CachedState
 import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
+import com.kalai73.lifemapp.widgets.core.model.ThemeMode
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebLauncher
 import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
@@ -158,4 +159,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearError() = _state.update { it.copy(error = null) }
+
+    /** Light / dark / system for the app and every widget on this device. */
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            graph.cache.update { it.copy(themeMode = mode) }
+            LifeMappWidgets.updateAll(getApplication())
+        }
+    }
 }

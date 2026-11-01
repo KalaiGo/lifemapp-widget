@@ -6,6 +6,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.glance.color.ColorProviders
 import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
+import com.kalai73.lifemapp.widgets.core.model.ThemeMode
 import kotlin.math.abs
 
 /**
@@ -54,6 +55,8 @@ object LifeMappColors {
     }
 
     private val Destructive = hsl(0f, 84.2f, 60.2f)
+    /** ≥ 4.5:1 on the light background, for overdue dates and error text */
+    private val DestructiveLight = hsl(0f, 72f, 45f)
 
     fun lightScheme(scheme: ColorSchemeName): ColorScheme {
         val a = light(scheme)
@@ -71,7 +74,7 @@ object LifeMappColors {
             surfaceVariant = hsl(0f, 0f, 96.1f),
             onSurfaceVariant = hsl(0f, 0f, 45.1f),
             outline = hsl(0f, 0f, 89.8f),
-            error = Destructive,
+            error = DestructiveLight,
             onError = Color.White,
         )
     }
@@ -97,9 +100,12 @@ object LifeMappColors {
         )
     }
 
-    /** Glance color providers that follow the system light/dark mode. */
-    fun glance(scheme: ColorSchemeName): ColorProviders =
-        androidx.glance.material3.ColorProviders(light = lightScheme(scheme), dark = darkScheme(scheme))
+    /** Glance color providers that follow the system light/dark mode, or a forced [mode]. */
+    fun glance(scheme: ColorSchemeName, mode: ThemeMode = ThemeMode.SYSTEM): ColorProviders =
+        androidx.glance.material3.ColorProviders(
+            light = if (mode == ThemeMode.DARK) darkScheme(scheme) else lightScheme(scheme),
+            dark = if (mode == ThemeMode.LIGHT) lightScheme(scheme) else darkScheme(scheme),
+        )
 
     /** Parses "#rrggbb" / "#rgb" from the web (calendar, list and quick-link colors); null if invalid. */
     fun parseHex(value: String?): Color? {
@@ -113,11 +119,11 @@ object LifeMappColors {
         return if (full.length == 6) Color(0xFF000000 or argb) else Color(((argb and 0xFF) shl 24) or (argb ushr 8))
     }
 
-    /** Priority colors of the task widget (Todoist-style 4 = P1). */
-    fun priority(priority: Int): Color? = when (priority) {
-        4 -> Color(0xFFDC2626)
-        3 -> Color(0xFFEA580C)
-        2 -> Color(0xFF2563EB)
+    /** Priority colors of the task widget (Todoist-style 4 = P1); dark mode uses the lighter 400 shades. */
+    fun priority(priority: Int, dark: Boolean = false): Color? = when (priority) {
+        4 -> if (dark) Color(0xFFF87171) else Color(0xFFDC2626)
+        3 -> if (dark) Color(0xFFFB923C) else Color(0xFFEA580C)
+        2 -> if (dark) Color(0xFF60A5FA) else Color(0xFF2563EB)
         else -> null
     }
 }

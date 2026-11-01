@@ -29,6 +29,10 @@ sdk.dir=C\:/Users/<you>/AppData/Local/Android/Sdk
 lifemapp.supabaseUrl=https://<project>.supabase.co
 lifemapp.supabaseAnonKey=<anon key, as in the web app's NEXT_PUBLIC_SUPABASE_ANON_KEY>
 lifemapp.webUrl=https://life-mapp.click
+lifemapp.keystoreFile=../lifeMappMob/android/app/debug.keystore
+lifemapp.keystorePassword=android
+lifemapp.keyAlias=androiddebugkey
+lifemapp.keyPassword=android
 ```
 
 CI reads the same values from the `LIFEMAPP_SUPABASE_URL`, `LIFEMAPP_SUPABASE_ANON_KEY` and `LIFEMAPP_WEB_URL`

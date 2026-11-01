@@ -1,8 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+val localProps = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+fun config(key: String, env: String, default: String = ""): String =
+    localProps.getProperty(key) ?: providers.gradleProperty(key).orNull ?: System.getenv(env) ?: default
 
 android {
     namespace = "com.kalai73.lifemapp.widgets"
@@ -17,11 +26,32 @@ android {
         manifestPlaceholders["authRedirectScheme"] = "lifemappwidgets"
     }
 
+    signingConfigs {
+        create("release") {
+            val keystorePath = config(
+                "lifemapp.keystoreFile",
+                "LIFEMAPP_KEYSTORE_FILE",
+                "../lifeMappMob/android/app/debug.keystore"
+            )
+            val keystoreFile = file(keystorePath).let { if (it.isAbsolute) it else rootProject.file(keystorePath) }
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = config("lifemapp.keystorePassword", "LIFEMAPP_KEYSTORE_PASSWORD", "android")
+                keyAlias = config("lifemapp.keyAlias", "LIFEMAPP_KEY_ALIAS", "androiddebugkey")
+                keyPassword = config("lifemapp.keyPassword", "LIFEMAPP_KEY_PASSWORD", "android")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null) {
+                signingConfig = releaseSigning
+            }
         }
     }
     buildFeatures { compose = true }

@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -80,9 +81,10 @@ class WidgetConfigActivity : ComponentActivity() {
             val calendars = snapshot?.events?.mapNotNull { it.calendarName }?.distinct()?.sorted().orEmpty()
             val scheme = ColorSchemeName.from(snapshot?.settings?.colorScheme)
             val uiStyle = UiStyle.from(snapshot?.settings?.uiStyle)
+            val themeMode = graph.cache.current().themeMode
 
             setContent {
-                LifeMappAppTheme(scheme = scheme, style = uiStyle) {
+                LifeMappAppTheme(scheme = scheme, style = uiStyle, dark = themeMode.isDark(isSystemInDarkTheme())) {
                     ConfigScreen(
                         initialDays = prefs[EventsConfig.DaysAhead] ?: EventsConfig.DEFAULT_DAYS,
                         initialHidden = prefs[EventsConfig.HiddenCalendars] ?: emptySet(),

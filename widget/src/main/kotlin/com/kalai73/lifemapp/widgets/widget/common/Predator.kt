@@ -25,13 +25,12 @@ import com.kalai73.lifemapp.widgets.core.designsystem.PdPalette
 import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
 import com.kalai73.lifemapp.widgets.core.designsystem.PredatorColors
 import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
-import androidx.glance.color.ColorProvider as DayNight
 
-/** Predator tokens as day/night color providers, so the widget follows the system mode like GlanceTheme. */
-class PdColors(scheme: ColorSchemeName) {
+/** Predator tokens as day/night color providers, following the device theme choice (see [WidgetColors]). */
+class PdColors(scheme: ColorSchemeName, private val colors: WidgetColors) {
     private val light = PredatorColors.palette(scheme, dark = false)
     private val dark = PredatorColors.palette(scheme, dark = true)
-    private fun of(pick: (PdPalette) -> Color): ColorProvider = DayNight(day = pick(light), night = pick(dark))
+    private fun of(pick: (PdPalette) -> Color): ColorProvider = colors.of(day = pick(light), night = pick(dark))
 
     val panel = of { it.panel }
     val raised = of { it.raised }
@@ -51,7 +50,7 @@ class PdColors(scheme: ColorSchemeName) {
 
     /** A user color (list, calendar, quick link) at [amount] over the panel, opaque. */
     fun tint(color: Color, amount: Float): ColorProvider =
-        DayNight(day = PredatorColors.mix(light.panel, color, amount), night = PredatorColors.mix(dark.panel, color, amount))
+        colors.of(day = PredatorColors.mix(light.panel, color, amount), night = PredatorColors.mix(dark.panel, color, amount))
 }
 
 /** Set by LifeMappWidgetTheme for the Predator style, null for Classic. */

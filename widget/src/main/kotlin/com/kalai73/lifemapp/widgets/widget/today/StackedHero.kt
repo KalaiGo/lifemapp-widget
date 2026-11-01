@@ -92,7 +92,7 @@ private fun HeroCard(gap: androidx.compose.ui.unit.Dp, modifier: GlanceModifier 
     }
 }
 
-/** "HELLO," over the name, in a frame as wide as its text, centered; the mic button in the top right corner. */
+/** "HELLO," (left-aligned) over the name, in a frame as wide as its text, centered;the mic button in the top right corner. */
 @Composable
 private fun GreetingBlock(ui: WidgetUi) {
     val context = LocalContext.current
@@ -100,7 +100,7 @@ private fun GreetingBlock(ui: WidgetUi) {
     val pd = LocalPd.current
     val name = ui.username ?: context.getString(R.string.welcome)
     val body: @Composable (GlanceModifier) -> Unit = { modifier ->
-        Column(modifier = modifier.padding(horizontal = 18.dp, vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(modifier = modifier.padding(horizontal = 18.dp, vertical = 5.dp), horizontalAlignment = Alignment.Start) {
             Caption(context.getString(R.string.hello))
             // Display face as on the web hero: condensed bold italic (Predator), bold (Classic)
             Text(

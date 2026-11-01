@@ -42,6 +42,12 @@
     <string name="encryption_locked">Gesperrt. Widgets zeigen Zähler und 🔒 statt Titeln.</string>
     <string name="lock">Auf diesem Gerät sperren</string>
 
+    <string name="appearance_title">Darstellung</string>
+    <string name="appearance_hint">Helles oder dunkles Design für diese App und ihre Widgets.</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
+
     <string name="battery_title">Hintergrundaktualisierung</string>
     <string name="battery_body">Android kann Aktualisierungen von selten geöffneten Apps verzögern. Uneingeschränkte Akkunutzung hält die Widgets aktuell (alle 30 Minuten).</string>
     <string name="battery_unrestricted">Die Hintergrundaktualisierung ist uneingeschränkt.</string>

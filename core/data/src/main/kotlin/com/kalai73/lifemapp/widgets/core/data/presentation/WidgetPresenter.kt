@@ -9,6 +9,7 @@ import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.model.Integrity
 import com.kalai73.lifemapp.widgets.core.model.Shortcut
 import com.kalai73.lifemapp.widgets.core.model.SyncError
+import com.kalai73.lifemapp.widgets.core.model.ThemeMode
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import kotlinx.serialization.builtins.ListSerializer
 import java.time.Instant
@@ -23,6 +24,8 @@ data class WidgetUi(
     val hasData: Boolean,
     val colorScheme: ColorSchemeName,
     val uiStyle: UiStyle,
+    /** Light / dark choice of this device */
+    val themeMode: ThemeMode,
     val language: String,
     val username: String?,
     /** "Sa. 31/10/2026" */
@@ -54,7 +57,7 @@ data class WidgetUi(
     companion object {
         val SignedOut = WidgetUi(
             authState = AuthState.SIGNED_OUT, encryption = EncryptionState.DISABLED, hasData = false,
-            colorScheme = ColorSchemeName.DEFAULT, uiStyle = UiStyle.PREDATOR, language = "en", username = null,
+            colorScheme = ColorSchemeName.DEFAULT, uiStyle = UiStyle.PREDATOR, themeMode = ThemeMode.SYSTEM, language = "en", username = null,
             todayLabel = "", today = LocalDate.now(), eventsCount = 0, tasksCount = 0, mailCount = 0,
             mailConnected = false, mailUrl = null, calendarConnected = false, averageRating = null, weather = null,
             eventDays = emptyList(), tasks = emptyList(), shortcuts = emptyList(), integrity = null, shortcutsLocked = false,
@@ -134,7 +137,7 @@ object WidgetPresenter {
         deviceZone: ZoneId = ZoneId.systemDefault(),
     ): WidgetUi {
         val snapshot = state.snapshot
-        if (authState == AuthState.SIGNED_OUT) return WidgetUi.SignedOut
+        if (authState == AuthState.SIGNED_OUT) return WidgetUi.SignedOut.copy(themeMode = state.themeMode)
         val settings = snapshot?.settings
         val zone = runCatching { ZoneId.of(settings?.timezone ?: deviceZone.id) }.getOrDefault(deviceZone)
         val language = DateLabels.baseLanguage(settings?.language)
@@ -150,6 +153,7 @@ object WidgetPresenter {
         if (snapshot == null) {
             return WidgetUi.SignedOut.copy(
                 authState = authState,
+                themeMode = state.themeMode,
                 today = today,
                 todayLabel = DateLabels.dayAndDate(today, null, language),
                 syncing = state.isSyncing(now),
@@ -228,6 +232,7 @@ object WidgetPresenter {
             hasData = true,
             colorScheme = ColorSchemeName.from(settings?.colorScheme),
             uiStyle = UiStyle.from(settings?.uiStyle),
+            themeMode = state.themeMode,
             language = language,
             username = settings?.username,
             todayLabel = DateLabels.dayAndDate(today, settings?.dateFormat, language),

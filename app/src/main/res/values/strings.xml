@@ -43,6 +43,12 @@
     <string name="encryption_locked">Locked. Widgets show counts and 🔒 instead of titles.</string>
     <string name="lock">Lock on this device</string>
 
+    <string name="appearance_title">Appearance</string>
+    <string name="appearance_hint">Light or dark theme for this app and its widgets.</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+
     <string name="battery_title">Background refresh</string>
     <string name="battery_body">Android may delay updates for apps you rarely open. Allowing unrestricted battery use keeps widgets fresh (every 30 minutes).</string>
     <string name="battery_unrestricted">Background refresh is unrestricted.</string>

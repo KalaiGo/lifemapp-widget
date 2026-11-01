@@ -61,10 +61,11 @@ val LocalWidgetStyle = staticCompositionLocalOf { WidgetStyle.of(UiStyle.CLASSIC
 @Composable
 fun LifeMappWidgetTheme(ui: WidgetUi, content: @Composable (GlanceModifier) -> Unit) {
     val style = WidgetStyle.of(ui.uiStyle)
+    val colors = WidgetColors.of(ui.uiStyle, ui.colorScheme, ui.themeMode)
     if (style.isPredator) {
-        val pd = PdColors(ui.colorScheme)
-        GlanceTheme(colors = PredatorColors.glance(ui.colorScheme)) {
-            CompositionLocalProvider(LocalWidgetStyle provides style, LocalPd provides pd) {
+        val pd = PdColors(ui.colorScheme, colors)
+        GlanceTheme(colors = PredatorColors.glance(ui.colorScheme, ui.themeMode)) {
+            CompositionLocalProvider(LocalWidgetStyle provides style, LocalPd provides pd, LocalWidgetColors provides colors) {
                 // The panel: chamfered, 1dp edge, accent on the cut corners (styleguide §5.2, §5.3).
                 // Inset so the launcher's rounded-corner clip (Android 12+) doesn't swallow the cuts.
                 // The layers and the content share one Box (padding on the Box insets every layer, the content
@@ -77,8 +78,8 @@ fun LifeMappWidgetTheme(ui: WidgetUi, content: @Composable (GlanceModifier) -> U
         }
         return
     }
-    GlanceTheme(colors = LifeMappColors.glance(ui.colorScheme)) {
-        CompositionLocalProvider(LocalWidgetStyle provides style) {
+    GlanceTheme(colors = LifeMappColors.glance(ui.colorScheme, ui.themeMode)) {
+        CompositionLocalProvider(LocalWidgetStyle provides style, LocalWidgetColors provides colors) {
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()

@@ -26,6 +26,7 @@ import com.kalai73.lifemapp.widgets.core.data.presentation.EventUi
 import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors
 import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
 import com.kalai73.lifemapp.widgets.widget.common.LocalPd
+import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetColors
 import com.kalai73.lifemapp.widgets.widget.common.PdBar
 import com.kalai73.lifemapp.widgets.widget.common.PdFrame
 import com.kalai73.lifemapp.widgets.widget.common.captionStyle
@@ -110,11 +111,14 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
     val dimmed = upcoming || event.secondary
     val time = listOfNotNull(event.timeLabel ?: context.getString(R.string.all_day), day.label.ifEmpty { null }).joinToString(" · ")
     val calendar = event.calendarName?.takeIf { it.isNotBlank() }
+    val colors = LocalWidgetColors.current
 
     if (pd != null) {
         val titleColor = if (upcoming) pd.faint else if (event.secondary) pd.dim else pd.text
         val captionColor = if (upcoming) pd.faint else pd.dim
-        val tagColor = if (dimmed) pd.tint(color, 0.45f) else ColorProvider(color)
+        // Faded rows keep a faded color; current ones get the calendar color adjusted to read on the row
+        val barColor = if (dimmed) pd.tint(color, 0.45f) else colors.graphic(color)
+        val tagColor = if (dimmed) pd.tint(color, 0.45f) else colors.text(color, over = 0.14f)
         Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             PdHex(18.dp, edge = if (upcoming) pd.edge2 else pd.accent, fill = pd.panel) {
                 Text("$number", style = numberStyle(9.sp, color = if (upcoming) pd.faint else pd.ink))
@@ -122,7 +126,7 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
             Spacer(GlanceModifier.width(5.dp))
             PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.row, fill = pd.row, modifier = GlanceModifier.defaultWeight().clickable(action)) { frame ->
                 Row(modifier = frame.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    PdBar(tagColor, height = 26.dp)
+                    PdBar(barColor, height = 26.dp)
                     Spacer(GlanceModifier.width(6.dp))
                     Column(modifier = GlanceModifier.defaultWeight()) {
                         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -180,9 +184,9 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
                     Spacer(GlanceModifier.width(4.dp))
                     Text(
                         calendar,
-                        style = textStyle(size = 9.sp, weight = FontWeight.Bold, color = ColorProvider(if (dimmed) color.copy(alpha = 0.5f) else color)),
+                        style = textStyle(size = 9.sp, weight = FontWeight.Bold, color = if (dimmed) ColorProvider(color.copy(alpha = 0.5f)) else colors.text(color, over = 0.14f)),
                         maxLines = 1,
-                        modifier = GlanceModifier.background(color.copy(alpha = 0.14f)).cornerRadius(6.dp).padding(horizontal = 5.dp, vertical = 1.dp),
+                        modifier = GlanceModifier.background(colors.tint(color, 0.14f)).cornerRadius(6.dp).padding(horizontal = 5.dp, vertical = 1.dp),
                     )
                 }
             }

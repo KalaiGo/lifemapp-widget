@@ -79,7 +79,7 @@ import com.kalai73.lifemapp.widgets.widget.today.stackedHero
 
 /**
  * Everything in one widget: on tall sizes the hero (greeting, date, counters, weather), stacked as on the web's
- * mobile layout, then events, tasks, the Integrity card and shortcuts, all in a single scrolling list; at 4×2 a compact hero alone. Glance can't nest scrolling lists, so the shortcut
+ * mobile layout, then the Integrity card, events, tasks and shortcuts, all in a single scrolling list; at 4×2 a compact hero alone. Glance can't nest scrolling lists, so the shortcut
  * grid is laid out as rows of tiles inside that list.
  *
  * Per-instance events settings (days ahead, hidden calendars) come from WidgetConfigActivity, see [EventsConfig].
@@ -137,9 +137,9 @@ internal fun DashboardContent(ui: WidgetUi, days: List<EventDayUi>, modifier: Gl
     // view trees, so their frames don't count against the root's 10 nesting levels.
     LazyColumn(modifier = modifier.fillMaxSize()) {
         stackedHero(ui, showStatus)
+        ui.integrity?.let { integritySection(it) }
         eventsSection(ui, days)
         tasksSection(ui)
-        ui.integrity?.let { integritySection(it) }
         shortcutsSection(ui, columns = shortcutColumns(size.width, rows = predator))
     }
 }
@@ -327,11 +327,11 @@ private fun SectionHeader(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, null, size = 14.dp, tint = pd?.accent ?: GlanceTheme.colors.primary)
+            Icon(icon, null, size = 14.dp, tint = pd?.ink ?: GlanceTheme.colors.primary)
             Spacer(GlanceModifier.width(6.dp))
             Text(
                 style.label(title),
-                style = if (pd != null) labelStyle(size = 15.sp, color = pd.accent)
+                style = if (pd != null) labelStyle(size = 15.sp, color = pd.ink)
                 else textStyle(size = 14.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary),
                 maxLines = 1,
             )

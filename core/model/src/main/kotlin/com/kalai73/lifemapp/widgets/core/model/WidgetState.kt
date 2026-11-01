@@ -19,6 +19,8 @@ data class CachedState(
     val pendingCompletions: Map<String, Long> = emptyMap(),
     /** A task completion failed after retries; the widget shows a notice once */
     val completionFailed: Boolean = false,
+    /** Light / dark choice of this device for the app and the widgets (not synced with the web) */
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
 ) {
     /** Whether a sync is really running: a killed or cancelled worker can't leave the spinner on for good. */
     fun isSyncing(now: Long): Boolean = syncing && now - syncStartedAt < SYNC_TIMEOUT_MS
@@ -59,5 +61,21 @@ enum class UiStyle(val id: String) {
     companion object {
         /** Null or unknown values are Predator, the web default (styleguide §2). */
         fun from(id: String?): UiStyle = if (id == CLASSIC.id) CLASSIC else PREDATOR
+    }
+}
+
+/** Light or dark appearance of the app and the widgets, chosen on this device. */
+@Serializable
+enum class ThemeMode {
+    /** Follow the system dark theme setting */
+    SYSTEM,
+    LIGHT,
+    DARK;
+
+    /** Whether to draw dark, given the system setting. */
+    fun isDark(systemDark: Boolean): Boolean = when (this) {
+        SYSTEM -> systemDark
+        LIGHT -> false
+        DARK -> true
     }
 }

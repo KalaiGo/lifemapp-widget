@@ -38,6 +38,7 @@ import com.kalai73.lifemapp.widgets.widget.R
 import com.kalai73.lifemapp.widgets.widget.common.CompleteTaskAction
 import com.kalai73.lifemapp.widgets.widget.common.Icon
 import com.kalai73.lifemapp.widgets.widget.common.LocalPd
+import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetColors
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
 import com.kalai73.lifemapp.widgets.widget.common.PdBar
 import com.kalai73.lifemapp.widgets.widget.common.PdHex
@@ -71,9 +72,9 @@ private fun ActionButton(icon: Int, label: String, onClick: Action, modifier: Gl
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(icon, null, size = 12.dp, tint = pd.accent)
+                Icon(icon, null, size = 12.dp, tint = pd.ink)
                 Spacer(GlanceModifier.width(5.dp))
-                Text(style.label(label), style = labelStyle(size = 11.sp, color = pd.accent), maxLines = 1)
+                Text(style.label(label), style = labelStyle(size = 11.sp, color = pd.ink), maxLines = 1)
             }
         }
     } else {
@@ -99,8 +100,9 @@ internal fun TaskRow(task: TaskUi, number: Int) {
     val context = LocalContext.current
     val pd = LocalPd.current
     val openTasks = openRoute(context, WebRoutes.TASKS)
-    val priority = LifeMappColors.priority(task.priority)
-    val listColor = LifeMappColors.parseHex(task.listColor)
+    val colors = LocalWidgetColors.current
+    val priority = colors.priority(task.priority)
+    val listColor = LifeMappColors.parseHex(task.listColor)?.let(colors::graphic)
 
     if (pd != null) {
         Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -110,8 +112,8 @@ internal fun TaskRow(task: TaskUi, number: Int) {
             Spacer(GlanceModifier.width(5.dp))
             PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.row, fill = pd.row, modifier = GlanceModifier.defaultWeight()) { frame ->
                 Row(modifier = frame.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                    PdBar(listColor?.let(::color) ?: pd.edge2, height = 26.dp)
-                    Checkbox(task, PdDrawables.CHECK_SQUARE, size = 18.dp, tint = priority?.let(::color) ?: pd.dim)
+                    PdBar(listColor ?: pd.edge2, height = 26.dp)
+                    Checkbox(task, PdDrawables.CHECK_SQUARE, size = 18.dp, tint = priority ?: pd.dim)
                     Column(modifier = GlanceModifier.defaultWeight().clickable(openTasks)) {
                         Text(
                             task.title ?: context.getString(R.string.locked),
@@ -134,7 +136,7 @@ internal fun TaskRow(task: TaskUi, number: Int) {
             style = textStyle(size = 11.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary).copy(textAlign = TextAlign.Center),
             modifier = GlanceModifier.width(16.dp),
         )
-        Checkbox(task, LucideIcons.CHECK_OFF, size = 20.dp, tint = priority?.let(::color) ?: listColor?.let(::color) ?: faded)
+        Checkbox(task, LucideIcons.CHECK_OFF, size = 20.dp, tint = priority ?: listColor ?: faded)
         Column(modifier = GlanceModifier.defaultWeight().clickable(openTasks)) {
             Text(
                 task.title ?: context.getString(R.string.locked),
