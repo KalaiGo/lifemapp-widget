@@ -121,6 +121,8 @@ fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOp
                         onOpenSettings = { scope.launch { drawerState.open() } },
                         onReload = viewModel::reload,
                         onCompleteTask = viewModel::completeTask,
+                        onRenameItem = viewModel::renameItem,
+                        onDeleteItem = viewModel::deleteItem,
                         onUnlock = viewModel::showUnlock,
                         onOpenWeb = onOpenWeb,
                     )

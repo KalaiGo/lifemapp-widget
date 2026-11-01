@@ -121,4 +121,9 @@
     <string name="today_open_in_web">In LIFE MAPP öffnen</string>
     <string name="today_no_data">Warte auf die erste Synchronisierung…</string>
     <string name="today_failed_completion">Eine Aufgabe konnte nicht erledigt werden. Sie ist wieder in deiner Liste.</string>
+    <string name="item_edit_title">Eintrag bearbeiten</string>
+    <string name="item_save">Speichern</string>
+    <string name="item_delete">Löschen</string>
+    <string name="item_cancel">Abbrechen</string>
+    <string name="error_item_locked">Zum Bearbeiten verschlüsselter Einträge entsperren.</string>
 </resources>

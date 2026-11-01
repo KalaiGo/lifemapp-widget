@@ -62,28 +62,41 @@ import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
 
 private const val ID_HEADER = -30L
 private const val ID_WARNINGS = -31L
+private const val ID_MARGIN = -32L
 /** Topic rows: base + topic index × 2²⁰ + slot (0 Reception, 1 header, 2 empty, 3 "more", 16+ items), clear of
  *  the day (~10⁹), shortcut (~2·10⁹), event (~2·10¹⁰) and task (~2⁴⁰) ranges */
 private const val ID_TOPIC_BASE = 3L shl 40
 
 private const val SEGMENTS = 10
 
-/** The card's rows, for the Dashboard's list. */
+/** The card's rows, for the Dashboard's list. Each row sits on the card surface, so together they read as the web's domain card. */
 internal fun LazyListScope.integritySection(integrity: IntegrityUi) {
-    item(itemId = ID_HEADER) { IntegrityHeader(integrity) }
+    item(itemId = ID_MARGIN) { Spacer(GlanceModifier.height(18.dp)) }
+    item(itemId = ID_HEADER) { CardRow { IntegrityHeader(integrity) } }
     integrity.topics.forEachIndexed { index, topic ->
         val base = ID_TOPIC_BASE + (index.toLong() shl 20)
         // The Reception sits right above the Reminders topic, as on the web
-        if (topic.reminders) item(itemId = base) { Reception() }
-        item(itemId = base + 1) { TopicHeader(topic) }
+        if (topic.reminders) item(itemId = base) { CardRow { Reception() } }
+        item(itemId = base + 1) { CardRow { TopicHeader(topic) } }
         if (topic.items.isEmpty()) {
-            item(itemId = base + 2) { NoContent(topic) }
+            item(itemId = base + 2) { CardRow { NoContent(topic) } }
         } else {
-            itemsIndexed(topic.items, itemId = { i, _ -> base + 16 + i }) { i, item -> ItemRow(topic, item, i + 1) }
+            itemsIndexed(topic.items, itemId = { i, _ -> base + 16 + i }) { i, item -> CardRow { ItemRow(topic, item, i + 1) } }
         }
-        if (topic.more > 0) item(itemId = base + 3) { MoreLine(topic.more) }
+        if (topic.more > 0) item(itemId = base + 3) { CardRow { MoreLine(topic.more) } }
     }
-    item(itemId = ID_WARNINGS) { WarningsBar(integrity.warnings) }
+    item(itemId = ID_WARNINGS) { CardRow { WarningsBar(integrity.warnings) } }
+}
+
+/** One row of the web's domain card: the card surface, inset from the widget edge, with padding inside. */
+@Composable
+private fun CardRow(content: @Composable () -> Unit) {
+    val pd = LocalPd.current
+    Box(modifier = GlanceModifier.fillMaxWidth()) {
+        Box(modifier = GlanceModifier.fillMaxWidth().background(pd?.raised ?: GlanceTheme.colors.surface).padding(horizontal = 12.dp)) {
+            content()
+        }
+    }
 }
 
 // ── Colors ──────────────────────────────────────────────────────────────────
@@ -228,7 +241,7 @@ private fun Reception() {
     Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 10.dp)) {
         if (pd != null) {
             PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge2, fill = pd.well, modifier = GlanceModifier.fillMaxWidth()) { frame ->
-                Row(modifier = frame.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = frame.fillMaxWidth().padding(horizontal = 12.dp, vertical = 26.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
                         Box(modifier = GlanceModifier.clickable(speak)) {
                             PdHex(32.dp, edge = pd.accent, fill = pd.panel) { Icon(LucideIcons.MIC, recordLabel, size = 15.dp, tint = pd.ink) }
@@ -248,7 +261,7 @@ private fun Reception() {
         } else {
             Row(
                 modifier = GlanceModifier.fillMaxWidth().background(GlanceTheme.colors.surfaceVariant)
-                    .cornerRadius(style.innerRadius).padding(horizontal = 12.dp, vertical = 12.dp),
+                    .cornerRadius(style.innerRadius).padding(horizontal = 12.dp, vertical = 27.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {

@@ -11,7 +11,11 @@ import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
+import androidx.glance.action.Action
 import androidx.glance.action.clickable
+import androidx.glance.appwidget.CircularProgressIndicator
+import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyListScope
 import androidx.glance.background
@@ -22,6 +26,7 @@ import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
+import androidx.glance.layout.size
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
@@ -31,21 +36,21 @@ import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
 import com.kalai73.lifemapp.widgets.core.designsystem.WidgetStyle
-import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.widget.R
 import com.kalai73.lifemapp.widgets.widget.common.Icon
 import com.kalai73.lifemapp.widgets.widget.common.LocalPd
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
 import com.kalai73.lifemapp.widgets.widget.common.PdHex
 import com.kalai73.lifemapp.widgets.widget.common.PdWrapFrame
+import com.kalai73.lifemapp.widgets.widget.common.ReloadAction
+import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
 import com.kalai73.lifemapp.widgets.widget.common.ReloadButton
 import com.kalai73.lifemapp.widgets.widget.common.StatusLine
-import com.kalai73.lifemapp.widgets.widget.common.OpenAppButton
+import com.kalai73.lifemapp.widgets.widget.common.openApp
 import com.kalai73.lifemapp.widgets.widget.common.VoiceButton
 import com.kalai73.lifemapp.widgets.widget.common.captionStyle
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
 import com.kalai73.lifemapp.widgets.widget.common.numberStyle
-import com.kalai73.lifemapp.widgets.widget.common.openRoute
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 
 /** The date and counter frames sit slightly inside the panel edges, as on the web. */
@@ -59,23 +64,17 @@ private const val ID_GREETING = -101L
 private const val ID_DATE = -102L
 private const val ID_COUNTERS = -103L
 private const val ID_WEATHER = -104L
-private const val ID_WEB_APP = -105L
-private const val ID_STATUS = -106L
 
 /** The stacked hero as lazy items; each item is its own view tree, so the frames don't eat the root's depth. */
 internal fun LazyListScope.stackedHero(ui: WidgetUi, showStatus: Boolean) {
     item(itemId = ID_GREETING) { GreetingBlock(ui) }
-    item(itemId = ID_DATE) { DateBlock(ui) }
+    item(itemId = ID_DATE) { DateBlock(ui, showStatus) }
     item(itemId = ID_COUNTERS) {
         Box(modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp, start = SIDE_INSET, end = SIDE_INSET)) {
             Counters(ui, caption = LocalContext.current.getString(R.string.and_you_have))
         }
     }
     if (ui.weather != null || ui.averageRating != null) item(itemId = ID_WEATHER) { WeatherCard(ui) }
-    item(itemId = ID_WEB_APP) { WebAppButton() }
-    if (showStatus) item(itemId = ID_STATUS) {
-        Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp), horizontalAlignment = Alignment.End) { StatusLine(ui) }
-    }
 }
 
 /** A full-width card: chamfered raised fill without border (edge drawn in the fill) in Predator, surface with rounded corners in Classic. */
@@ -92,7 +91,7 @@ private fun HeroCard(gap: androidx.compose.ui.unit.Dp, modifier: GlanceModifier 
     }
 }
 
-/** "HELLO," (left-aligned) over the name, in a frame as wide as its text, centered;the mic button in the top right corner. */
+/** "HELLO," (left-aligned) over the name, in a frame as wide as its text, centered;the open-app button now lives in the footer. */
 @Composable
 private fun GreetingBlock(ui: WidgetUi) {
     val context = LocalContext.current
@@ -112,8 +111,6 @@ private fun GreetingBlock(ui: WidgetUi) {
         }
     }
     Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.Top) {
-        // Equal-width ends keep the greeting centered while the open-app button sits in the top right corner
-        Spacer(GlanceModifier.width(32.dp))
         Row(modifier = GlanceModifier.defaultWeight(), horizontalAlignment = Alignment.CenterHorizontally) {
             if (pd != null) {
                 PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.raised, fill = pd.raised) { frame -> body(frame) }
@@ -121,11 +118,10 @@ private fun GreetingBlock(ui: WidgetUi) {
                 body(GlanceModifier.background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius))
             }
         }
-        OpenAppButton()
     }
 }
 
-/** Footer of the tall Dashboard: the mic and reload buttons, pinned below the scrolling list. */
+/** Footer of the tall Dashboard: the open-app (icon only), mic and reload buttons, pinned below the scrolling list. */
 @Composable
 internal fun HeroFooter(ui: WidgetUi) {
     Row(
@@ -136,25 +132,54 @@ internal fun HeroFooter(ui: WidgetUi) {
         val style = LocalWidgetStyle.current
         // Two equal halves, each with its icon and label centered; a label wider than its half's room beside the
         // icon is cut with an ellipsis (one line) instead of pushing the other half out of the widget
-        val half = @Composable { modifier: GlanceModifier, text: String, button: @Composable () -> Unit ->
-            Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.CenterHorizontally) {
-                button()
-                Spacer(GlanceModifier.width(6.dp))
-                Text(
-                    style.label(text),
-                    style = captionStyle(size = 10.sp, color = GlanceTheme.colors.onSurfaceVariant),
-                    maxLines = 1,
-                )
+        // The border wraps the icon and the label together; the icon itself has none.
+        val pd = LocalPd.current
+        val half = @Composable { modifier: GlanceModifier, text: String?, action: Action, icon: @Composable () -> Unit ->
+            val body: @Composable (GlanceModifier) -> Unit = { frame ->
+                Row(
+                    modifier = frame.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    icon()
+                    if (text != null) {
+                        Spacer(GlanceModifier.width(6.dp))
+                        Text(
+                            style.label(text),
+                            style = captionStyle(size = 10.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            Row(modifier = modifier.padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (pd != null) {
+                    PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge, fill = pd.panel, modifier = GlanceModifier.fillMaxWidth().clickable(action)) { frame -> body(frame) }
+                } else {
+                    body(GlanceModifier.fillMaxWidth().background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius).clickable(action))
+                }
             }
         }
-        half(GlanceModifier.defaultWeight(), context.getString(R.string.record)) { VoiceButton() }
-        half(GlanceModifier.defaultWeight(), context.getString(R.string.reload)) { ReloadButton(ui, primary = true) }
+        val record = context.getString(R.string.record)
+        val reload = context.getString(R.string.reload)
+        val openAppDesc = context.getString(R.string.open_app)
+        half(GlanceModifier.width(52.dp), null, openApp(context)) {
+            Icon(LucideIcons.SMARTPHONE, openAppDesc, size = 16.dp, tint = pd?.ink ?: GlanceTheme.colors.primary)
+        }
+        half(GlanceModifier.defaultWeight(), record, actionStartActivity(VoiceInputActivity.intent(context))) {
+            Icon(LucideIcons.MIC, record, size = 16.dp, tint = pd?.ink ?: GlanceTheme.colors.primary)
+        }
+        half(GlanceModifier.defaultWeight(), reload, actionRunCallback<ReloadAction>()) {
+            val tint = pd?.ink ?: GlanceTheme.colors.primary
+            if (ui.syncing) CircularProgressIndicator(modifier = GlanceModifier.size(14.dp), color = tint)
+            else Icon(LucideIcons.RELOAD, reload, size = 16.dp, tint = tint)
+        }
     }
 }
 
 /** "TODAY IS," over the date, the reload button inside the same frame on the right. */
 @Composable
-private fun DateBlock(ui: WidgetUi) {
+private fun DateBlock(ui: WidgetUi, showStatus: Boolean) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
@@ -171,13 +196,18 @@ private fun DateBlock(ui: WidgetUi) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Caption(context.getString(R.string.today_is) + ",")
+            Column(modifier = GlanceModifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(modifier = GlanceModifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
+                    Caption(context.getString(R.string.today_is) + ",")
+                }
                 Text(
                     ui.todayLabel,
                     style = if (style.isPredator) numberStyle(dateSize, color = GlanceTheme.colors.primary) else textStyle(size = dateSize, weight = FontWeight.Bold, color = GlanceTheme.colors.primary),
                     maxLines = 1,
                 )
+                if (showStatus) {
+                    Row(modifier = GlanceModifier.fillMaxWidth(), horizontalAlignment = Alignment.End) { StatusLine(ui) }
+                }
             }
         }
     }
@@ -235,25 +265,6 @@ private fun WeatherCard(ui: WidgetUi) {
                     RatingBadge(rating)
                 }
             }
-        }
-    }
-}
-
-/** Full-width button under the weather card that opens the LIFE MAPP web app (Today page), signed in. */
-@Composable
-private fun WebAppButton() {
-    val context = LocalContext.current
-    HeroCard(gap = 8.dp, modifier = GlanceModifier.fillMaxWidth().clickable(openRoute(context, WebRoutes.TODAY))) { modifier ->
-        Row(
-            modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                LocalWidgetStyle.current.label(context.getString(R.string.open_web_app)),
-                style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary),
-                maxLines = 1,
-            )
         }
     }
 }

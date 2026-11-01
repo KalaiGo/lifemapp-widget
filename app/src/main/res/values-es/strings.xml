@@ -123,4 +123,9 @@
     <string name="today_open_in_web">Abrir en LIFE MAPP</string>
     <string name="today_no_data">Esperando la primera sincronización…</string>
     <string name="today_failed_completion">No se pudo completar una tarea. Vuelve a estar en tu lista.</string>
+    <string name="item_edit_title">Editar elemento</string>
+    <string name="item_save">Guardar</string>
+    <string name="item_delete">Eliminar</string>
+    <string name="item_cancel">Cancelar</string>
+    <string name="error_item_locked">Desbloquea para editar elementos cifrados.</string>
 </resources>

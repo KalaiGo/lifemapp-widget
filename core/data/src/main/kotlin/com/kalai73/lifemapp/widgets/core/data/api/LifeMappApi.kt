@@ -12,6 +12,7 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
@@ -80,6 +81,26 @@ class LifeMappApi(
                 setBody(CompleteBody(true))
             }
         }
+    }
+
+    @Serializable private data class ItemNameBody(
+        val name: String,
+        @SerialName("encrypted_name") val encryptedName: String? = null,
+    )
+
+    /** Renames an Integrity item (subsubdomain). Encrypted accounts store the sentinel name plus the ciphertext. */
+    suspend fun renameItem(itemId: String, name: String, encryptedName: String?) {
+        authorized { token ->
+            http.put("${config.webUrl}/api/subsubdomains/$itemId") {
+                bearerAuth(token)
+                contentType(ContentType.Application.Json)
+                setBody(ItemNameBody(name, encryptedName))
+            }
+        }
+    }
+
+    suspend fun deleteItem(itemId: String) {
+        authorized { token -> http.delete("${config.webUrl}/api/subsubdomains/$itemId") { bearerAuth(token) } }
     }
 
     @Serializable private data class HandoffBody(val redirect: String)

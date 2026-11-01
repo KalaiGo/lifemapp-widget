@@ -122,4 +122,9 @@
     <string name="today_open_in_web">Open in LIFE MAPP</string>
     <string name="today_no_data">Waiting for the first sync…</string>
     <string name="today_failed_completion">Could not complete a task. It is back in your list.</string>
+    <string name="item_edit_title">Edit item</string>
+    <string name="item_save">Save</string>
+    <string name="item_delete">Delete</string>
+    <string name="item_cancel">Cancel</string>
+    <string name="error_item_locked">Unlock to edit encrypted items.</string>
 </resources>

@@ -19,14 +19,21 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -89,6 +96,8 @@ fun TodayScreen(
     onOpenSettings: () -> Unit,
     onReload: () -> Unit,
     onCompleteTask: (String) -> Unit,
+    onRenameItem: (String, String) -> Unit,
+    onDeleteItem: (String) -> Unit,
     onUnlock: () -> Unit,
     onOpenWeb: (String) -> Unit,
 ) {
@@ -112,7 +121,6 @@ fun TodayScreen(
 
     CompositionLocalProvider(LocalTok provides t) {
         Column(Modifier.fillMaxWidth().background(t.page)) {
-            TopBar(ui, onOpenSettings, onReload)
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
@@ -131,7 +139,7 @@ fun TodayScreen(
                         "web" -> WebAppButton { onOpenWeb(WebRoutes.TODAY) }
                         "actions" -> QuickActions(onOpenWeb)
                         "locked" -> LockedBanner(onUnlock)
-                        "integrity" -> IntegritySection(ui.integrity!!, onOpenWeb)
+                        "integrity" -> IntegritySection(ui.integrity!!, onOpenWeb, onRenameItem, onDeleteItem)
                         "events" -> EventsSection(ui, openLink, onOpenWeb)
                         "tasks" -> TasksSection(ui, onCompleteTask, onOpenWeb)
                         "shortcuts" -> ShortcutsSection(ui, openLink, onOpenWeb, onUnlock)
@@ -139,6 +147,8 @@ fun TodayScreen(
                     }
                 }
             }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(t.line))
+            TopBar(ui, onOpenSettings, onReload)
         }
     }
 }
@@ -264,9 +274,9 @@ private fun Ic(res: Int, size: Dp = 14.dp, tint: Color = LocalTok.current.ink, d
 // ── Top bar and hero ────────────────────────────────────────────────────────
 
 @Composable
-private fun HeaderButton(onClick: () -> Unit, desc: String, primary: Boolean = false, content: @Composable () -> Unit) {
+private fun HeaderButton(onClick: () -> Unit, desc: String, primary: Boolean = false, width: Dp = 36.dp, content: @Composable () -> Unit) {
     val t = LocalTok.current
-    val mod = Modifier.size(36.dp).let {
+    val mod = Modifier.size(width, 36.dp).let {
         if (t.predator) it.framed(t, fill = if (primary) t.accent else t.pd.panel, edge = if (primary) t.pd.accentHi else t.pd.edge)
         else it.clip(CircleShape).let { m -> if (primary) m.background(t.accent) else m }
     }
@@ -286,7 +296,7 @@ private fun TopBar(ui: WidgetUi, onOpenSettings: () -> Unit, onReload: () -> Uni
         }
         // Mic: add tasks and reminders by voice (the widgets' VoiceInputActivity)
         val context = LocalContext.current
-        HeaderButton({ context.startActivity(VoiceInputActivity.intent(context)) }, stringResource(R.string.today_voice)) {
+        HeaderButton({ context.startActivity(VoiceInputActivity.intent(context)) }, stringResource(R.string.today_voice), width = 64.dp) {
             Ic(LucideIcons.MIC, 18.dp, t.ink, stringResource(R.string.today_voice))
         }
         Spacer(Modifier.width(8.dp))
@@ -298,7 +308,7 @@ private fun TopBar(ui: WidgetUi, onOpenSettings: () -> Unit, onReload: () -> Uni
 private fun ReloadButton(ui: WidgetUi, onReload: () -> Unit, primary: Boolean) {
     val t = LocalTok.current
     val tint = if (primary) t.onAccent else t.ink
-    HeaderButton(onReload, stringResource(R.string.today_reload), primary) {
+    HeaderButton(onReload, stringResource(R.string.today_reload), primary, width = 64.dp) {
         if (ui.syncing) CircularProgressIndicator(Modifier.size(16.dp), color = tint, strokeWidth = 2.dp)
         else Ic(LucideIcons.RELOAD, 16.dp, tint, stringResource(R.string.today_reload))
     }
@@ -353,7 +363,10 @@ private fun DateBlock(ui: WidgetUi, onReload: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(t.s(stringResource(R.string.today_is)), style = t.caption(10.sp, t.ink))
+                Text(
+                    t.s(stringResource(R.string.today_is)), style = t.caption(10.sp, t.ink),
+                    modifier = Modifier.align(Alignment.Start),
+                )
                 Text(
                     ui.todayLabel,
                     style = if (t.predator) t.label(22.sp) else t.body(20.sp, t.ink, FontWeight.Bold),
@@ -830,17 +843,34 @@ private val Warn = Color(0xFFF59E0B)
 private fun ramp(i: Int, dark: Boolean) = Color((if (dark) RampDark else RampLight)[minOf(i, 7)])
 
 @Composable
-private fun IntegritySection(integrity: IntegrityUi, onOpenWeb: (String) -> Unit) {
+private fun IntegritySection(
+    integrity: IntegrityUi, onOpenWeb: (String) -> Unit,
+    onRenameItem: (String, String) -> Unit, onDeleteItem: (String) -> Unit,
+) {
     val t = LocalTok.current
+    var editing by remember { mutableStateOf<TopicItemUi?>(null) }
+    editing?.let { item ->
+        EditItemDialog(
+            item,
+            onSave = { onRenameItem(item.id, it); editing = null },
+            onDelete = { onDeleteItem(item.id); editing = null },
+            onDismiss = { editing = null },
+        )
+    }
     val name = integrity.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.today_integrity)
-    Column(Modifier.fillMaxWidth().padding(top = 18.dp)) {
+    // The web's domain card: one bordered, rounded (Predator: chamfered) surface around the whole domain
+    Column(
+        Modifier.fillMaxWidth().padding(top = 32.dp)
+            .framed(t, t.card, edge = t.line, cut = if (t.predator) 8.dp else 24.dp)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
         Column(Modifier.fillMaxWidth().clickable { onOpenWeb(WebRoutes.INTEGRITY) }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("01", style = t.label(22.sp, t.faint))
                 Spacer(Modifier.width(8.dp))
                 Text(
                     if (integrity.name != null) t.s(name) else name,
-                    style = if (t.predator) t.label(17.sp) else t.body(16.sp, t.ink, FontWeight.Bold),
+                    style = (if (t.predator) t.label(17.sp) else t.body(16.sp, t.ink, FontWeight.Bold)).copy(textAlign = TextAlign.Center),
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                 )
                 integrity.rating?.let { RatingBadge(it) }
@@ -865,7 +895,7 @@ private fun IntegritySection(integrity: IntegrityUi, onOpenWeb: (String) -> Unit
             if (topic.reminders) Reception()
             TopicHeader(topic) { onOpenWeb(WebRoutes.INTEGRITY) }
             if (topic.items.isEmpty()) NoContent(topic) { onOpenWeb(WebRoutes.INTEGRITY) }
-            else topic.items.forEachIndexed { i, item -> ItemRow(topic, item, i + 1) { onOpenWeb(WebRoutes.INTEGRITY) } }
+            else topic.items.forEachIndexed { i, item -> ItemRow(topic, item, i + 1) { if (item.name != null) editing = item } }
             if (topic.more > 0) {
                 Text(
                     stringResource(R.string.today_items_more, topic.more), style = t.caption(10.sp),
@@ -917,7 +947,7 @@ private fun Reception() {
     Row(
         Modifier.fillMaxWidth().padding(top = 12.dp)
             .framed(t, if (t.predator) t.pd.well else t.well, edge = if (t.predator) t.pd.edge2 else t.well, cut = 8.dp)
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 27.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ReceptionButton(LucideIcons.MIC, record) { context.startActivity(VoiceInputActivity.intent(context, reminders = true)) }
@@ -974,6 +1004,36 @@ private fun NoContent(topic: TopicUi, onClick: () -> Unit) {
         Spacer(Modifier.width(10.dp))
         Text(stringResource(R.string.today_no_content), style = t.body(13.sp, t.text, FontWeight.Medium))
     }
+}
+
+/** Rename or remove an item in the app; no detour through the web. */
+@Composable
+private fun EditItemDialog(item: TopicItemUi, onSave: (String) -> Unit, onDelete: () -> Unit, onDismiss: () -> Unit) {
+    var text by remember(item.id) { mutableStateOf(item.name.orEmpty()) }
+    var confirmDelete by remember(item.id) { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.item_edit_title)) },
+        text = {
+            OutlinedTextField(text, { text = it }, singleLine = false, maxLines = 4, modifier = Modifier.fillMaxWidth())
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(text) }, enabled = text.isNotBlank() && text.trim() != item.name) {
+                Text(stringResource(R.string.item_save))
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = { if (confirmDelete) onDelete() else confirmDelete = true }) {
+                    Text(
+                        stringResource(R.string.item_delete) + if (confirmDelete) "?" else "",
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.item_cancel)) }
+            }
+        },
+    )
 }
 
 /** "• 2.1 Item", with the warning icon when flagged. */

@@ -1,5 +1,6 @@
 package com.kalai73.lifemapp.widgets.core.data.repository
 
+import com.kalai73.lifemapp.widgets.core.crypto.EncryptedField
 import com.kalai73.lifemapp.widgets.core.data.api.LifeMappApi
 import com.kalai73.lifemapp.widgets.core.data.api.ServerException
 import com.kalai73.lifemapp.widgets.core.data.auth.NotSignedInException
@@ -9,6 +10,7 @@ import com.kalai73.lifemapp.widgets.core.model.CachedState
 import com.kalai73.lifemapp.widgets.core.model.Sections
 import com.kalai73.lifemapp.widgets.core.model.Snapshot
 import com.kalai73.lifemapp.widgets.core.model.SyncError
+import com.kalai73.lifemapp.widgets.core.model.TopicItem
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -160,5 +162,63 @@ class TaskRepository(
 
     suspend fun dismissFailure() {
         cache.update { it.copy(completionFailed = false) }
+    }
+}
+
+/** Edits and removes Integrity items (subsubdomains) from the app, updating the cached snapshot right away. */
+class ItemRepository(
+    private val api: LifeMappApi,
+    private val cache: CacheStore,
+    private val dataKey: suspend () -> String?,
+) {
+    /** @return false when the account is encrypted and this device isn't unlocked */
+    suspend fun rename(itemId: String, text: String, encrypted: Boolean): Boolean {
+        val name = text.trim()
+        val encryptedName = if (encrypted) {
+            val key = dataKey() ?: return false
+            EncryptedField.encrypt(name, key)
+        } else {
+            null
+        }
+        api.renameItem(itemId, if (encrypted) ENCRYPTED_NAME else name, encryptedName)
+        mapItems { items ->
+            items.map {
+                if (it.id != itemId) it
+                else if (encrypted) it.copy(name = null, encryptedName = encryptedName)
+                else it.copy(name = name, encryptedName = null)
+            }
+        }
+        return true
+    }
+
+    suspend fun delete(itemId: String) {
+        try {
+            api.deleteItem(itemId)
+        } catch (e: ServerException) {
+            if (e.status != 404) throw e
+        }
+        mapItems { items -> items.filterNot { it.id == itemId } }
+    }
+
+    private suspend fun mapItems(transform: (List<TopicItem>) -> List<TopicItem>) {
+        cache.update { state ->
+            val snapshot = state.snapshot ?: return@update state
+            val integrity = snapshot.integrity ?: return@update state
+            state.copy(
+                snapshot = snapshot.copy(
+                    integrity = integrity.copy(
+                        topics = integrity.topics.map { topic ->
+                            val items = transform(topic.items)
+                            topic.copy(items = items, count = (topic.count - (topic.items.size - items.size)).coerceAtLeast(items.size))
+                        },
+                    ),
+                ),
+            )
+        }
+    }
+
+    private companion object {
+        /** What the web stores in the plaintext column of an encrypted item */
+        const val ENCRYPTED_NAME = "[encrypted]"
     }
 }

@@ -179,6 +179,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Renames an Integrity item on the server and in the cached snapshot. */
+    fun renameItem(itemId: String, text: String) {
+        if (text.isBlank()) return
+        run {
+            val encrypted = cache.value.snapshot?.settings?.encryptionEnabled == true
+            if (!graph.items.rename(itemId, text, encrypted)) fail(R.string.error_item_locked)
+            LifeMappWidgets.updateAll(getApplication())
+        }
+    }
+
+    fun deleteItem(itemId: String) = run {
+        graph.items.delete(itemId)
+        LifeMappWidgets.updateAll(getApplication())
+    }
+
     fun dismissCompletionFailure() {
         viewModelScope.launch { graph.tasks.dismissFailure() }
     }
