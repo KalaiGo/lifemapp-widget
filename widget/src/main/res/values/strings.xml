@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_dashboard_name">LIFE MAPP · Dashboard</string>
+    <string name="widget_dashboard_description">Greeting, weather, events, tasks and quick links in one widget</string>
+
+    <string name="hello">Hello,</string>
+    <string name="welcome">Welcome</string>
+    <string name="today_is">Today is</string>
+    <string name="and_you_have">And you have:</string>
+    <string name="weather">Weather</string>
+    <string name="weather_in">Weather in %1$s</string>
+    <string name="events">Events</string>
+    <string name="tasks">Tasks</string>
+    <string name="mail">Mail</string>
+    <string name="journal">Journal</string>
+    <string name="budget">Budget</string>
+    <string name="shortcuts">Shortcuts</string>
+    <string name="reload">Reload</string>
+    <string name="add_task">Add task</string>
+    <string name="complete_task">Complete task</string>
+    <string name="today">Today</string>
+    <string name="tomorrow">Tomorrow</string>
+    <string name="all_day">All day</string>
+    <string name="rating">Rating</string>
+    <string name="updated_at">Updated %1$s</string>
+    <string name="stale">Not updated since %1$s</string>
+    <string name="locked">🔒 Locked</string>
+    <string name="locked_hint">Unlock encryption in the LIFE MAPP Widgets app to see titles</string>
+    <string name="sign_in_prompt">Sign in to LIFE MAPP</string>
+    <string name="sign_in_hint">Tap to sign in</string>
+    <string name="loading">Loading…</string>
+    <string name="no_events_today">No events today</string>
+    <string name="no_events">No upcoming events</string>
+    <string name="connect_calendar">Connect a calendar in LIFE MAPP</string>
+    <string name="no_tasks">Nothing due. Well done!</string>
+    <string name="tasks_remaining">%1$d open</string>
+    <string name="no_shortcuts">Add quick links in LIFE MAPP</string>
+    <string name="shortcuts_locked">Quick links are encrypted. Unlock them in the app.</string>
+    <string name="error_offline">Offline. Showing saved data.</string>
+    <string name="error_server">Couldn\'t refresh. Showing saved data.</string>
+    <string name="error_signed_out">Signed out. Tap to sign in again.</string>
+    <string name="completion_failed">A task couldn\'t be completed. Tap to dismiss.</string>
+    <string name="sync_channel_name">Widget sync</string>
+    <string name="sync_notification">Updating LIFE MAPP widgets…</string>
+    <string name="first_sync_failed">Couldn\'t reach LIFE MAPP. Tap to retry.</string>
+    <string name="first_sync_offline">No connection. Tap to retry.</string>
+</resources>

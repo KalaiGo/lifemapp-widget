@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_dashboard_name">LIFE MAPP · Panel</string>
+    <string name="widget_dashboard_description">Saludo, tiempo, eventos, tareas y enlaces rápidos en un solo widget</string>
+
+    <string name="hello">Hola,</string>
+    <string name="welcome">Bienvenido</string>
+    <string name="today_is">Hoy es</string>
+    <string name="and_you_have">Y tienes:</string>
+    <string name="weather">Tiempo</string>
+    <string name="weather_in">Tiempo en %1$s</string>
+    <string name="events">Eventos</string>
+    <string name="tasks">Tareas</string>
+    <string name="mail">Correo</string>
+    <string name="journal">Diario</string>
+    <string name="budget">Presupuesto</string>
+    <string name="shortcuts">Accesos</string>
+    <string name="reload">Recargar</string>
+    <string name="add_task">Añadir tarea</string>
+    <string name="complete_task">Completar tarea</string>
+    <string name="today">Hoy</string>
+    <string name="tomorrow">Mañana</string>
+    <string name="all_day">Todo el día</string>
+    <string name="rating">Valoración</string>
+    <string name="updated_at">Actualizado %1$s</string>
+    <string name="stale">Sin actualizar desde %1$s</string>
+    <string name="locked">🔒 Bloqueado</string>
+    <string name="locked_hint">Desbloquea el cifrado en la app LIFE MAPP Widgets para ver los títulos</string>
+    <string name="sign_in_prompt">Inicia sesión en LIFE MAPP</string>
+    <string name="sign_in_hint">Toca para iniciar sesión</string>
+    <string name="loading">Cargando…</string>
+    <string name="no_events_today">Sin eventos hoy</string>
+    <string name="no_events">Sin próximos eventos</string>
+    <string name="connect_calendar">Conecta un calendario en LIFE MAPP</string>
+    <string name="no_tasks">Nada pendiente. ¡Bien hecho!</string>
+    <string name="tasks_remaining">%1$d abiertas</string>
+    <string name="no_shortcuts">Añade enlaces rápidos en LIFE MAPP</string>
+    <string name="shortcuts_locked">Los enlaces rápidos están cifrados. Desbloquéalos en la app.</string>
+    <string name="error_offline">Sin conexión. Mostrando datos guardados.</string>
+    <string name="error_server">No se pudo actualizar. Mostrando datos guardados.</string>
+    <string name="error_signed_out">Sesión cerrada. Toca para volver a entrar.</string>
+    <string name="completion_failed">No se pudo completar una tarea. Toca para cerrar.</string>
+    <string name="sync_channel_name">Sincronización de widgets</string>
+    <string name="sync_notification">Actualizando widgets de LIFE MAPP…</string>
+    <string name="first_sync_failed">No se pudo conectar con LIFE MAPP. Toca para reintentar.</string>
+    <string name="first_sync_offline">Sin conexión. Toca para reintentar.</string>
+</resources>

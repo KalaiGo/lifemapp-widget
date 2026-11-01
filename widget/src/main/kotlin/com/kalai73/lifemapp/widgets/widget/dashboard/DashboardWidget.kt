@@ -1,0 +1,323 @@
+package com.kalai73.lifemapp.widgets.widget.dashboard
+
+import android.content.Context
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.Preferences
+import androidx.glance.GlanceId
+import androidx.glance.GlanceModifier
+import androidx.glance.GlanceTheme
+import androidx.glance.LocalContext
+import androidx.glance.LocalSize
+import androidx.glance.action.Action
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.LazyListScope
+import androidx.glance.appwidget.lazy.items
+import androidx.glance.appwidget.provideContent
+import androidx.glance.currentState
+import androidx.glance.layout.Alignment
+import androidx.glance.layout.Column
+import androidx.glance.layout.Row
+import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.fillMaxWidth
+import androidx.glance.layout.height
+import androidx.glance.layout.padding
+import androidx.glance.layout.width
+import androidx.glance.text.FontWeight
+import androidx.glance.text.Text
+import com.kalai73.lifemapp.widgets.core.data.LifeMappGraph
+import com.kalai73.lifemapp.widgets.core.data.presentation.EventDayUi
+import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
+import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
+import com.kalai73.lifemapp.widgets.core.model.EncryptionState
+import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
+import com.kalai73.lifemapp.widgets.widget.R
+import com.kalai73.lifemapp.widgets.widget.common.DismissFailureAction
+import com.kalai73.lifemapp.widgets.widget.common.HeaderButton
+import com.kalai73.lifemapp.widgets.widget.common.Icon
+import com.kalai73.lifemapp.widgets.widget.common.LocalPd
+import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
+import com.kalai73.lifemapp.widgets.widget.common.PdIconWell
+import com.kalai73.lifemapp.widgets.widget.common.PdRule
+import com.kalai73.lifemapp.widgets.widget.common.ReloadButton
+import com.kalai73.lifemapp.widgets.widget.common.StatusLine
+import com.kalai73.lifemapp.widgets.widget.common.WidgetRoot
+import com.kalai73.lifemapp.widgets.widget.common.labelStyle
+import com.kalai73.lifemapp.widgets.widget.common.liveWidgetUi
+import com.kalai73.lifemapp.widgets.widget.common.openApp
+import com.kalai73.lifemapp.widgets.widget.common.openRoute
+import com.kalai73.lifemapp.widgets.widget.common.textStyle
+import com.kalai73.lifemapp.widgets.widget.events.DayHeader
+import com.kalai73.lifemapp.widgets.widget.events.EventRow
+import com.kalai73.lifemapp.widgets.widget.events.EventsConfig
+import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutTile
+import com.kalai73.lifemapp.widgets.widget.shortcuts.TILE_WIDTH
+import com.kalai73.lifemapp.widgets.widget.sync.SyncScheduler
+import com.kalai73.lifemapp.widgets.widget.tasks.TaskRow
+import com.kalai73.lifemapp.widgets.widget.today.Counters
+import com.kalai73.lifemapp.widgets.widget.today.HeroHeader
+import com.kalai73.lifemapp.widgets.widget.today.QuickButton
+import com.kalai73.lifemapp.widgets.widget.today.stackedHero
+
+/**
+ * Everything in one widget: on tall sizes the hero (greeting, date, counters, weather), stacked as on the web's
+ * mobile layout, then events, tasks and shortcuts, all in a single scrolling list; at 4×2 a compact hero alone. Glance can't nest scrolling lists, so the shortcut
+ * grid is laid out as rows of tiles inside that list.
+ *
+ * Per-instance events settings (days ahead, hidden calendars) come from WidgetConfigActivity, see [EventsConfig].
+ */
+class DashboardWidget : GlanceAppWidget() {
+    companion object {
+        val HERO_ONLY = DpSize(250.dp, 110.dp) // 4×2: the hero alone
+        val MEDIUM = DpSize(250.dp, 250.dp)    // 4×4 and taller (default 4×8)
+        val LARGE = DpSize(320.dp, 250.dp)     // 5×4+: weather location and "Updated"
+    }
+
+    override val sizeMode = SizeMode.Responsive(setOf(HERO_ONLY, MEDIUM, LARGE))
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val graph = LifeMappGraph.get(context)
+        val initial = graph.widgetUi()
+        provideContent {
+            val ui = liveWidgetUi(graph, initial)
+            val prefs = currentState<Preferences>()
+            val daysAhead = prefs[EventsConfig.DaysAhead] ?: EventsConfig.DEFAULT_DAYS
+            val hidden = prefs[EventsConfig.HiddenCalendars] ?: emptySet()
+            WidgetRoot(ui) { DashboardContent(ui, EventsConfig.filter(ui.eventDays, ui.today, daysAhead, hidden), it) }
+        }
+    }
+}
+
+class DashboardWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget = DashboardWidget()
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        SyncScheduler.schedulePeriodic(context)
+        SyncScheduler.syncNow(context)
+    }
+}
+
+/** Below this height there's no room for the list: the hero only. */
+private val LIST_MIN_HEIGHT = 200.dp
+/** From this width: the weather location and "Updated 10:42". */
+private val LOCATION_MIN_WIDTH = 310.dp
+
+/** Root padding on each side (LifeMappWidgetTheme), subtracted when fitting shortcut tiles. */
+private val ROOT_PADDING = 12.dp
+
+@Composable
+internal fun DashboardContent(ui: WidgetUi, days: List<EventDayUi>, modifier: GlanceModifier = GlanceModifier) {
+    val size = LocalSize.current
+    val showStatus = size.width >= LOCATION_MIN_WIDTH || ui.stale || ui.error != null
+    if (size.height < LIST_MIN_HEIGHT) {
+        CompactHero(ui, showStatus, modifier)
+        return
+    }
+    // Tall: the hero stacked as on the web's mobile layout, scrolling with the list. Lazy items are separate
+    // view trees, so their frames don't count against the root's 10 nesting levels.
+    LazyColumn(modifier = modifier.fillMaxSize()) {
+        stackedHero(ui, showStatus)
+        eventsSection(ui, days)
+        tasksSection(ui)
+        shortcutsSection(ui, columns = shortcutColumns(size.width))
+    }
+}
+
+/** 4×2: greeting, date, weather and rating in one row, then counters and the quick buttons. */
+@Composable
+private fun CompactHero(ui: WidgetUi, showStatus: Boolean, modifier: GlanceModifier) {
+    val size = LocalSize.current
+    // The hero is composed straight into this Column (no extra wrapper) and [modifier] pads this Column rather
+    // than a Box around it: RemoteViews allow 10 nested levels and the hero frames use them all.
+    Column(modifier = modifier.fillMaxSize()) {
+        HeroHeader(ui, showLocation = size.width >= LOCATION_MIN_WIDTH) {
+            Spacer(GlanceModifier.width(4.dp))
+            ReloadButton(ui)
+        }
+        Spacer(GlanceModifier.height(6.dp))
+        Counters(ui)
+        Spacer(GlanceModifier.defaultWeight())
+        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            val context = LocalContext.current
+            QuickButton(LucideIcons.JOURNAL, context.getString(R.string.journal), openRoute(context, WebRoutes.JOURNAL))
+            Spacer(GlanceModifier.width(6.dp))
+            QuickButton(LucideIcons.BUDGET, context.getString(R.string.budget), openRoute(context, WebRoutes.BUDGET))
+            Spacer(GlanceModifier.defaultWeight())
+            if (showStatus) StatusLine(ui)
+        }
+    }
+}
+
+private fun shortcutColumns(width: Dp): Int =
+    ((width.value - 2 * ROOT_PADDING.value) / TILE_WIDTH.value).toInt().coerceIn(1, 8)
+
+// Item ids: one range per section, so ids never collide across sections.
+private const val ID_EVENTS = -1L
+private const val ID_TASKS = -2L
+private const val ID_SHORTCUTS = -3L
+private const val ID_EVENTS_EMPTY = -10L
+private const val ID_TASKS_FAILED = -11L
+private const val ID_TASKS_LOCKED = -12L
+private const val ID_TASKS_EMPTY = -13L
+private const val ID_SHORTCUTS_EMPTY = -14L
+private const val ID_DAY_BASE = 1_000_000_000L
+private const val ID_SHORTCUT_ROW_BASE = 2_000_000_000L
+
+private fun LazyListScope.eventsSection(ui: WidgetUi, days: List<EventDayUi>) {
+    item(itemId = ID_EVENTS) {
+        val context = LocalContext.current
+        SectionHeader(context.getString(R.string.events), LucideIcons.CALENDAR, openRoute(context, WebRoutes.EVENTS))
+    }
+    when {
+        !ui.calendarConnected -> item(itemId = ID_EVENTS_EMPTY) {
+            val context = LocalContext.current
+            EmptyLine(context.getString(R.string.connect_calendar), openRoute(context, WebRoutes.SETTINGS))
+        }
+        days.none { it.events.isNotEmpty() } -> item(itemId = ID_EVENTS_EMPTY) {
+            val context = LocalContext.current
+            EmptyLine(context.getString(R.string.no_events), openRoute(context, WebRoutes.EVENTS))
+        }
+        else -> days.forEach { day ->
+            val dayId = ID_DAY_BASE + day.date.toEpochDay() * 2
+            item(itemId = dayId) { DayHeader(day) }
+            if (day.events.isEmpty()) {
+                item(itemId = dayId + 1) {
+                    val context = LocalContext.current
+                    EmptyLine(context.getString(R.string.no_events_today), openRoute(context, WebRoutes.EVENTS))
+                }
+            }
+            // Same ids as the Events widget: epochDay × 1_000_003 puts them around 2·10¹⁰, clear of the day
+            // header (~10⁹), shortcut row (~2·10⁹) and task (~2⁴⁰) ranges
+            items(day.events, itemId = { (day.date.toEpochDay() * 1_000_003L) xor it.id.hashCode().toLong() }) { EventRow(it) }
+        }
+    }
+}
+
+private fun LazyListScope.tasksSection(ui: WidgetUi) {
+    item(itemId = ID_TASKS) {
+        val context = LocalContext.current
+        SectionHeader(
+            context.getString(R.string.tasks), LucideIcons.TASKS, openRoute(context, WebRoutes.TASKS),
+            subtitle = context.getString(R.string.tasks_remaining, ui.tasksCount),
+        ) {
+            HeaderButton(LucideIcons.ADD, context.getString(R.string.add_task), openRoute(context, WebRoutes.NEW_TASK), primary = true)
+        }
+    }
+    if (ui.completionFailed) {
+        item(itemId = ID_TASKS_FAILED) {
+            val context = LocalContext.current
+            Text(
+                context.getString(R.string.completion_failed),
+                style = textStyle(size = 11.sp, color = GlanceTheme.colors.error),
+                modifier = GlanceModifier.fillMaxWidth().clickable(actionRunCallback<DismissFailureAction>()).padding(bottom = 4.dp),
+            )
+        }
+    }
+    if (ui.encryption == EncryptionState.LOCKED && ui.tasks.any { it.title == null }) {
+        item(itemId = ID_TASKS_LOCKED) {
+            val context = LocalContext.current
+            Text(
+                context.getString(R.string.locked_hint),
+                style = textStyle(size = 10.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                maxLines = 2,
+                modifier = GlanceModifier.fillMaxWidth().clickable(openApp(context)).padding(bottom = 4.dp),
+            )
+        }
+    }
+    if (ui.tasks.isEmpty()) {
+        item(itemId = ID_TASKS_EMPTY) {
+            val context = LocalContext.current
+            EmptyLine(context.getString(R.string.no_tasks), openRoute(context, WebRoutes.TASKS))
+        }
+    } else {
+        // Offset so a task can't share an id with an event (both are string hashes)
+        items(ui.tasks, itemId = { it.id.hashCode().toLong() + (1L shl 40) }) { TaskRow(it) }
+    }
+}
+
+private fun LazyListScope.shortcutsSection(ui: WidgetUi, columns: Int) {
+    item(itemId = ID_SHORTCUTS) {
+        val context = LocalContext.current
+        SectionHeader(context.getString(R.string.shortcuts), LucideIcons.LINK, openRoute(context, WebRoutes.QUICK_LINKS))
+    }
+    when {
+        ui.shortcutsLocked -> item(itemId = ID_SHORTCUTS_EMPTY) {
+            val context = LocalContext.current
+            EmptyLine(context.getString(R.string.shortcuts_locked), openApp(context))
+        }
+        ui.shortcuts.isEmpty() -> item(itemId = ID_SHORTCUTS_EMPTY) {
+            val context = LocalContext.current
+            EmptyLine(context.getString(R.string.no_shortcuts), openRoute(context, WebRoutes.QUICK_LINKS))
+        }
+        else -> ui.shortcuts.chunked(columns).forEachIndexed { index, row ->
+            item(itemId = ID_SHORTCUT_ROW_BASE + index) {
+                Row(modifier = GlanceModifier.fillMaxWidth()) {
+                    row.forEach { ShortcutTile(it, GlanceModifier.defaultWeight()) }
+                    // Keep the last row's tiles the same width as the full rows above
+                    repeat(columns - row.size) { Spacer(GlanceModifier.defaultWeight()) }
+                }
+            }
+        }
+    }
+}
+
+/** A section title inside the list: lighter than WidgetHeader (no reload button, which sits in the hero). */
+@Composable
+private fun SectionHeader(
+    title: String,
+    icon: Int,
+    onClick: Action,
+    subtitle: String? = null,
+    trailing: @Composable () -> Unit = {},
+) {
+    val style = LocalWidgetStyle.current
+    val pd = LocalPd.current
+    Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp)) {
+        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = GlanceModifier.defaultWeight().clickable(onClick), verticalAlignment = Alignment.CenterVertically) {
+                if (pd != null) {
+                    PdIconWell(icon, null, width = 22.dp, iconSize = 11.dp)
+                    Spacer(GlanceModifier.width(6.dp))
+                    Text(style.label(title), style = labelStyle(size = 13.sp), maxLines = 1)
+                } else {
+                    Icon(icon, null, size = 16.dp)
+                    Spacer(GlanceModifier.width(6.dp))
+                    Text(style.label(title), style = textStyle(size = 13.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary), maxLines = 1)
+                }
+                if (subtitle != null) {
+                    Spacer(GlanceModifier.width(6.dp))
+                    Text(
+                        if (pd != null) style.label(subtitle) else subtitle,
+                        style = textStyle(size = 10.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                        maxLines = 1,
+                    )
+                }
+            }
+            trailing()
+        }
+        if (pd != null) {
+            Spacer(GlanceModifier.height(3.dp))
+            PdRule()
+        }
+    }
+}
+
+@Composable
+private fun EmptyLine(text: String, action: Action) {
+    Text(
+        text,
+        style = textStyle(size = 12.sp, color = GlanceTheme.colors.onSurfaceVariant),
+        maxLines = 2,
+        modifier = GlanceModifier.fillMaxWidth().clickable(action).padding(vertical = 4.dp),
+    )
+}

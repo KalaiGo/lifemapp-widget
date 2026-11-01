@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_date">Heute ist Samstag, 31. Oktober</string>
+    <string name="preview_event_1">Team-Meeting</string>
+    <string name="preview_event_2">Mittagessen mit Sam</string>
+    <string name="preview_task_1">Stromrechnung bezahlen</string>
+    <string name="preview_task_2">Zahnarzt anrufen</string>
+    <string name="preview_tasks_open">3 offen</string>
+</resources>

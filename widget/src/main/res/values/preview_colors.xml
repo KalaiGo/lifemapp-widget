@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Static colors for the widget-picker previews: Predator, default scheme (mirror PredatorColors). -->
+<resources>
+    <color name="lm_preview_bg">#FAF8F5</color>
+    <color name="lm_preview_surface">#F2EEE8</color>
+    <color name="lm_preview_edge">#CDC3B8</color>
+    <color name="lm_preview_primary">#C2410C</color>
+    <color name="lm_preview_primary_container">#F7E1D2</color>
+    <color name="lm_preview_on_primary_container">#C2410C</color>
+    <color name="lm_preview_text">#1B1714</color>
+    <color name="lm_preview_text_variant">#5E554C</color>
+</resources>

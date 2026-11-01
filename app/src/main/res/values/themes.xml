@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.LifeMapp" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/lm_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+    <color name="lm_background">#F9F5EB</color>
+    <color name="lm_brand">#5B9DF5</color>
+</resources>

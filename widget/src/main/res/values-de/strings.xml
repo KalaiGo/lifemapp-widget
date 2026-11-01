@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_dashboard_name">LIFE MAPP · Übersicht</string>
+    <string name="widget_dashboard_description">Begrüßung, Wetter, Termine, Aufgaben und Schnelllinks in einem Widget</string>
+
+    <string name="hello">Hallo,</string>
+    <string name="welcome">Willkommen</string>
+    <string name="today_is">Heute ist</string>
+    <string name="and_you_have">Und du hast:</string>
+    <string name="weather">Wetter</string>
+    <string name="weather_in">Wetter in %1$s</string>
+    <string name="events">Termine</string>
+    <string name="tasks">Aufgaben</string>
+    <string name="mail">Mail</string>
+    <string name="journal">Tagebuch</string>
+    <string name="budget">Budget</string>
+    <string name="shortcuts">Links</string>
+    <string name="reload">Neu laden</string>
+    <string name="add_task">Aufgabe hinzufügen</string>
+    <string name="complete_task">Aufgabe erledigen</string>
+    <string name="today">Heute</string>
+    <string name="tomorrow">Morgen</string>
+    <string name="all_day">Ganztägig</string>
+    <string name="rating">Bewertung</string>
+    <string name="updated_at">Aktualisiert %1$s</string>
+    <string name="stale">Nicht aktualisiert seit %1$s</string>
+    <string name="locked">🔒 Gesperrt</string>
+    <string name="locked_hint">Entsperre die Verschlüsselung in der App LIFE MAPP Widgets, um Titel zu sehen</string>
+    <string name="sign_in_prompt">Bei LIFE MAPP anmelden</string>
+    <string name="sign_in_hint">Zum Anmelden tippen</string>
+    <string name="loading">Wird geladen…</string>
+    <string name="no_events_today">Heute keine Termine</string>
+    <string name="no_events">Keine anstehenden Termine</string>
+    <string name="connect_calendar">Verbinde einen Kalender in LIFE MAPP</string>
+    <string name="no_tasks">Nichts fällig. Gut gemacht!</string>
+    <string name="tasks_remaining">%1$d offen</string>
+    <string name="no_shortcuts">Füge Schnelllinks in LIFE MAPP hinzu</string>
+    <string name="shortcuts_locked">Schnelllinks sind verschlüsselt. Entsperre sie in der App.</string>
+    <string name="error_offline">Offline. Gespeicherte Daten werden angezeigt.</string>
+    <string name="error_server">Aktualisierung fehlgeschlagen. Gespeicherte Daten werden angezeigt.</string>
+    <string name="error_signed_out">Abgemeldet. Zum erneuten Anmelden tippen.</string>
+    <string name="completion_failed">Eine Aufgabe konnte nicht erledigt werden. Zum Schließen tippen.</string>
+    <string name="sync_channel_name">Widget-Synchronisierung</string>
+    <string name="sync_notification">LIFE MAPP-Widgets werden aktualisiert…</string>
+    <string name="first_sync_failed">LIFE MAPP ist nicht erreichbar. Zum Wiederholen tippen.</string>
+    <string name="first_sync_offline">Keine Verbindung. Zum Wiederholen tippen.</string>
+</resources>

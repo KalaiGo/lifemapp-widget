@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_tagline">Dein LIFE MAPP auf dem Startbildschirm</string>
+
+    <string name="sign_in_title">Anmelden</string>
+    <string name="sign_in_body">Melde dich mit deinem LIFE MAPP-Konto an. Die Widgets aktualisieren sich selbst; alles andere öffnet sich in der LIFE MAPP-Web-App.</string>
+    <string name="email">E-Mail</string>
+    <string name="password">Passwort</string>
+    <string name="sign_in">Anmelden</string>
+    <string name="sign_in_google">Weiter mit Google</string>
+    <string name="error_not_whitelisted">Dieses Konto hat noch keinen Beta-Zugang.</string>
+    <string name="error_network">Keine Verbindung. Prüfe dein Netzwerk und versuche es erneut.</string>
+
+    <string name="unlock_title">Verschlüsselung entsperren</string>
+    <string name="unlock_body">Deine LIFE MAPP-Daten sind Ende-zu-Ende-verschlüsselt. Gib das Passwort ein, mit dem du sie im Web entsperrst, damit die Widgets Titel anzeigen. Es bleibt nur auf diesem Gerät, geschützt durch den Android Keystore.</string>
+    <string name="encryption_password">Verschlüsselungspasswort</string>
+    <string name="unlock">Entsperren</string>
+    <string name="not_now">Nicht jetzt (Titel bleiben gesperrt)</string>
+    <string name="unlock_recovery_note">Passwort mit dem Wiederherstellungsschlüssel zurückgesetzt? Entsperre zuerst im Web, dann hier.</string>
+    <string name="error_wrong_password">Mit diesem Passwort lassen sich deine Daten nicht entschlüsseln.</string>
+    <string name="error_not_configured">Für dieses Konto ist noch keine Verschlüsselung eingerichtet.</string>
+
+    <string name="signed_in_as">Angemeldet als %1$s</string>
+    <string name="sync_title">Synchronisierung</string>
+    <string name="last_sync">Zuletzt aktualisiert um %1$s</string>
+    <string name="never_synced">Noch nicht aktualisiert</string>
+    <string name="sync_error_server">Die letzte Aktualisierung ist fehlgeschlagen. Sie wird automatisch wiederholt.</string>
+    <string name="sync_error_unauthorized">Deine Sitzung ist abgelaufen. Melde dich ab und wieder an.</string>
+    <string name="sync_now">Jetzt aktualisieren</string>
+    <string name="open_web">LIFE MAPP öffnen</string>
+
+    <string name="widgets_title">Widgets</string>
+    <plurals name="widgets_placed">
+        <item quantity="one">%1$d Widget auf deinem Startbildschirm</item>
+        <item quantity="other">%1$d Widgets auf deinem Startbildschirm</item>
+    </plurals>
+    <string name="widgets_hint">Halte den Startbildschirm gedrückt und wähle Widgets → LIFE MAPP Widgets, oder füge hier eines hinzu.</string>
+    <string name="pin_dashboard">Übersicht-Widget hinzufügen</string>
+
+    <string name="encryption_title">Verschlüsselung</string>
+    <string name="encryption_unlocked">Auf diesem Gerät entsperrt. Widgets zeigen Titel.</string>
+    <string name="encryption_locked">Gesperrt. Widgets zeigen Zähler und 🔒 statt Titeln.</string>
+    <string name="lock">Auf diesem Gerät sperren</string>
+
+    <string name="battery_title">Hintergrundaktualisierung</string>
+    <string name="battery_body">Android kann Aktualisierungen von selten geöffneten Apps verzögern. Uneingeschränkte Akkunutzung hält die Widgets aktuell (alle 30 Minuten).</string>
+    <string name="battery_unrestricted">Die Hintergrundaktualisierung ist uneingeschränkt.</string>
+    <string name="battery_optimized">Die Akkuoptimierung kann Aktualisierungen verzögern.</string>
+    <string name="battery_action">Hintergrundaktualisierung optimieren</string>
+
+    <string name="account_title">Konto</string>
+    <string name="relink_web">Beim nächsten Öffnen erneut in der Web-App anmelden</string>
+    <string name="sign_out">Abmelden</string>
+
+    <string name="config_title">Übersicht-Widget</string>
+    <string name="config_days">Anzeigen</string>
+    <plurals name="config_days_option">
+        <item quantity="one">Heute</item>
+        <item quantity="other">%1$d Tage</item>
+    </plurals>
+    <string name="config_calendars">Kalender</string>
+    <string name="config_no_calendars">Kalender erscheinen hier nach der ersten Aktualisierung.</string>
+    <string name="save">Speichern</string>
+</resources>

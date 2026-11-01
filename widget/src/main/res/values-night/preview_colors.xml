@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="lm_preview_bg">#171513</color>
+    <color name="lm_preview_surface">#1E1B18</color>
+    <color name="lm_preview_edge">#3A322C</color>
+    <color name="lm_preview_primary">#FF8A3D</color>
+    <color name="lm_preview_primary_container">#35200F</color>
+    <color name="lm_preview_on_primary_container">#FF8A3D</color>
+    <color name="lm_preview_text">#F3EFEA</color>
+    <color name="lm_preview_text_variant">#A39A92</color>
+</resources>

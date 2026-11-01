@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default 4×8 (targetCell* on Android 12+, minWidth/minHeight = 70·n − 30 dp before); resizable down to the hero alone -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_dashboard_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minWidth="250dp"
+    android:minHeight="530dp"
+    android:minResizeWidth="180dp"
+    android:minResizeHeight="110dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="8"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:previewLayout="@layout/widget_preview_dashboard"
+    android:updatePeriodMillis="0"
+    android:configure="com.kalai73.lifemapp.widgets.config.WidgetConfigActivity"
+    android:widgetFeatures="reconfigurable|configuration_optional" />

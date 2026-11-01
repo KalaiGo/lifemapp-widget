@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_tagline">Tu LIFE MAPP en la pantalla de inicio</string>
+
+    <string name="sign_in_title">Iniciar sesión</string>
+    <string name="sign_in_body">Usa tu cuenta de LIFE MAPP. Los widgets se actualizan solos; todo lo demás se abre en la web de LIFE MAPP.</string>
+    <string name="email">Correo electrónico</string>
+    <string name="password">Contraseña</string>
+    <string name="sign_in">Iniciar sesión</string>
+    <string name="sign_in_google">Continuar con Google</string>
+    <string name="error_not_whitelisted">Esta cuenta aún no tiene acceso a la beta.</string>
+    <string name="error_network">Sin conexión. Revisa tu red e inténtalo de nuevo.</string>
+
+    <string name="unlock_title">Desbloquear cifrado</string>
+    <string name="unlock_body">Tus datos de LIFE MAPP están cifrados de extremo a extremo. Introduce la contraseña con la que los desbloqueas en la web para que los widgets muestren los títulos. Se guarda solo en este dispositivo, protegida por el Android Keystore.</string>
+    <string name="encryption_password">Contraseña de cifrado</string>
+    <string name="unlock">Desbloquear</string>
+    <string name="not_now">Ahora no (los títulos quedan bloqueados)</string>
+    <string name="unlock_recovery_note">¿Restableciste la contraseña con la clave de recuperación? Desbloquea primero en la web y luego aquí.</string>
+    <string name="error_wrong_password">Esa contraseña no abre tus datos cifrados.</string>
+    <string name="error_not_configured">El cifrado aún no está configurado en esta cuenta.</string>
+
+    <string name="signed_in_as">Sesión iniciada como %1$s</string>
+    <string name="sync_title">Sincronización</string>
+    <string name="last_sync">Última actualización a las %1$s</string>
+    <string name="never_synced">Aún sin actualizar</string>
+    <string name="sync_error_server">La última actualización falló. Se reintentará automáticamente.</string>
+    <string name="sync_error_unauthorized">Tu sesión caducó. Cierra sesión y vuelve a entrar.</string>
+    <string name="sync_now">Actualizar ahora</string>
+    <string name="open_web">Abrir LIFE MAPP</string>
+
+    <string name="widgets_title">Widgets</string>
+    <plurals name="widgets_placed">
+        <item quantity="one">%1$d widget en tu pantalla de inicio</item>
+        <item quantity="many">%1$d widgets en tu pantalla de inicio</item>
+        <item quantity="other">%1$d widgets en tu pantalla de inicio</item>
+    </plurals>
+    <string name="widgets_hint">Mantén pulsada la pantalla de inicio y elige Widgets → LIFE MAPP Widgets, o añade uno aquí.</string>
+    <string name="pin_dashboard">Añadir widget Panel</string>
+
+    <string name="encryption_title">Cifrado</string>
+    <string name="encryption_unlocked">Desbloqueado en este dispositivo. Los widgets muestran títulos.</string>
+    <string name="encryption_locked">Bloqueado. Los widgets muestran contadores y 🔒 en lugar de títulos.</string>
+    <string name="lock">Bloquear en este dispositivo</string>
+
+    <string name="battery_title">Actualización en segundo plano</string>
+    <string name="battery_body">Android puede retrasar las actualizaciones de apps que abres poco. Permitir el uso de batería sin restricciones mantiene los widgets al día (cada 30 minutos).</string>
+    <string name="battery_unrestricted">La actualización en segundo plano no tiene restricciones.</string>
+    <string name="battery_optimized">La optimización de batería puede retrasar las actualizaciones.</string>
+    <string name="battery_action">Optimizar actualización en segundo plano</string>
+
+    <string name="account_title">Cuenta</string>
+    <string name="relink_web">Volver a iniciar sesión en la web la próxima vez</string>
+    <string name="sign_out">Cerrar sesión</string>
+
+    <string name="config_title">Widget Panel</string>
+    <string name="config_days">Mostrar</string>
+    <plurals name="config_days_option">
+        <item quantity="one">Hoy</item>
+        <item quantity="many">%1$d días</item>
+        <item quantity="other">%1$d días</item>
+    </plurals>
+    <string name="config_calendars">Calendarios</string>
+    <string name="config_no_calendars">Los calendarios aparecen aquí tras la primera actualización.</string>
+    <string name="save">Guardar</string>
+</resources>

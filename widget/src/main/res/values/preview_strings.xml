@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sample content shown only in the widget picker. -->
+<resources>
+    <string name="preview_name" translatable="false">Alex</string>
+    <string name="preview_date">Today is Saturday, 31 October</string>
+    <string name="preview_temp" translatable="false">18°</string>
+    <string name="preview_event_1">Team stand-up</string>
+    <string name="preview_event_2">Lunch with Sam</string>
+    <string name="preview_task_1">Pay electricity bill</string>
+    <string name="preview_task_2">Call the dentist</string>
+    <string name="preview_tasks_open">3 open</string>
+    <string name="preview_link_1" translatable="false">Mail</string>
+    <string name="preview_link_2" translatable="false">Music</string>
+    <string name="preview_link_3" translatable="false">Maps</string>
+    <string name="preview_link_4" translatable="false">News</string>
+</resources>

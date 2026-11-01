@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">LIFE MAPP Widgets</string>
+    <string name="app_tagline">Your LIFE MAPP on the home screen</string>
+
+    <string name="sign_in_title">Sign in</string>
+    <string name="sign_in_body">Use your LIFE MAPP account. Your widgets update by themselves; everything else opens in the LIFE MAPP web app.</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="sign_in">Sign in</string>
+    <string name="sign_in_google">Continue with Google</string>
+    <string name="error_not_whitelisted">This account doesn\'t have beta access yet.</string>
+    <string name="error_network">No connection. Check your network and try again.</string>
+
+    <string name="unlock_title">Unlock encryption</string>
+    <string name="unlock_body">Your LIFE MAPP data is end-to-end encrypted. Enter the password you use to unlock it on the web, so the widgets can show titles. It\'s kept on this device only, protected by the Android Keystore.</string>
+    <string name="encryption_password">Encryption password</string>
+    <string name="unlock">Unlock</string>
+    <string name="not_now">Not now (titles stay locked)</string>
+    <string name="unlock_recovery_note">Reset your password with the recovery key? Unlock once on the web first, then here.</string>
+    <string name="error_wrong_password">That password doesn\'t open your encrypted data.</string>
+    <string name="error_not_configured">Encryption isn\'t set up for this account yet.</string>
+
+    <string name="signed_in_as">Signed in as %1$s</string>
+    <string name="sync_title">Sync</string>
+    <string name="last_sync">Last updated at %1$s</string>
+    <string name="never_synced">Not updated yet</string>
+    <string name="sync_error_server">The last update failed. It will retry automatically.</string>
+    <string name="sync_error_unauthorized">Your session expired. Sign out and in again.</string>
+    <string name="sync_now">Update now</string>
+    <string name="open_web">Open LIFE MAPP</string>
+
+    <string name="widgets_title">Widgets</string>
+    <plurals name="widgets_placed">
+        <item quantity="one">%1$d widget on your home screen</item>
+        <item quantity="other">%1$d widgets on your home screen</item>
+    </plurals>
+    <string name="widgets_hint">Long-press your home screen and choose Widgets → LIFE MAPP Widgets, or add one here.</string>
+    <string name="pin_dashboard">Add Dashboard widget</string>
+
+    <string name="encryption_title">Encryption</string>
+    <string name="encryption_unlocked">Unlocked on this device. Widgets show titles.</string>
+    <string name="encryption_locked">Locked. Widgets show counts and 🔒 instead of titles.</string>
+    <string name="lock">Lock on this device</string>
+
+    <string name="battery_title">Background refresh</string>
+    <string name="battery_body">Android may delay updates for apps you rarely open. Allowing unrestricted battery use keeps widgets fresh (every 30 minutes).</string>
+    <string name="battery_unrestricted">Background refresh is unrestricted.</string>
+    <string name="battery_optimized">Battery optimization may delay updates.</string>
+    <string name="battery_action">Optimize background refresh</string>
+
+    <string name="account_title">Account</string>
+    <string name="relink_web">Sign in to the web app again on next open</string>
+    <string name="sign_out">Sign out</string>
+
+    <string name="config_title">Dashboard widget</string>
+    <string name="config_days">Show</string>
+    <plurals name="config_days_option">
+        <item quantity="one">Today</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <string name="config_calendars">Calendars</string>
+    <string name="config_no_calendars">Calendars appear here after the first update.</string>
+    <string name="save">Save</string>
+</resources>
