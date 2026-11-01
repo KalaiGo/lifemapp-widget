@@ -9,6 +9,7 @@
     <string name="and_you_have">Y tienes:</string>
     <string name="weather">Tiempo</string>
     <string name="weather_in">Tiempo en %1$s</string>
+    <string name="open_web_app">Abrir LIFE MAPP</string>
     <string name="events">Eventos</string>
     <string name="tasks">Tareas</string>
     <string name="mail">Correo</string>
@@ -16,9 +17,34 @@
     <string name="budget">Presupuesto</string>
     <string name="shortcuts">Accesos</string>
     <string name="reload">Recargar</string>
+    <string name="record">Grabar</string>
     <string name="add_task">Añadir tarea</string>
     <string name="voice_input">Añadir tareas o recordatorios por voz</string>
     <string name="voice_prompt">Di tus tareas o recordatorios</string>
+    <!-- Voice input, after speaking -->
+    <string name="voice_analyzing">Analizando…</string>
+    <string name="voice_adding">Añadiendo…</string>
+    <string name="voice_new_task">Nueva tarea</string>
+    <string name="voice_new_reminder">Nuevo recordatorio</string>
+    <string name="voice_add">Añadir</string>
+    <string name="voice_make_task">Como tarea</string>
+    <string name="voice_make_reminder">Como recordatorio</string>
+    <string name="voice_task_added">Tarea añadida</string>
+    <string name="voice_reminder_added">Recordatorio añadido</string>
+    <plurals name="voice_items_added">
+        <item quantity="one">%d elemento añadido</item>
+        <item quantity="other">%d elementos añadidos</item>
+    </plurals>
+    <string name="voice_partly_added">Añadidos: %1$d. Sin añadir: %2$d.</string>
+    <string name="voice_nothing_added">No se añadió nada.</string>
+    <string name="voice_reason_locked">Desbloquea primero el cifrado en la app LIFE MAPP Widgets.</string>
+    <string name="voice_reason_limit">Has alcanzado el límite de recordatorios de tu plan.</string>
+    <string name="voice_reason_not_connected">Vuelve a conectar tu gestor de tareas en LIFE MAPP.</string>
+    <string name="voice_reason_unsupported">Tu gestor de tareas aún no se puede usar desde el widget.</string>
+    <string name="voice_reason_failed">Algo salió mal. Inténtalo de nuevo.</string>
+    <string name="voice_no_credits">Créditos de IA agotados. No se añadió nada. Se renuevan el próximo mes.</string>
+    <string name="voice_offline">No se pudo conectar con LIFE MAPP. No se añadió nada.</string>
+    <string name="voice_signed_out">Inicia sesión en LIFE MAPP para añadir por voz.</string>
     <string name="complete_task">Completar tarea</string>
     <string name="today">Hoy</string>
     <string name="tomorrow">Mañana</string>
@@ -58,6 +84,8 @@
     <string name="integrity">Integridad</string>
     <string name="integrity_reception">Recepción</string>
     <string name="integrity_create_reminder">Crear recordatorio</string>
+    <string name="integrity_record">Grabar</string>
+    <string name="integrity_type">Escribir</string>
     <string name="integrity_no_content">Sin contenido aún</string>
     <string name="integrity_warnings">Advertencias</string>
     <string name="integrity_more">+%d más</string>

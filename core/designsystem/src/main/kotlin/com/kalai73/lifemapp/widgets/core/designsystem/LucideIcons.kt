@@ -191,6 +191,7 @@ object LucideIcons {
     val RELOAD = R.drawable.lm_ic_refresh_cw
     val ADD = R.drawable.lm_ic_plus
     val MIC = R.drawable.lm_ic_mic
+    val PENCIL = R.drawable.lm_ic_pencil
     val LOCK = R.drawable.lm_ic_lock
     val CHECK_OFF = R.drawable.lm_ic_circle
     val CHECK_ON = R.drawable.lm_ic_circle_check

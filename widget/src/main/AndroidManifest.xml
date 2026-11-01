@@ -17,13 +17,16 @@
     </queries>
 
     <application>
-        <!-- Mic button: system speech dialog, then the web turns what was said into tasks and reminders.
-             Not noHistory: it must stay alive to receive the dialog's result -->
+        <!-- Mic button: system speech dialog, then what was said is filed as tasks and reminders through the API.
+             Not noHistory: it must stay alive to receive the dialog's result. Handles configuration changes
+             itself, so rotating or switching dark mode keeps its review dialog and pending request -->
         <activity
             android:name=".voice.VoiceInputActivity"
             android:exported="false"
             android:excludeFromRecents="true"
             android:taskAffinity=""
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.LifeMapp.Trampoline" />
 
         <receiver

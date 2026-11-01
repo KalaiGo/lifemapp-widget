@@ -11,6 +11,7 @@ import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.data.repository.EncryptionRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.SnapshotRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.TaskRepository
+import com.kalai73.lifemapp.widgets.core.data.repository.VoiceRepository
 import com.kalai73.lifemapp.widgets.core.data.secure.DeviceLockedException
 import com.kalai73.lifemapp.widgets.core.data.secure.SecretStore
 import com.kalai73.lifemapp.widgets.core.model.AuthState
@@ -38,6 +39,7 @@ class LifeMappGraph private constructor(context: Context) {
     val snapshots = SnapshotRepository(api, cache)
     val tasks = TaskRepository(api, cache)
     val encryption = EncryptionRepository(api, secrets)
+    val voice = VoiceRepository(api, dataKey = { encryption.dataKey() })
 
     /** Set by the widget module: re-renders every placed widget from the cache. */
     @Volatile var refreshWidgets: suspend () -> Unit = {}

@@ -74,6 +74,7 @@ import com.kalai73.lifemapp.widgets.widget.sync.SyncScheduler
 import com.kalai73.lifemapp.widgets.widget.tasks.TaskActions
 import com.kalai73.lifemapp.widgets.widget.tasks.TaskRow
 import com.kalai73.lifemapp.widgets.widget.today.Counters
+import com.kalai73.lifemapp.widgets.widget.today.HeroFooter
 import com.kalai73.lifemapp.widgets.widget.today.HeroHeader
 import com.kalai73.lifemapp.widgets.widget.today.stackedHero
 
@@ -135,12 +136,15 @@ internal fun DashboardContent(ui: WidgetUi, days: List<EventDayUi>, modifier: Gl
     }
     // Tall: the hero stacked as on the web's mobile layout, scrolling with the list. Lazy items are separate
     // view trees, so their frames don't count against the root's 10 nesting levels.
-    LazyColumn(modifier = modifier.fillMaxSize()) {
-        stackedHero(ui, showStatus)
-        ui.integrity?.let { integritySection(it) }
-        eventsSection(ui, days)
-        tasksSection(ui)
-        shortcutsSection(ui, columns = shortcutColumns(size.width, rows = predator))
+    Column(modifier = modifier.fillMaxSize()) {
+        LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+            stackedHero(ui, showStatus)
+            ui.integrity?.let { integritySection(it) }
+            eventsSection(ui, days)
+            tasksSection(ui)
+            shortcutsSection(ui, columns = shortcutColumns(size.width, rows = predator))
+        }
+        HeroFooter(ui)
     }
 }
 
@@ -277,8 +281,6 @@ private fun LazyListScope.shortcutsSection(ui: WidgetUi, columns: Int) {
         ShortcutsSubHeader(
             LucideIcons.LINK, context.getString(R.string.links), openRoute(context, WebRoutes.QUICK_LINKS),
             count = ui.shortcuts.size.takeUnless { ui.shortcutsLocked },
-            actionLabel = context.getString(R.string.manage),
-            actionIcon = LucideIcons.PANEL,
             onAdd = openRoute(context, WebRoutes.QUICK_LINKS).takeUnless { ui.shortcutsLocked },
             chevron = true,
         )

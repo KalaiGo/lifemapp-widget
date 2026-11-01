@@ -7,6 +7,8 @@ import com.kalai73.lifemapp.widgets.R
 import com.kalai73.lifemapp.widgets.core.data.LifeMappGraph
 import com.kalai73.lifemapp.widgets.core.data.auth.AuthException
 import com.kalai73.lifemapp.widgets.core.data.auth.NotWhitelistedException
+import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetPresenter
+import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.data.repository.UnlockResult
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.CachedState
@@ -45,6 +47,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<AppUiState> = _state.asStateFlow()
     val cache: StateFlow<CachedState> = graph.cache.state.stateIn(viewModelScope, SharingStarted.Eagerly, CachedState())
 
+    /** What the Today screen draws: decrypted and formatted like the widgets (shared presenter). */
+    private val _today = MutableStateFlow(WidgetUi.SignedOut)
+    val today: StateFlow<WidgetUi> = _today.asStateFlow()
+
     val colorScheme: ColorSchemeName get() = ColorSchemeName.from(cache.value.snapshot?.settings?.colorScheme)
     val uiStyle: UiStyle get() = UiStyle.from(cache.value.snapshot?.settings?.uiStyle)
 
@@ -63,6 +69,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val session = secrets?.session
         val encryptionEnabled = graph.cache.current().snapshot?.settings?.encryptionEnabled == true
         val unlocked = secrets?.dataKey != null
+        _today.value = WidgetPresenter.present(
+            graph.cache.current(),
+            if (session != null) AuthState.SIGNED_IN else AuthState.SIGNED_OUT,
+            secrets?.dataKey,
+        )
         _state.update { s ->
             s.copy(
                 screen = when {
@@ -148,6 +159,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun syncNow() {
         SyncScheduler.syncNow(getApplication(), manual = true)
+    }
+
+    /** Reload button / pull-to-refresh on the Today screen (debounced like the widgets' reload). */
+    fun reload() {
+        if (!SyncScheduler.canSyncManually()) return
+        viewModelScope.launch {
+            graph.snapshots.markSyncing()
+            SyncScheduler.syncNow(getApplication(), manual = true)
+        }
+    }
+
+    /** Hides the task at once, then a worker confirms it with the server (the widgets' path). */
+    fun completeTask(taskId: String) {
+        viewModelScope.launch {
+            graph.tasks.markCompletedLocally(taskId)
+            LifeMappWidgets.updateAll(getApplication())
+            SyncScheduler.completeTask(getApplication(), taskId)
+        }
+    }
+
+    fun dismissCompletionFailure() {
+        viewModelScope.launch { graph.tasks.dismissFailure() }
     }
 
     fun relinkWeb() = run { WebLauncher.resetHandoff(getApplication()) }

@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +26,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -46,7 +54,12 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -82,17 +95,53 @@ import java.util.Date
 fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOpenWeb: (String) -> Unit) {
     val state by viewModel.state.collectAsState()
     val cache by viewModel.cache.collectAsState()
+    val today by viewModel.today.collectAsState()
+    if (state.screen == Screen.HOME) {
+        // Main page = Today; the former main page (sync, widgets, encryption, battery, account) is the side panel
+        val drawerState = rememberDrawerState(DrawerValue.Closed)
+        val scope = rememberCoroutineScope()
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ModalDrawerSheet {
+                    Column(Modifier.verticalScroll(rememberScrollState()).safeDrawingPadding().padding(horizontal = 20.dp, vertical = 16.dp)) {
+                        Brand()
+                        Spacer(Modifier.height(8.dp))
+                        Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(16.dp))
+                        SettingsPanel(state, cache, viewModel, onOpenWeb)
+                    }
+                }
+            },
+        ) {
+            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+                    TodayScreen(
+                        ui = today,
+                        onOpenSettings = { scope.launch { drawerState.open() } },
+                        onReload = viewModel::reload,
+                        onCompleteTask = viewModel::completeTask,
+                        onUnlock = viewModel::showUnlock,
+                        onOpenWeb = onOpenWeb,
+                    )
+                }
+            }
+        }
+        return
+    }
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
         ) {
-            Brand()
-            Spacer(Modifier.height(24.dp))
+            if (state.screen != Screen.SIGN_IN) {
+                Brand()
+                Spacer(Modifier.height(24.dp))
+            }
             when (state.screen) {
                 Screen.LOADING -> Centered { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
-                Screen.SIGN_IN -> SignInScreen(state, viewModel::signIn, onGoogleSignIn)
+                Screen.SIGN_IN -> SignInScreen(state, viewModel::signIn, onOpenWeb)
                 Screen.UNLOCK -> UnlockScreen(state, viewModel::unlock, viewModel::skipUnlock)
-                Screen.HOME -> HomeScreen(state, cache, viewModel, onOpenWeb)
+                Screen.HOME -> Unit // handled above
             }
         }
     }
@@ -136,31 +185,63 @@ private fun ErrorText(error: String?) {
 }
 
 @Composable
-private fun SignInScreen(state: AppUiState, onSignIn: (String, String) -> Unit, onGoogle: () -> Unit) {
+private fun SignInBrand() {
     val style = LocalUiStyle.current
     val pd = LocalPdPalette.current
+    val accent = if (style == UiStyle.PREDATOR) pd.ink else MaterialTheme.colorScheme.primary
+    val base = if (style == UiStyle.PREDATOR) pdTitleStyle(size = 26.sp, color = pd.text, letterSpacing = 0.08.em)
+    else MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black)
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            buildAnnotatedString {
+                withStyle(SpanStyle(color = accent, fontStyle = FontStyle.Italic)) { append("LIFE") }
+                append(" MAPP")
+            },
+            style = base,
+        )
+        Spacer(Modifier.height(16.dp))
+        if (style == UiStyle.PREDATOR) {
+            PdHexIconWell(iconRes = LucideIcons.TARGET, contentDescription = null, size = 56.dp, palette = pd)
+        } else {
+            Icon(painterResource(LucideIcons.TARGET), null, tint = accent, modifier = Modifier.size(48.dp))
+        }
+    }
+}
+
+@Composable
+private fun SignInScreen(state: AppUiState, onSignIn: (String, String) -> Unit, onOpenWeb: (String) -> Unit) {
+    val style = LocalUiStyle.current
+    val pd = LocalPdPalette.current
+    val predator = style == UiStyle.PREDATOR
+    val accent = if (predator) pd.ink else MaterialTheme.colorScheme.primary
+    val dim = if (predator) pd.dim else MaterialTheme.colorScheme.onSurfaceVariant
     var email by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var showPassword by remember { mutableStateOf(false) }
 
-    if (style == UiStyle.PREDATOR) {
-        PdSectionHeader(title = stringResource(R.string.sign_in_title), palette = pd)
-    } else {
-        Text(stringResource(R.string.sign_in_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+    SignInBrand()
+    Spacer(Modifier.height(20.dp))
+
+    // "Don't have an account? Sign up" panel
+    Box(
+        Modifier.fillMaxWidth()
+            .then(if (predator) Modifier.pdPanel(pd) else Modifier)
+            .padding(vertical = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.no_account), color = dim)
+            TextButton(onClick = { onOpenWeb(WebRoutes.SIGN_UP) }) {
+                Text(stringResource(R.string.sign_up), color = accent, fontWeight = FontWeight.Bold)
+            }
+        }
     }
-    Spacer(Modifier.height(6.dp))
-    Text(
-        stringResource(R.string.sign_in_body),
-        style = if (style == UiStyle.PREDATOR) MaterialTheme.typography.bodyMedium.copy(color = pd.dim)
-        else MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-    )
-    Spacer(Modifier.height(18.dp))
+    Spacer(Modifier.height(20.dp))
 
-    val textFieldColors = if (style == UiStyle.PREDATOR) {
+    val textFieldColors = if (predator) {
         OutlinedTextFieldDefaults.colors(
             focusedBorderColor = pd.ink,
             unfocusedBorderColor = pd.edge,
-            focusedLabelColor = pd.ink,
-            unfocusedLabelColor = pd.dim,
             focusedContainerColor = pd.raised,
             unfocusedContainerColor = pd.raised,
             cursorColor = pd.ink,
@@ -170,72 +251,62 @@ private fun SignInScreen(state: AppUiState, onSignIn: (String, String) -> Unit, 
     } else {
         OutlinedTextFieldDefaults.colors()
     }
+    val shape = if (predator) RectangleShape else OutlinedTextFieldDefaults.shape
 
+    Text(stringResource(R.string.email), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
+    Spacer(Modifier.height(6.dp))
     OutlinedTextField(
         value = email,
         onValueChange = { email = it },
-        label = {
-            Text(
-                if (style == UiStyle.PREDATOR) stringResource(R.string.email).uppercase() else stringResource(R.string.email),
-                style = if (style == UiStyle.PREDATOR) pdCaptionStyle(size = 11.sp) else TextStyle.Default,
-            )
-        },
-        shape = if (style == UiStyle.PREDATOR) RectangleShape else OutlinedTextFieldDefaults.shape,
+        placeholder = { Text(stringResource(R.string.email_placeholder), color = dim) },
+        shape = shape,
         colors = textFieldColors,
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
     )
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(14.dp))
+    Text(stringResource(R.string.password), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
+    Spacer(Modifier.height(6.dp))
     OutlinedTextField(
         value = password,
         onValueChange = { password = it },
-        label = {
-            Text(
-                if (style == UiStyle.PREDATOR) stringResource(R.string.password).uppercase() else stringResource(R.string.password),
-                style = if (style == UiStyle.PREDATOR) pdCaptionStyle(size = 11.sp) else TextStyle.Default,
-            )
-        },
-        shape = if (style == UiStyle.PREDATOR) RectangleShape else OutlinedTextFieldDefaults.shape,
+        placeholder = { Text(stringResource(R.string.password_placeholder), color = dim) },
+        shape = shape,
         colors = textFieldColors,
         singleLine = true,
-        visualTransformation = PasswordVisualTransformation(),
+        visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+        trailingIcon = {
+            TextButton(onClick = { showPassword = !showPassword }) {
+                Text(stringResource(if (showPassword) R.string.hide else R.string.show), color = dim)
+            }
+        },
         modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
     )
     ErrorText(state.error)
     Spacer(Modifier.height(16.dp))
 
-    if (style == UiStyle.PREDATOR) {
+    val canSubmit = !state.busy && email.isNotBlank() && password.isNotEmpty()
+    if (predator) {
         PdButton(
             onClick = { onSignIn(email, password) },
-            enabled = !state.busy && email.isNotBlank() && password.isNotEmpty(),
+            enabled = canSubmit,
             busy = state.busy,
             modifier = Modifier.fillMaxWidth(),
             palette = pd,
         ) {
             Text(stringResource(R.string.sign_in).uppercase())
         }
-        Spacer(Modifier.height(10.dp))
-        PdOutlinedButton(
-            onClick = onGoogle,
-            enabled = !state.busy,
-            modifier = Modifier.fillMaxWidth(),
-            palette = pd,
-        ) {
-            Text(stringResource(R.string.sign_in_google).uppercase())
-        }
     } else {
-        Button(
-            onClick = { onSignIn(email, password) },
-            enabled = !state.busy && email.isNotBlank() && password.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.sign_in))
+        Button(onClick = { onSignIn(email, password) }, enabled = canSubmit, modifier = Modifier.fillMaxWidth()) {
+            if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.sign_in).uppercase())
         }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = onGoogle, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.sign_in_google))
+    }
+    Spacer(Modifier.height(12.dp))
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        TextButton(onClick = { onOpenWeb(WebRoutes.FORGOT_PASSWORD) }) {
+            Text(stringResource(R.string.forgot_password), color = accent)
         }
     }
 }
@@ -332,6 +403,15 @@ private fun UnlockScreen(state: AppUiState, onUnlock: (String) -> Unit, onSkip: 
 private fun Section(title: String, content: @Composable () -> Unit) {
     val style = LocalUiStyle.current
     val pd = LocalPdPalette.current
+    var expanded by rememberSaveable(title) { mutableStateOf(false) }
+    val toggle = Modifier.fillMaxWidth().clickable { expanded = !expanded }
+    val chevron: @Composable () -> Unit = {
+        Icon(
+            painterResource(LucideIcons.CHEVRON_DOWN),
+            contentDescription = null,
+            modifier = Modifier.size(20.dp).rotate(if (expanded) 180f else 0f),
+        )
+    }
     if (style == UiStyle.PREDATOR) {
         Box(
             modifier = Modifier
@@ -341,22 +421,28 @@ private fun Section(title: String, content: @Composable () -> Unit) {
                 .padding(horizontal = 16.dp, vertical = 14.dp),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                PdSectionHeader(title = title, palette = pd)
-                content()
+                Row(toggle, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    PdSectionHeader(title = title, palette = pd)
+                    chevron()
+                }
+                if (expanded) content()
             }
         }
     } else {
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                content()
+                Row(toggle, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    chevron()
+                }
+                if (expanded) content()
             }
         }
     }
 }
 
 @Composable
-private fun HomeScreen(state: AppUiState, cache: CachedState, viewModel: AppViewModel, onOpenWeb: (String) -> Unit) {
+private fun SettingsPanel(state: AppUiState, cache: CachedState, viewModel: AppViewModel, onOpenWeb: (String) -> Unit) {
     val context = LocalContext.current
     val style = LocalUiStyle.current
     val pd = LocalPdPalette.current
@@ -367,6 +453,31 @@ private fun HomeScreen(state: AppUiState, cache: CachedState, viewModel: AppView
         style = if (style == UiStyle.PREDATOR) pdCaptionStyle(size = 11.sp, color = pd.dim) else MaterialTheme.typography.bodyMedium,
     )
     Spacer(Modifier.height(12.dp))
+
+    Section(stringResource(R.string.appearance_title)) {
+        Text(
+            stringResource(R.string.appearance_hint),
+            style = if (style == UiStyle.PREDATOR) pdCaptionStyle(size = 11.sp, color = pd.dim)
+            else MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (mode in ThemeMode.entries) {
+                val label = stringResource(
+                    when (mode) {
+                        ThemeMode.SYSTEM -> R.string.theme_system
+                        ThemeMode.LIGHT -> R.string.theme_light
+                        ThemeMode.DARK -> R.string.theme_dark
+                    }
+                )
+                val selected = cache.themeMode == mode
+                if (style == UiStyle.PREDATOR) {
+                    PdFilterChip(selected = selected, onClick = { viewModel.setThemeMode(mode) }, label = label, palette = pd)
+                } else {
+                    FilterChip(selected = selected, onClick = { viewModel.setThemeMode(mode) }, label = { Text(label) })
+                }
+            }
+        }
+    }
 
     Section(stringResource(R.string.sync_title)) {
         val last = cache.lastSuccessAt.takeIf { it > 0 }?.let { DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it)) }
@@ -426,31 +537,6 @@ private fun HomeScreen(state: AppUiState, cache: CachedState, viewModel: AppView
                     onClick = { manager.requestPinAppWidget(ComponentName(context, DashboardWidgetReceiver::class.java), null, null) },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(stringResource(R.string.pin_dashboard)) }
-            }
-        }
-    }
-
-    Section(stringResource(R.string.appearance_title)) {
-        Text(
-            stringResource(R.string.appearance_hint),
-            style = if (style == UiStyle.PREDATOR) pdCaptionStyle(size = 11.sp, color = pd.dim)
-            else MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (mode in ThemeMode.entries) {
-                val label = stringResource(
-                    when (mode) {
-                        ThemeMode.SYSTEM -> R.string.theme_system
-                        ThemeMode.LIGHT -> R.string.theme_light
-                        ThemeMode.DARK -> R.string.theme_dark
-                    }
-                )
-                val selected = cache.themeMode == mode
-                if (style == UiStyle.PREDATOR) {
-                    PdFilterChip(selected = selected, onClick = { viewModel.setThemeMode(mode) }, label = label, palette = pd)
-                } else {
-                    FilterChip(selected = selected, onClick = { viewModel.setThemeMode(mode) }, label = { Text(label) })
-                }
             }
         }
     }

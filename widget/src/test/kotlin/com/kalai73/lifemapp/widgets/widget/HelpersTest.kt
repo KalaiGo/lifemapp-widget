@@ -6,7 +6,11 @@ import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.R
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebLauncher
 import com.kalai73.lifemapp.widgets.widget.sync.SyncScheduler
+import com.kalai73.lifemapp.widgets.core.data.api.VoiceFailure
+import com.kalai73.lifemapp.widgets.core.data.api.VoiceIntent
+import com.kalai73.lifemapp.widgets.core.data.api.VoiceItemResult
 import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
+import com.kalai73.lifemapp.widgets.widget.voice.VoiceOutcome
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -64,6 +68,21 @@ class HelpersTest {
         assertEquals("whatsapp://send?phone=1", WebLauncher.normalizeUrl("whatsapp://send?phone=1"))
         assertEquals("spotify:track:1", WebLauncher.normalizeUrl(" spotify:track:1 "))
         assertEquals("https://a.b/c", WebLauncher.normalizeUrl("https://a.b/c"))
+    }
+
+    @Test
+    fun `voice input reports what was added and the most useful reason for the rest`() {
+        fun ok(kind: VoiceIntent) = VoiceItemResult(true, kind)
+        fun failed(kind: VoiceIntent, reason: VoiceFailure?) = VoiceItemResult(false, kind, reason)
+
+        assertEquals(VoiceOutcome(1, 0, VoiceIntent.REMINDER, null), VoiceOutcome.of(listOf(ok(VoiceIntent.REMINDER))))
+        assertEquals(VoiceOutcome(2, 0, null, null), VoiceOutcome.of(listOf(ok(VoiceIntent.TASK), ok(VoiceIntent.REMINDER))))
+        assertEquals(
+            VoiceOutcome(1, 2, VoiceIntent.TASK, VoiceFailure.LOCKED),
+            VoiceOutcome.of(listOf(ok(VoiceIntent.TASK), failed(VoiceIntent.REMINDER, VoiceFailure.LIMIT), failed(VoiceIntent.TASK, VoiceFailure.LOCKED))),
+        )
+        assertEquals(VoiceOutcome(0, 1, null, VoiceFailure.FAILED), VoiceOutcome.of(listOf(failed(VoiceIntent.TASK, null))))
+        assertEquals(VoiceOutcome(0, 0, null, VoiceFailure.FAILED), VoiceOutcome.of(emptyList()))
     }
 
     @Test

@@ -192,12 +192,14 @@ private fun InfoBox(text: String) {
     Spacer(GlanceModifier.height(8.dp))
     if (pd != null) {
         PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge2, fill = pd.accentTint, modifier = GlanceModifier.fillMaxWidth()) { frame ->
-            Text(
-                text,
-                style = captionStyle(size = 11.sp, color = pd.text).copy(textAlign = TextAlign.Center),
-                maxLines = 2,
-                modifier = frame.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp),
-            )
+            // Centered both ways in the frame: the box centers the text block, textAlign centers wrapped lines
+            Box(modifier = frame.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp), contentAlignment = Alignment.Center) {
+                Text(
+                    text,
+                    style = captionStyle(size = 11.sp, color = pd.text).copy(textAlign = TextAlign.Center),
+                    maxLines = 2,
+                )
+            }
         }
     } else {
         Text(
@@ -217,31 +219,52 @@ private fun Reception() {
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
     val speak = speakReminders()
+    val type = typeReminder()
     val label = context.getString(R.string.integrity_reception)
     val hint = context.getString(R.string.integrity_create_reminder)
+    val recordLabel = context.getString(R.string.integrity_record)
     Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 10.dp)) {
         if (pd != null) {
-            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge2, fill = pd.well, modifier = GlanceModifier.fillMaxWidth().clickable(speak)) { frame ->
-                Column(modifier = frame.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    PdHex(32.dp, edge = pd.accent, fill = pd.panel) { Icon(LucideIcons.MIC, hint, size = 15.dp, tint = pd.ink) }
-                    Spacer(GlanceModifier.height(6.dp))
-                    Text(style.label(label), style = labelStyle(size = 13.sp, color = pd.text), maxLines = 1)
-                    Text(hint, style = captionStyle(size = 10.sp, color = pd.dim), maxLines = 1)
+            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge2, fill = pd.well, modifier = GlanceModifier.fillMaxWidth()) { frame ->
+                Row(modifier = frame.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
+                        Box(modifier = GlanceModifier.clickable(speak)) {
+                            PdHex(32.dp, edge = pd.accent, fill = pd.panel) { Icon(LucideIcons.MIC, recordLabel, size = 15.dp, tint = pd.ink) }
+                        }
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(style.label(label), style = labelStyle(size = 13.sp, color = pd.text), maxLines = 1)
+                        Text(hint, style = captionStyle(size = 10.sp, color = pd.dim), maxLines = 1)
+                    }
+                    Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
+                        Box(modifier = GlanceModifier.clickable(type)) {
+                            PdHex(32.dp, edge = pd.accent, fill = pd.panel) { Icon(LucideIcons.PENCIL, hint, size = 15.dp, tint = pd.ink) }
+                        }
+                    }
                 }
             }
         } else {
-            Column(
+            Row(
                 modifier = GlanceModifier.fillMaxWidth().background(GlanceTheme.colors.surfaceVariant)
-                    .cornerRadius(style.innerRadius).clickable(speak).padding(vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                    .cornerRadius(style.innerRadius).padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = GlanceModifier.size(36.dp).cornerRadius(18.dp).background(GlanceTheme.colors.secondaryContainer),
-                    contentAlignment = Alignment.Center,
-                ) { Icon(LucideIcons.MIC, hint, size = 18.dp) }
-                Spacer(GlanceModifier.height(6.dp))
-                Text(label.uppercase(), style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
-                Text(hint, style = textStyle(size = 11.sp, color = GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
+                Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = GlanceModifier.size(36.dp).cornerRadius(18.dp).background(GlanceTheme.colors.secondaryContainer).clickable(speak),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(LucideIcons.MIC, recordLabel, size = 18.dp) }
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(label.uppercase(), style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
+                    Text(hint, style = textStyle(size = 11.sp, color = GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
+                }
+                Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = GlanceModifier.size(36.dp).cornerRadius(18.dp).background(GlanceTheme.colors.secondaryContainer).clickable(type),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(LucideIcons.PENCIL, hint, size = 18.dp) }
+                }
             }
         }
     }
@@ -261,6 +284,12 @@ private fun TopicHeader(topic: TopicUi) {
             if (!topic.reminders) {
                 // Decorative: the web card's collapse toggle (a widget topic is always expanded)
                 Icon(LucideIcons.CHEVRON_DOWN, null, size = 12.dp, tint = dim)
+                Spacer(GlanceModifier.width(4.dp))
+            } else {
+                // Reminders: a bullet in the toggle's slot, so the hex lines up with the other topics
+                Box(modifier = GlanceModifier.width(12.dp), contentAlignment = Alignment.Center) {
+                    Text("•", style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = dim))
+                }
                 Spacer(GlanceModifier.width(4.dp))
             }
             if (pd != null) {
@@ -283,11 +312,9 @@ private fun TopicHeader(topic: TopicUi) {
                 Text("(${topic.count})", style = if (pd != null) captionStyle(size = 10.sp, color = dim) else textStyle(size = 11.sp, color = dim), maxLines = 1)
             }
         }
-        // Reminders have no header button: the Reception landing zone above them speaks reminders
-        if (!topic.reminders) {
-            Box(modifier = GlanceModifier.size(28.dp).clickable(addAction(topic)), contentAlignment = Alignment.Center) {
-                Icon(LucideIcons.ADD, context.getString(R.string.integrity_add_item), size = 14.dp, tint = pd?.ink ?: GlanceTheme.colors.primary)
-            }
+        // Reminders: "+" types one (the Reception above them speaks them)
+        Box(modifier = GlanceModifier.size(28.dp).clickable(addAction(topic)), contentAlignment = Alignment.Center) {
+            Icon(LucideIcons.ADD, context.getString(if (topic.reminders) R.string.integrity_create_reminder else R.string.integrity_add_item), size = 14.dp, tint = pd?.ink ?: GlanceTheme.colors.primary)
         }
     }
 }
@@ -423,7 +450,11 @@ private fun WarningsContent(modifier: GlanceModifier, label: String, count: Int,
 @Composable
 private fun speakReminders(): Action = actionStartActivity(VoiceInputActivity.intent(LocalContext.current, reminders = true))
 
-/** "+" of a topic: Reminders are added by voice; other topics are edited on the web. */
+@Composable
+private fun typeReminder(): Action = actionStartActivity(VoiceInputActivity.intent(LocalContext.current, reminders = true, typed = true))
+
+/** "+" of a topic: Reminders are typed in a dialog (or spoken via the Reception); other topics are edited on the web. */
 @Composable
 private fun addAction(topic: TopicUi): Action =
-    if (topic.reminders) speakReminders() else openRoute(LocalContext.current, WebRoutes.INTEGRITY)
+    if (topic.reminders) actionStartActivity(VoiceInputActivity.intent(LocalContext.current, reminders = true, typed = true))
+    else openRoute(LocalContext.current, WebRoutes.INTEGRITY)

@@ -50,9 +50,6 @@ import com.kalai73.lifemapp.widgets.widget.common.textStyle
 /** The date and counter frames sit slightly inside the panel edges, as on the web. */
 private val SIDE_INSET = 8.dp
 
-/** Room kept clear for the mic button (32dp Classic, 28dp Predator) and a small gap. */
-private val VOICE_BUTTON_INSET = 36.dp
-
 /** The date frame is 20% narrower than the counter frame below it. */
 private const val DATE_WIDTH_FRACTION = 0.8f
 
@@ -61,6 +58,7 @@ private const val ID_GREETING = -101L
 private const val ID_DATE = -102L
 private const val ID_COUNTERS = -103L
 private const val ID_WEATHER = -104L
+private const val ID_WEB_APP = -105L
 private const val ID_STATUS = -106L
 
 /** The stacked hero as lazy items; each item is its own view tree, so the frames don't eat the root's depth. */
@@ -73,6 +71,7 @@ internal fun LazyListScope.stackedHero(ui: WidgetUi, showStatus: Boolean) {
         }
     }
     if (ui.weather != null || ui.averageRating != null) item(itemId = ID_WEATHER) { WeatherCard(ui) }
+    item(itemId = ID_WEB_APP) { WebAppButton() }
     if (showStatus) item(itemId = ID_STATUS) {
         Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp), horizontalAlignment = Alignment.End) { StatusLine(ui) }
     }
@@ -111,17 +110,39 @@ private fun GreetingBlock(ui: WidgetUi) {
             )
         }
     }
-    // The button overlays the row's corner; the row keeps the same inset on both sides so a long name stays
-    // centered and clear of it
-    Box(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp), contentAlignment = Alignment.TopEnd) {
-        Row(modifier = GlanceModifier.fillMaxWidth().padding(horizontal = VOICE_BUTTON_INSET), horizontalAlignment = Alignment.CenterHorizontally) {
-            if (pd != null) {
-                PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.raised, fill = pd.raised) { frame -> body(frame) }
-            } else {
-                body(GlanceModifier.background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius))
+    Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        if (pd != null) {
+            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.raised, fill = pd.raised) { frame -> body(frame) }
+        } else {
+            body(GlanceModifier.background(GlanceTheme.colors.surface).cornerRadius(style.innerRadius))
+        }
+    }
+}
+
+/** Footer of the tall Dashboard: the mic and reload buttons, pinned below the scrolling list. */
+@Composable
+internal fun HeroFooter(ui: WidgetUi) {
+    Row(
+        modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val context = LocalContext.current
+        val style = LocalWidgetStyle.current
+        // Two equal halves, each with its icon and label centered; a label wider than its half's room beside the
+        // icon is cut with an ellipsis (one line) instead of pushing the other half out of the widget
+        val half = @Composable { modifier: GlanceModifier, text: String, button: @Composable () -> Unit ->
+            Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.CenterHorizontally) {
+                button()
+                Spacer(GlanceModifier.width(6.dp))
+                Text(
+                    style.label(text),
+                    style = captionStyle(size = 10.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                    maxLines = 1,
+                )
             }
         }
-        VoiceButton()
+        half(GlanceModifier.defaultWeight(), context.getString(R.string.record)) { VoiceButton() }
+        half(GlanceModifier.defaultWeight(), context.getString(R.string.reload)) { ReloadButton(ui, primary = true) }
     }
 }
 
@@ -134,13 +155,17 @@ private fun DateBlock(ui: WidgetUi) {
     // DATE_WIDTH_FRACTION of the inset width, centered. Glance has no fractional widths, so it's computed from the widget size
     // minus the panel padding (12dp a side) and the side inset.
     val frameWidth = (LocalSize.current.width - 24.dp - SIDE_INSET * 2) * DATE_WIDTH_FRACTION
-    // Shrink the date to fit beside the reload button: text space is the frame minus padding (16dp) and the
-    // button with its gap (34dp); a condensed bold glyph averages about 0.55em.
-    val textWidth = (frameWidth - 50.dp).value
+    // Shrink the date to fit the frame: text space is the frame minus padding (16dp);
+    // a condensed bold glyph averages about 0.55em.
+    val textWidth = (frameWidth - 16.dp).value
     val dateSize = (textWidth / (ui.todayLabel.length.coerceAtLeast(1) * 0.55f)).coerceIn(13f, if (style.isPredator) 24f else 20f).sp
     val body: @Composable (GlanceModifier) -> Unit = { modifier ->
-        Row(modifier = modifier.fillMaxWidth().padding(start = 10.dp, end = 6.dp, top = 3.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = GlanceModifier.defaultWeight()) {
+        Row(
+            modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Caption(context.getString(R.string.today_is) + ",")
                 Text(
                     ui.todayLabel,
@@ -148,8 +173,6 @@ private fun DateBlock(ui: WidgetUi) {
                     maxLines = 1,
                 )
             }
-            Spacer(GlanceModifier.width(6.dp))
-            ReloadButton(ui, primary = true)
         }
     }
     Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -193,8 +216,38 @@ private fun WeatherCard(ui: WidgetUi) {
                 } else {
                     Spacer(GlanceModifier.defaultWeight())
                 }
-                ui.averageRating?.let { rating -> RatingBadge(rating) }
+                ui.averageRating?.let { rating ->
+                    if (w != null) {
+                        // Thin vertical divider between the weather and the score
+                        Spacer(GlanceModifier.width(8.dp))
+                        Box(
+                            modifier = (GlanceModifier.width(1.dp).height(36.dp))
+                                .let { if (pd != null) it.background(pd.edge) else it.background(GlanceTheme.colors.outline) },
+                        ) {}
+                        Spacer(GlanceModifier.width(10.dp))
+                    }
+                    RatingBadge(rating)
+                }
             }
+        }
+    }
+}
+
+/** Full-width button under the weather card that opens the LIFE MAPP web app (Today page), signed in. */
+@Composable
+private fun WebAppButton() {
+    val context = LocalContext.current
+    HeroCard(gap = 8.dp, modifier = GlanceModifier.fillMaxWidth().clickable(openRoute(context, WebRoutes.TODAY))) { modifier ->
+        Row(
+            modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                LocalWidgetStyle.current.label(context.getString(R.string.open_web_app)),
+                style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary),
+                maxLines = 1,
+            )
         }
     }
 }
@@ -203,14 +256,10 @@ private fun WeatherCard(ui: WidgetUi) {
 private fun RatingBadge(rating: Double) {
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
-    val description = LocalContext.current.getString(R.string.rating)
     if (pd != null) {
         // Full hex score: accent fill, number in pd-on (styleguide §6 PdHexScore)
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            PdHex(36.dp, edge = pd.accentHi, fill = pd.accent) {
-                Text("%.1f".format(rating), style = numberStyle(13.sp, color = pd.on))
-            }
-            Text(style.label(description), style = captionStyle(size = 8.sp))
+        PdHex(36.dp, edge = pd.accentHi, fill = pd.accent) {
+            Text("%.1f".format(rating), style = numberStyle(13.sp, color = pd.on))
         }
     } else {
         Box(

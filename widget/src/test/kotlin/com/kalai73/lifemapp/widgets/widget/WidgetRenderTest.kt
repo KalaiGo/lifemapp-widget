@@ -193,7 +193,7 @@ class WidgetRenderTest {
         onAllNodes(hasTextEqualTo("MAIL")).assertCountEquals(2) // hero counter label and the mail section
         onNode(hasTextEqualTo("Inbox")).assertExists()
         onNode(hasTextEqualTo("LINKS")).assertExists()
-        onNode(hasTextEqualTo("MANAGE")).assertExists()
+        onNode(hasTextEqualTo("MANAGE")).assertDoesNotExist()
         onNode(hasTextEqualTo("TOMORROW")).assertExists()
         onNode(hasTextEqualTo("Standup")).assertExists()
         onNode(hasTextEqualTo("Coffee")).assertExists()
@@ -301,7 +301,7 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("Inbox")).assertExists()
         onNode(hasTextEqualTo("Mail not connected")).assertDoesNotExist()
         onNode(hasTextEqualTo("Links")).assertExists()
-        onNode(hasTextEqualTo("Manage")).assertExists()
+        onNode(hasTextEqualTo("Manage")).assertDoesNotExist()
     }
 
     @Test

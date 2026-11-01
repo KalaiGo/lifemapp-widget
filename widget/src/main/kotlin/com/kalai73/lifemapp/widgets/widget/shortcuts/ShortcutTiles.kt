@@ -76,33 +76,36 @@ internal fun ShortcutsSubHeader(
     Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp)) {
         Box(GlanceModifier.fillMaxWidth().height(1.dp).background(pd?.edge ?: GlanceTheme.colors.outline)) {}
         Row(modifier = GlanceModifier.fillMaxWidth().clickable(onClick).padding(top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            // RemoteViews rows take at most 10 children: gaps are padding on the children, not spacers
             if (chevron) {
                 // Decorative: the web card's collapse toggle (a widget section is always expanded)
-                Icon(LucideIcons.CHEVRON_DOWN, null, size = 12.dp, tint = dim)
-                Spacer(GlanceModifier.width(4.dp))
+                Box(GlanceModifier.padding(end = 4.dp)) { Icon(LucideIcons.CHEVRON_DOWN, null, size = 12.dp, tint = dim) }
             }
-            Icon(icon, null, size = 12.dp, tint = accent)
-            Spacer(GlanceModifier.width(5.dp))
+            Box(GlanceModifier.padding(end = 5.dp)) { Icon(icon, null, size = 12.dp, tint = accent) }
             Text(
                 style.label(title),
                 style = if (pd != null) labelStyle(size = 12.sp, color = accent) else textStyle(size = 12.sp, weight = FontWeight.Bold, color = accent),
                 maxLines = 1,
             )
             if (count != null) {
-                Spacer(GlanceModifier.width(6.dp))
-                Text("$count", style = if (pd != null) captionStyle(size = 10.sp, color = dim) else textStyle(size = 11.sp, color = dim), maxLines = 1)
+                Text(
+                    "$count",
+                    style = if (pd != null) captionStyle(size = 10.sp, color = dim) else textStyle(size = 11.sp, color = dim),
+                    maxLines = 1,
+                    modifier = GlanceModifier.padding(start = 6.dp),
+                )
             }
             if (onAdd != null) {
-                Spacer(GlanceModifier.width(2.dp))
-                Box(GlanceModifier.size(20.dp).clickable(onAdd), contentAlignment = Alignment.Center) {
-                    Icon(LucideIcons.ADD, LocalContext.current.getString(R.string.add_link), size = 12.dp, tint = dim)
+                Box(GlanceModifier.padding(start = 2.dp)) {
+                    Box(GlanceModifier.size(20.dp).clickable(onAdd), contentAlignment = Alignment.Center) {
+                        Icon(LucideIcons.ADD, LocalContext.current.getString(R.string.add_link), size = 12.dp, tint = dim)
+                    }
                 }
             }
             Spacer(GlanceModifier.defaultWeight())
             if (actionLabel != null) {
                 if (actionIcon != null) {
-                    Icon(actionIcon, null, size = 11.dp, tint = dim)
-                    Spacer(GlanceModifier.width(4.dp))
+                    Box(GlanceModifier.padding(end = 4.dp)) { Icon(actionIcon, null, size = 11.dp, tint = dim) }
                 }
                 Text(
                     style.label(actionLabel),

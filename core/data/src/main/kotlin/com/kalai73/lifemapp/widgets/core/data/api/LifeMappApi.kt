@@ -24,6 +24,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -96,6 +97,45 @@ class LifeMappApi(
         return response.body<HandoffResponse>().url
     }
 
+    @Serializable private data class ParseVoiceBody(val transcript: String, val chargeCredits: Boolean)
+    @Serializable private data class ParseVoiceResponse(val items: List<VoiceItem> = emptyList(), val limitReached: Boolean = false)
+
+    /**
+     * Splits a transcript recognized on the device into tasks and reminders (Gemini, on the server). Charged as
+     * the voice input's AI credits — the device skipped the web's /api/transcribe, which charges them otherwise.
+     * An empty list means nothing was understood (not charged).
+     */
+    suspend fun parseVoiceItems(transcript: String): VoiceParse {
+        val response = authorized(accept = { it.isSuccess() || it == HttpStatusCode.TooManyRequests }) { token ->
+            http.post("${config.webUrl}/api/parse-voice-items") {
+                bearerAuth(token)
+                contentType(ContentType.Application.Json)
+                setBody(ParseVoiceBody(transcript.trim().take(MAX_VOICE_TRANSCRIPT_CHARS), chargeCredits = true))
+            }
+        }
+        val body = response.body<ParseVoiceResponse>()
+        if (response.status == HttpStatusCode.TooManyRequests) {
+            if (body.limitReached) return VoiceParse.NoCredits
+            throw ServerException(response.status.value)
+        }
+        return VoiceParse.Items(body.items.filter { it.text.isNotBlank() })
+    }
+
+    @Serializable private data class VoiceItemsBody(val items: List<VoiceItemToFile>)
+    @Serializable private data class VoiceItemsResponse(val results: List<VoiceItemResult> = emptyList())
+
+    /** Files voice items in the user's task manager and Reminders (/api/widget/voice-items); one result per item. */
+    suspend fun fileVoiceItems(items: List<VoiceItemToFile>): List<VoiceItemResult> {
+        val response = authorized { token ->
+            http.post("${config.webUrl}/api/widget/voice-items") {
+                bearerAuth(token)
+                contentType(ContentType.Application.Json)
+                setBody(VoiceItemsBody(items))
+            }
+        }
+        return response.body<VoiceItemsResponse>().results
+    }
+
     @Serializable private data class WhitelistBody(val email: String)
     @Serializable private data class WhitelistResponse(val allowed: Boolean = true)
 
@@ -151,13 +191,63 @@ class LifeMappApi(
         bearerAuth(token)
     }
 
-    private suspend fun authorized(request: suspend (token: String) -> HttpResponse): HttpResponse {
+    /** [accept]: statuses handed back to the caller instead of thrown as [ServerException] */
+    private suspend fun authorized(
+        accept: (HttpStatusCode) -> Boolean = { it.isSuccess() },
+        request: suspend (token: String) -> HttpResponse,
+    ): HttpResponse {
         var response = request(auth.validAccessToken())
         if (response.status == HttpStatusCode.Unauthorized) {
             response = request(auth.validAccessToken(forceRefresh = true))
             if (response.status == HttpStatusCode.Unauthorized) throw NotSignedInException()
         }
-        if (!response.status.isSuccess()) throw ServerException(response.status.value)
+        if (!accept(response.status)) throw ServerException(response.status.value)
         return response
     }
+
+    companion object {
+        /** As /api/parse-voice-items accepts */
+        const val MAX_VOICE_TRANSCRIPT_CHARS = 5000
+    }
+}
+
+/** A task or reminder in what was said, as /api/parse-voice-items splits it. */
+@Serializable
+data class VoiceItem(val text: String, val intent: VoiceIntent)
+
+@Serializable
+enum class VoiceIntent {
+    @SerialName("task") TASK,
+    @SerialName("reminder") REMINDER,
+}
+
+sealed interface VoiceParse {
+    data class Items(val items: List<VoiceItem>) : VoiceParse
+    /** The month's AI credits are used up; nothing was parsed */
+    data object NoCredits : VoiceParse
+}
+
+/** [encryptedText]: the text encrypted with the data key (EncryptedField), for accounts with encryption on. */
+@Serializable
+data class VoiceItemToFile(val text: String, val intent: VoiceIntent, val encryptedText: String? = null)
+
+@Serializable
+data class VoiceItemResult(
+    val ok: Boolean,
+    /** Where it went: a reminder becomes a task when the account has no Reminders topic */
+    val kind: VoiceIntent = VoiceIntent.TASK,
+    val reason: VoiceFailure? = null,
+)
+
+@Serializable
+enum class VoiceFailure {
+    /** Encryption is on and this device isn't unlocked */
+    @SerialName("locked") LOCKED,
+    /** The plan's reminders limit is reached */
+    @SerialName("limit") LIMIT,
+    /** Todoist / Google Tasks isn't connected (or its access expired) */
+    @SerialName("not-connected") NOT_CONNECTED,
+    /** A task manager the widget can't file into yet (Microsoft To Do, TickTick) */
+    @SerialName("unsupported") UNSUPPORTED,
+    @SerialName("failed") FAILED,
 }

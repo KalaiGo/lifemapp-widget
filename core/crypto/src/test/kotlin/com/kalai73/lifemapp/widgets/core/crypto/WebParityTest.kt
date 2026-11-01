@@ -83,6 +83,14 @@ class WebParityTest {
     }
 
     @Test
+    fun `fields this app writes are self-contained JSON like the web's`() {
+        val dataKey = wrapped.str("dataKey")
+        val field = EncryptedField.encrypt("Call Ana ✓", dataKey)
+        assertEquals(setOf("encrypted", "iv", "tag"), Json.parseToJsonElement(field).jsonObject.keys)
+        assertEquals("Call Ana ✓", EncryptedField.decrypt(field, dataKey))
+    }
+
+    @Test
     fun `double-stringified fields and garbage are handled`() {
         val dataKey = wrapped.str("dataKey")
         val field = wrapped["fields"]!!.jsonObject.str("asciiTitle")

@@ -9,6 +9,7 @@
     <string name="and_you_have">Und du hast:</string>
     <string name="weather">Wetter</string>
     <string name="weather_in">Wetter in %1$s</string>
+    <string name="open_web_app">LIFE MAPP öffnen</string>
     <string name="events">Termine</string>
     <string name="tasks">Aufgaben</string>
     <string name="mail">Mail</string>
@@ -16,9 +17,34 @@
     <string name="budget">Budget</string>
     <string name="shortcuts">Links</string>
     <string name="reload">Neu laden</string>
+    <string name="record">Aufnehmen</string>
     <string name="add_task">Aufgabe hinzufügen</string>
     <string name="voice_input">Aufgaben oder Erinnerungen per Sprache hinzufügen</string>
     <string name="voice_prompt">Sag deine Aufgaben oder Erinnerungen</string>
+    <!-- Voice input, after speaking -->
+    <string name="voice_analyzing">Wird analysiert…</string>
+    <string name="voice_adding">Wird hinzugefügt…</string>
+    <string name="voice_new_task">Neue Aufgabe</string>
+    <string name="voice_new_reminder">Neue Erinnerung</string>
+    <string name="voice_add">Hinzufügen</string>
+    <string name="voice_make_task">Als Aufgabe</string>
+    <string name="voice_make_reminder">Als Erinnerung</string>
+    <string name="voice_task_added">Aufgabe hinzugefügt</string>
+    <string name="voice_reminder_added">Erinnerung hinzugefügt</string>
+    <plurals name="voice_items_added">
+        <item quantity="one">%d Eintrag hinzugefügt</item>
+        <item quantity="other">%d Einträge hinzugefügt</item>
+    </plurals>
+    <string name="voice_partly_added">Hinzugefügt: %1$d. Nicht hinzugefügt: %2$d.</string>
+    <string name="voice_nothing_added">Nichts wurde hinzugefügt.</string>
+    <string name="voice_reason_locked">Entsperre zuerst die Verschlüsselung in der App LIFE MAPP Widgets.</string>
+    <string name="voice_reason_limit">Das Erinnerungslimit deines Tarifs ist erreicht.</string>
+    <string name="voice_reason_not_connected">Verbinde deine Aufgabenverwaltung in LIFE MAPP erneut.</string>
+    <string name="voice_reason_unsupported">Deine Aufgabenverwaltung kann im Widget noch nicht genutzt werden.</string>
+    <string name="voice_reason_failed">Etwas ist schiefgelaufen. Versuch es noch einmal.</string>
+    <string name="voice_no_credits">KI-Guthaben aufgebraucht. Nichts wurde hinzugefügt. Es wird nächsten Monat erneuert.</string>
+    <string name="voice_offline">LIFE MAPP ist nicht erreichbar. Nichts wurde hinzugefügt.</string>
+    <string name="voice_signed_out">Melde dich bei LIFE MAPP an, um per Sprache hinzuzufügen.</string>
     <string name="complete_task">Aufgabe erledigen</string>
     <string name="today">Heute</string>
     <string name="tomorrow">Morgen</string>
@@ -58,6 +84,8 @@
     <string name="integrity">Integrität</string>
     <string name="integrity_reception">Empfang</string>
     <string name="integrity_create_reminder">Erinnerung erstellen</string>
+    <string name="integrity_record">Aufnehmen</string>
+    <string name="integrity_type">Tippen</string>
     <string name="integrity_no_content">Noch kein Inhalt</string>
     <string name="integrity_warnings">Warnungen</string>
     <string name="integrity_more">+%d weitere</string>

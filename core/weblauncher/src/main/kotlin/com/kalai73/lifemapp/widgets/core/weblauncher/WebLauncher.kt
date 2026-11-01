@@ -21,6 +21,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 object WebRoutes {
     const val TODAY = "/today"
+    /** Pre-sign-in pages the sign-in screen links to */
+    const val SIGN_UP = "/signup"
+    const val FORGOT_PASSWORD = "/forgot-password"
     const val EVENTS = "/today#section-events"
     const val TASKS = "/today#section-tasks"
     /** The tasks panel, where new tasks are added */
@@ -36,17 +39,10 @@ object WebRoutes {
     const val WARNINGS = "/today#section-warnings"
 
     /**
-     * Fragment for [TODAY] that hands a spoken transcript to the web's voice input (floating-action-buttons.tsx),
-     * which splits it into tasks and reminders. A fragment, not a query: it never reaches the server's logs.
+     * Fragment for [TODAY] that starts the web's own mic, for devices without a speech recognizer (the widget
+     * otherwise handles voice input itself, see VoiceInputActivity).
      */
-    fun voiceFragment(transcript: String, asReminders: Boolean = false): String =
-        "voice=" + Uri.encode(transcript.trim().take(MAX_VOICE_CHARS)) + if (asReminders) "&as=reminder" else ""
-
-    /** Fragment for [TODAY] that starts the web's own mic, for devices without a speech recognizer. */
     const val VOICE_RECORD_FRAGMENT = "voice-record"
-
-    /** As /api/parse-voice-items accepts */
-    const val MAX_VOICE_CHARS = 5000
 }
 
 object WebLauncher {

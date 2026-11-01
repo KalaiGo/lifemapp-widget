@@ -9,6 +9,7 @@
     <string name="and_you_have">And you have:</string>
     <string name="weather">Weather</string>
     <string name="weather_in">Weather in %1$s</string>
+    <string name="open_web_app">Open LIFE MAPP</string>
     <string name="events">Events</string>
     <string name="tasks">Tasks</string>
     <string name="mail">Mail</string>
@@ -16,9 +17,34 @@
     <string name="budget">Budget</string>
     <string name="shortcuts">Shortcuts</string>
     <string name="reload">Reload</string>
+    <string name="record">Record</string>
     <string name="add_task">Add task</string>
     <string name="voice_input">Add tasks or reminders by voice</string>
     <string name="voice_prompt">Say your tasks or reminders</string>
+    <!-- Voice input, after speaking -->
+    <string name="voice_analyzing">Understanding…</string>
+    <string name="voice_adding">Adding…</string>
+    <string name="voice_new_task">New task</string>
+    <string name="voice_new_reminder">New reminder</string>
+    <string name="voice_add">Add</string>
+    <string name="voice_make_task">Make it a task</string>
+    <string name="voice_make_reminder">Make it a reminder</string>
+    <string name="voice_task_added">Task added</string>
+    <string name="voice_reminder_added">Reminder added</string>
+    <plurals name="voice_items_added">
+        <item quantity="one">%d item added</item>
+        <item quantity="other">%d items added</item>
+    </plurals>
+    <string name="voice_partly_added">Added: %1$d. Not added: %2$d.</string>
+    <string name="voice_nothing_added">Nothing was added.</string>
+    <string name="voice_reason_locked">Unlock encryption in the LIFE MAPP Widgets app first.</string>
+    <string name="voice_reason_limit">Your plan\'s reminders limit is reached.</string>
+    <string name="voice_reason_not_connected">Reconnect your task manager in LIFE MAPP.</string>
+    <string name="voice_reason_unsupported">Your task manager can\'t be used from the widget yet.</string>
+    <string name="voice_reason_failed">Something went wrong. Try again.</string>
+    <string name="voice_no_credits">AI credits used up. Nothing was added. Credits reset next month.</string>
+    <string name="voice_offline">Couldn\'t reach LIFE MAPP. Nothing was added.</string>
+    <string name="voice_signed_out">Sign in to LIFE MAPP to add by voice.</string>
     <string name="complete_task">Complete task</string>
     <string name="today">Today</string>
     <string name="tomorrow">Tomorrow</string>
@@ -58,6 +84,8 @@
     <string name="integrity">Integrity</string>
     <string name="integrity_reception">Reception</string>
     <string name="integrity_create_reminder">Create reminder</string>
+    <string name="integrity_record">Record</string>
+    <string name="integrity_type">Type</string>
     <string name="integrity_no_content">No content yet</string>
     <string name="integrity_warnings">Warnings</string>
     <string name="integrity_more">+%d more</string>

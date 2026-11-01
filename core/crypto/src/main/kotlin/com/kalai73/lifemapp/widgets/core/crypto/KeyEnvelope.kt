@@ -107,4 +107,12 @@ object EncryptedField {
 
     /** Plaintext, or null when the value isn't an encrypted field or doesn't open with this key. */
     fun decrypt(value: String?, dataKey: String): String? = parse(value)?.let { Aes.decryptOrNull(it, dataKey) }
+
+    /** [plaintext] encrypted with [dataKey], as the web writes it (`JSON.stringify(await encryptWithAES(…))`). */
+    fun encrypt(plaintext: String, dataKey: String): String {
+        val data = Aes.encrypt(plaintext, dataKey)
+        return JsonObject(
+            mapOf("encrypted" to JsonPrimitive(data.encrypted), "iv" to JsonPrimitive(data.iv), "tag" to JsonPrimitive(data.tag))
+        ).toString()
+    }
 }

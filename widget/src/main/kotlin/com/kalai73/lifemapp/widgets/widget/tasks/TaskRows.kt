@@ -34,6 +34,8 @@ import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdDrawables
 import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
+import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
+import androidx.glance.appwidget.action.actionStartActivity
 import com.kalai73.lifemapp.widgets.widget.R
 import com.kalai73.lifemapp.widgets.widget.common.CompleteTaskAction
 import com.kalai73.lifemapp.widgets.widget.common.Icon
@@ -55,7 +57,7 @@ import com.kalai73.lifemapp.widgets.widget.common.textStyle
 internal fun TaskActions() {
     val context = LocalContext.current
     Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        ActionButton(LucideIcons.ADD, context.getString(R.string.add_task), openRoute(context, WebRoutes.NEW_TASK), GlanceModifier.defaultWeight())
+        ActionButton(LucideIcons.ADD, context.getString(R.string.add_task), actionStartActivity(VoiceInputActivity.intent(context, typed = true)), GlanceModifier.defaultWeight())
         Spacer(GlanceModifier.width(6.dp))
         ActionButton(LucideIcons.TASKS, context.getString(R.string.task_lists), openRoute(context, WebRoutes.TASKS), GlanceModifier.defaultWeight())
     }
