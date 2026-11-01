@@ -29,4 +29,8 @@ object PdDrawables {
     val CHECK_SQUARE = R.drawable.pd_check_square
     /** Score gauge segment, a parallelogram whose slant scales with its width. */
     val SEGMENT = R.drawable.pd_segment
+    /** Target frame (web .pd-target): 1dp outline, its inset fill, and the corner brackets / edge ticks. */
+    val TARGET = R.drawable.pd_target
+    val TARGET_INNER = R.drawable.pd_target_inner
+    val TARGET_MARKS = R.drawable.pd_target_marks
 }

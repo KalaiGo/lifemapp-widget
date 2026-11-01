@@ -94,7 +94,7 @@ private fun ActionButton(icon: Int, label: String, onClick: Action, modifier: Gl
 }
 
 /**
- * A task as on the web's tasks card: numbered hex, list color bar, square checkbox, title, then the due date
+ * A task as on the web's tasks card: numbered hex, square checkbox, list color bar, title, then the due date
  * with a warning when overdue.
  */
 @Composable
@@ -111,11 +111,11 @@ internal fun TaskRow(task: TaskUi, number: Int) {
             PdHex(18.dp, edge = pd.accent, fill = pd.panel) {
                 Text("$number", style = numberStyle(9.sp, color = pd.ink))
             }
-            Spacer(GlanceModifier.width(5.dp))
+            Spacer(GlanceModifier.width(3.dp))
             PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.row, fill = pd.row, modifier = GlanceModifier.defaultWeight()) { frame ->
-                Row(modifier = frame.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                    PdBar(listColor ?: pd.edge2, height = 26.dp)
+                Row(modifier = frame.fillMaxWidth().padding(start = 0.dp, end = 6.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(task, PdDrawables.CHECK_SQUARE, size = 18.dp, tint = priority ?: pd.dim)
+                    PdBar(listColor ?: pd.edge2, height = 26.dp)
                     Column(modifier = GlanceModifier.defaultWeight().clickable(openTasks)) {
                         Text(
                             task.title ?: context.getString(R.string.locked),

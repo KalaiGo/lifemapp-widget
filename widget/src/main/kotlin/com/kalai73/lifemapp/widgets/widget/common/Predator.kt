@@ -116,6 +116,25 @@ fun PdWrapFrame(
     }
 }
 
+/**
+ * The web's pd-target frame for content-sized boxes: a 1dp outline, the fill, and accent corner brackets with
+ * edge ticks on top. Three nested boxes, since a view takes one background image.
+ */
+@Composable
+fun PdTargetFrame(
+    edge: ColorProvider,
+    fill: ColorProvider,
+    marks: ColorProvider,
+    modifier: GlanceModifier = GlanceModifier,
+    content: @Composable (GlanceModifier) -> Unit,
+) {
+    Box(modifier = modifier.background(ImageProvider(PdDrawables.TARGET), ContentScale.FillBounds, ColorFilter.tint(edge))) {
+        Box(modifier = GlanceModifier.fillMaxWidth().background(ImageProvider(PdDrawables.TARGET_INNER), ContentScale.FillBounds, ColorFilter.tint(fill))) {
+            content(GlanceModifier.background(ImageProvider(PdDrawables.TARGET_MARKS), ContentScale.FillBounds, ColorFilter.tint(marks)))
+        }
+    }
+}
+
 @Composable
 private fun Mask(res: Int, color: ColorProvider) {
     Image(

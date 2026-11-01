@@ -51,6 +51,7 @@ import com.kalai73.lifemapp.widgets.widget.common.LocalPd
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetColors
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
 import com.kalai73.lifemapp.widgets.widget.common.PdHex
+import com.kalai73.lifemapp.widgets.widget.common.PdTargetFrame
 import com.kalai73.lifemapp.widgets.widget.common.PdWrapFrame
 import com.kalai73.lifemapp.widgets.widget.common.captionStyle
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
@@ -191,12 +192,13 @@ private fun InfoBox(text: String) {
     val pd = LocalPd.current
     Spacer(GlanceModifier.height(8.dp))
     if (pd != null) {
-        PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge2, fill = pd.accentTint, modifier = GlanceModifier.fillMaxWidth()) { frame ->
+        // The web's target frame: outline, accent-tinted fill, corner brackets and edge ticks
+        PdTargetFrame(edge = pd.edge2, fill = pd.accentTint, marks = pd.accent, modifier = GlanceModifier.fillMaxWidth()) { frame ->
             // Centered both ways in the frame: the box centers the text block, textAlign centers wrapped lines
-            Box(modifier = frame.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp), contentAlignment = Alignment.Center) {
+            Box(modifier = frame.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), contentAlignment = Alignment.Center) {
                 Text(
                     text,
-                    style = captionStyle(size = 11.sp, color = pd.text).copy(textAlign = TextAlign.Center),
+                    style = captionStyle(size = 12.sp, color = pd.text).copy(textAlign = TextAlign.Center),
                     maxLines = 2,
                 )
             }

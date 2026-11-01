@@ -87,6 +87,10 @@
     <string name="today_connect_mail">E-Mail verbinden</string>
     <string name="today_no_content">Noch kein Inhalt</string>
     <string name="today_updated">Aktualisiert %1$s</string>
+    <string name="today_reception">Empfang</string>
+    <string name="today_create_reminder">Erinnerung erstellen</string>
+    <string name="today_record">Aufnehmen</string>
+    <string name="today_voice">Aufgaben oder Erinnerungen per Sprache hinzufügen</string>
     <string name="settings_title">Einstellungen</string>
     <string name="settings_open">Einstellungen öffnen</string>
     <string name="today_greeting">Hallo, %1$s</string>

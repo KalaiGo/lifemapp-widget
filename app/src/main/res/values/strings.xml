@@ -88,6 +88,10 @@
     <string name="today_connect_mail">Connect mail</string>
     <string name="today_no_content">No content yet</string>
     <string name="today_updated">Updated %1$s</string>
+    <string name="today_reception">Reception</string>
+    <string name="today_create_reminder">Create reminder</string>
+    <string name="today_record">Record</string>
+    <string name="today_voice">Add tasks or reminders by voice</string>
     <string name="settings_title">Settings</string>
     <string name="settings_open">Open settings</string>
     <string name="today_greeting">Hello, %1$s</string>

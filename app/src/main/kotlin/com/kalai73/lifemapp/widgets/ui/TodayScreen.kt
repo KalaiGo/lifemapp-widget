@@ -70,6 +70,10 @@ import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.model.SyncError
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
+import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.ui.platform.LocalContext
+import com.kalai73.lifemapp.widgets.widget.events.EventsConfig
+import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
 import kotlinx.coroutines.launch
 
 /**
@@ -164,7 +168,7 @@ private class Tok(val predator: Boolean, val pd: PdPalette, val dark: Boolean, p
 
     /** Data captions: monospace caps (Predator). */
     fun caption(size: TextUnit, color: Color = dim): TextStyle =
-        if (predator) pdCaptionStyle(size = size, color = color) else TextStyle(fontSize = size + 1.sp, color = color)
+        if (predator) pdCaptionStyle(size = size, color = color) else TextStyle(fontSize = (size.value + 1f).sp, color = color)
 
     /** User content: default face in both styles. */
     fun body(size: TextUnit, color: Color = text, weight: FontWeight = FontWeight.Normal) =
@@ -188,9 +192,19 @@ private fun rememberTokens(): Tok {
 }
 
 /** The widgets' pd-frame: shape filled with [fill], 1dp [edge]. */
-private fun Modifier.framed(t: Tok, fill: Color, edge: Color = fill, cut: Dp = 6.dp): Modifier {
-    val shape = t.shape(cut)
+private fun Modifier.framed(t: Tok, fill: Color, edge: Color = fill, cut: Dp = 6.dp, shape: Shape = t.shape(cut)): Modifier {
     return clip(shape).background(fill, shape).border(1.dp, edge, shape)
+}
+
+/** The hero banner (styleguide §7): a block pointing right, like the web's hero. */
+private val ArrowShape: Shape = GenericShape { size, _ ->
+    val tip = minOf(size.height / 2f, 22f * 3f)
+    moveTo(0f, 0f)
+    lineTo(size.width - tip, 0f)
+    lineTo(size.width, size.height / 2f)
+    lineTo(size.width - tip, size.height)
+    lineTo(0f, size.height)
+    close()
 }
 
 @Composable
@@ -253,6 +267,12 @@ private fun TopBar(ui: WidgetUi, onOpenSettings: () -> Unit, onReload: () -> Uni
             Text("LIFE MAPP", style = t.label(16.sp))
             StatusLine(ui)
         }
+        // Mic: add tasks and reminders by voice (the widgets' VoiceInputActivity)
+        val context = LocalContext.current
+        HeaderButton({ context.startActivity(VoiceInputActivity.intent(context)) }, stringResource(R.string.today_voice)) {
+            Ic(LucideIcons.MIC, 18.dp, t.ink, stringResource(R.string.today_voice))
+        }
+        Spacer(Modifier.width(8.dp))
         ReloadButton(ui, onReload, primary = false)
     }
 }
@@ -292,7 +312,10 @@ private fun GreetingBlock(ui: WidgetUi) {
     val t = LocalTok.current
     val name = ui.username?.takeIf { it.isNotBlank() } ?: stringResource(R.string.today_welcome)
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.Center) {
-        Column(Modifier.framed(t, t.card, cut = 8.dp).padding(horizontal = 22.dp, vertical = 6.dp)) {
+        Column(
+            Modifier.framed(t, t.card, cut = 8.dp, shape = if (t.predator) ArrowShape else t.shape(8.dp))
+                .padding(start = 22.dp, end = if (t.predator) 40.dp else 22.dp, top = 6.dp, bottom = 6.dp),
+        ) {
             Text(t.s(stringResource(R.string.today_hello)), style = t.caption(10.sp, t.ink))
             Text(
                 name,
@@ -459,8 +482,9 @@ private fun SectionHeader(title: String, icon: Int, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Ic(icon, 15.dp, t.ink)
-        Spacer(Modifier.width(7.dp))
+        // Predator: hex icon well (accent edge, raised fill); Classic: plain icon
+        if (t.predator) Hex(28.dp, edge = t.accent, fill = t.card) { Ic(icon, 14.dp, t.ink) } else Ic(icon, 15.dp, t.ink)
+        Spacer(Modifier.width(8.dp))
         Text(t.s(title), style = if (t.predator) t.label(16.sp) else t.body(15.sp, t.ink, FontWeight.Bold), maxLines = 1)
     }
 }
@@ -488,16 +512,19 @@ private fun EmptyLine(text: String, onClick: () -> Unit) {
 
 @Composable
 private fun EventsSection(ui: WidgetUi, openLink: (String) -> Unit, onOpenWeb: (String) -> Unit) {
+    // The Dashboard widget's own filter: the next days (default 3), today always listed
+    val days = EventsConfig.filter(ui.eventDays, ui.today, EventsConfig.DEFAULT_DAYS, emptySet())
     Column {
         SectionHeader(stringResource(R.string.today_events), LucideIcons.CALENDAR) { onOpenWeb(WebRoutes.EVENTS) }
         when {
             !ui.calendarConnected && ui.hasData -> EmptyLine(stringResource(R.string.today_not_connected)) { onOpenWeb(WebRoutes.SETTINGS) }
-            ui.eventDays.none { it.events.isNotEmpty() } -> EmptyLine(stringResource(R.string.today_no_events)) { onOpenWeb(WebRoutes.EVENTS) }
+            days.none { it.events.isNotEmpty() } -> EmptyLine(stringResource(R.string.today_no_events)) { onOpenWeb(WebRoutes.EVENTS) }
             else -> {
                 // Events are numbered across days (1, 2, 3 today, 4, 5 tomorrow), as on the web
                 var offset = 0
-                for (day in ui.eventDays) {
+                for (day in days) {
                     DayHeader(dayName(day))
+                    if (day.events.isEmpty()) EmptyLine(stringResource(R.string.today_no_events)) { onOpenWeb(WebRoutes.EVENTS) }
                     day.events.forEachIndexed { i, e -> EventRow(e, offset + i + 1, day, openLink, onOpenWeb) }
                     offset += day.events.size
                 }
@@ -813,6 +840,8 @@ private fun IntegritySection(integrity: IntegrityUi, onOpenWeb: (String) -> Unit
             }
         }
         integrity.topics.forEach { topic ->
+            // The Reception sits right above the Reminders topic, as on the web
+            if (topic.reminders) Reception()
             TopicHeader(topic) { onOpenWeb(WebRoutes.INTEGRITY) }
             if (topic.items.isEmpty()) NoContent(topic) { onOpenWeb(WebRoutes.INTEGRITY) }
             else topic.items.forEachIndexed { i, item -> ItemRow(topic, item, i + 1) { onOpenWeb(WebRoutes.INTEGRITY) } }
@@ -854,6 +883,37 @@ private fun Gauge(rating: Int?) {
                     .background(if (i < filled) ramp(i, t.dark) else t.well, shape),
             )
         }
+    }
+}
+
+/** The landing zone above Reminders: mic to speak reminders, pencil to type one (VoiceInputActivity). */
+@Composable
+private fun Reception() {
+    val t = LocalTok.current
+    val context = LocalContext.current
+    val hint = stringResource(R.string.today_create_reminder)
+    val record = stringResource(R.string.today_record)
+    Row(
+        Modifier.fillMaxWidth().padding(top = 12.dp)
+            .framed(t, if (t.predator) t.pd.well else t.well, edge = if (t.predator) t.pd.edge2 else t.well, cut = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ReceptionButton(LucideIcons.MIC, record) { context.startActivity(VoiceInputActivity.intent(context, reminders = true)) }
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(t.s(stringResource(R.string.today_reception)), style = if (t.predator) t.label(14.sp, t.text) else t.body(13.sp, t.dim, FontWeight.Bold))
+            Text(hint, style = t.caption(10.sp), maxLines = 1)
+        }
+        ReceptionButton(LucideIcons.PENCIL, hint) { context.startActivity(VoiceInputActivity.intent(context, reminders = true, typed = true)) }
+    }
+}
+
+@Composable
+private fun ReceptionButton(icon: Int, desc: String, onClick: () -> Unit) {
+    val t = LocalTok.current
+    Box(Modifier.clickable(onClickLabel = desc, onClick = onClick)) {
+        if (t.predator) Hex(36.dp, edge = t.accent, fill = t.pd.panel) { Ic(icon, 16.dp, t.ink, desc) }
+        else Box(Modifier.size(38.dp).clip(CircleShape).background(t.tint), contentAlignment = Alignment.Center) { Ic(icon, 18.dp, t.onTint, desc) }
     }
 }
 
