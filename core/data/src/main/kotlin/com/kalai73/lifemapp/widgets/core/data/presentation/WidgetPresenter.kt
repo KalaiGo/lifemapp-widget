@@ -188,6 +188,8 @@ data class TaskUi(
     val recurring: Boolean,
     /** Can be completed from the widget (LIFE MAPP and Todoist tasks) */
     val completable: Boolean,
+    /** Its title and description can be edited in the app (LIFE MAPP tasks) */
+    val editable: Boolean = false,
     /** The web Task List Widget's segment: TODAY, TOMORROW, or OTHER ("Tomorrow ++ 1"). Only TODAY is at full strength. */
     val day: DayKind = DayKind.TODAY,
     /**
@@ -359,6 +361,7 @@ object WidgetPresenter {
                 listColor = t.listColor,
                 recurring = t.recurring,
                 completable = TaskRepository.canComplete(t.source),
+                editable = TaskRepository.canEdit(t.source),
                 day = taskDay(t.segment, due, today),
                 colorTier = colorTier(t.priority, listName, due?.let { java.time.temporal.ChronoUnit.DAYS.between(today, it) }),
                 tagLabel = tagLabel,
@@ -436,9 +439,13 @@ object WidgetPresenter {
             todayLabel = DateLabels.dayAndDate(today, DateLabels.DATE_FORMAT, language),
             today = today,
             eventsCount = run {
-                val listedToday = eventDays.firstOrNull { it.kind == DayKind.TODAY }?.events?.size ?: 0
-                // The server's count also covers events beyond the list cap, but only for the day it was made
-                if (snapshot.today == today.toString()) maxOf(listedToday, snapshot.counts.events) else listedToday
+                // Today's events still to come: the ones already over (as of this render) don't count
+                val todayEvents = eventDays.firstOrNull { it.kind == DayKind.TODAY }?.events.orEmpty()
+                val pastToday = todayEvents.count { it.past }
+                val remaining = todayEvents.size - pastToday
+                // The server's count also covers events beyond the list cap, but only for the day it was made. It
+                // includes the past ones, which come first in start order and so are all in the list
+                if (snapshot.today == today.toString()) maxOf(remaining, snapshot.counts.events - pastToday) else remaining
             },
             tasksCount = run {
                 val listedToday = tasks.count { it.day == DayKind.TODAY }

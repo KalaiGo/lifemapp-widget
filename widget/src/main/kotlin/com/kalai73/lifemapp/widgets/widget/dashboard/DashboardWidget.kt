@@ -77,6 +77,7 @@ import com.kalai73.lifemapp.widgets.widget.sync.SyncScheduler
 import com.kalai73.lifemapp.widgets.widget.tasks.TaskActions
 import com.kalai73.lifemapp.widgets.widget.tasks.TaskDayHeader
 import com.kalai73.lifemapp.widgets.widget.tasks.TaskRow
+import com.kalai73.lifemapp.widgets.widget.tasks.SeeUpcomingButton
 import com.kalai73.lifemapp.widgets.widget.today.Counters
 import com.kalai73.lifemapp.widgets.widget.today.HeroFooter
 import com.kalai73.lifemapp.widgets.widget.today.HeroHeader
@@ -208,6 +209,8 @@ private const val ID_TASKS_ACTIONS = -15L
 private const val ID_TASKS_DAY = -16L
 // The Tomorrow and Tomorrow ++ 1 dividers are ID_TASKS_DAY - 100 and - 200
 private const val ID_TASKS_TODAY_EMPTY = -20L
+private const val ID_EVENTS_MORE = -21L
+private const val ID_TASKS_MORE = -22L
 private const val ID_MAIL = -17L
 private const val ID_MAIL_BODY = -18L
 private const val ID_LINKS = -19L
@@ -245,6 +248,11 @@ private fun LazyListScope.eventsSection(ui: WidgetUi, days: List<EventDayUi>) {
             itemsIndexed(day.events, itemId = { _, event -> (day.date.toEpochDay() * 1_000_003L) xor event.id.hashCode().toLong() }) { index, event ->
                 EventRow(event, number = offset + index + 1, day = day)
             }
+        }
+    }
+    if (ui.calendarConnected) {
+        item(itemId = ID_EVENTS_MORE) {
+            SeeUpcomingButton(LocalContext.current.getString(R.string.see_upcoming_events), LifeMappWidgets.SECTION_EVENTS)
         }
     }
 }
@@ -298,6 +306,9 @@ private fun LazyListScope.tasksSection(ui: WidgetUi) {
             // Offset so a task can't share an id with an event (both are string hashes)
             item(itemId = task.id.hashCode().toLong() + (1L shl 40)) { TaskRow(task, number = index + 1) }
         }
+    }
+    item(itemId = ID_TASKS_MORE) {
+        SeeUpcomingButton(LocalContext.current.getString(R.string.see_upcoming_tasks), LifeMappWidgets.SECTION_TASKS)
     }
 }
 

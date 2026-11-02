@@ -431,8 +431,9 @@ class SnapshotAndPresenterTest {
         assertEquals("09:00 – 09:15", ui.eventDays[0].events[1].timeLabel)
         assertNull(ui.eventDays[0].events[0].timeLabel)
         assertEquals("https://cal/n", ui.eventDays[1].events.single().link)
-        // The snapshot was made yesterday, so its count doesn't apply
-        assertEquals(2, ui.eventsCount)
+        // The snapshot was made yesterday, so its count doesn't apply; the Standup is over, so only the Trip counts
+        assertTrue(ui.eventDays[0].events[1].past)
+        assertEquals(1, ui.eventsCount)
         assertTrue(ui.stale)
     }
 

@@ -99,4 +99,6 @@
     <string name="integrity_add_item">Agregar elemento</string>
     <string name="integrity_expand">Expandir</string>
     <string name="integrity_collapse">Contraer</string>
+    <string name="see_upcoming_events">Ver próximos eventos</string>
+    <string name="see_upcoming_tasks">Ver próximas tareas</string>
 </resources>

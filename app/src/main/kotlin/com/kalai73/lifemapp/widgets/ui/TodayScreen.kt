@@ -55,7 +55,10 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.runtime.rememberUpdatedState
+import com.kalai73.lifemapp.widgets.core.data.presentation.ImageContent
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -81,6 +84,7 @@ import com.kalai73.lifemapp.widgets.core.data.presentation.TopicItemUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.TopicUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.data.repository.ItemText
+import com.kalai73.lifemapp.widgets.core.data.repository.TaskText
 import com.kalai73.lifemapp.widgets.core.designsystem.ColorContrast
 import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors
 import com.kalai73.lifemapp.widgets.core.designsystem.LocalPdPalette
@@ -115,6 +119,10 @@ fun TodayScreen(
     onOpenSettings: () -> Unit,
     onReload: () -> Unit,
     onCompleteTask: (String) -> Unit,
+    /** A LIFE MAPP task's whole title and description for the task dialog's editor */
+    onLoadTaskText: suspend (String) -> TaskText,
+    /** Task id, new title and new HTML description (null keeps either) */
+    onSaveTask: (String, String?, String?) -> Unit,
     /** An item's whole text for the edit dialog */
     onLoadItemText: suspend (String) -> ItemText,
     /** Item id, new name and new HTML text (null keeps either) */
@@ -124,6 +132,10 @@ fun TodayScreen(
     onMoveItem: (String, String, Boolean) -> Unit,
     /** Item id and whether it gets the warning icon */
     onSetItemWarning: (String, Boolean) -> Unit,
+    /** An image item's picture */
+    onLoadItemImage: suspend (String) -> ItemImage,
+    /** Item id and the collapsed state to switch to (image items expand to show their picture) */
+    onToggleItem: (String, Boolean) -> Unit,
     /** Topic id and the collapsed state to switch to */
     onToggleTopic: (String, Boolean) -> Unit,
     /** Scoring section: hide or show one domain on Today */
@@ -148,7 +160,7 @@ fun TodayScreen(
     onEntryOpened: () -> Unit = {},
 ) {
     val t = rememberTokens()
-    val itemHandlers = ItemHandlers(onLoadItemText, onSaveItem, onDeleteItem, onMoveItem, onSetItemWarning)
+    val itemHandlers = ItemHandlers(onLoadItemText, onSaveItem, onDeleteItem, onMoveItem, onSetItemWarning, onLoadItemImage, onToggleItem)
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
@@ -249,7 +261,13 @@ fun TodayScreen(
 
     CompositionLocalProvider(LocalTok provides t) {
       shownEvent?.let { EventDetailsDialog(it, openLink) { shownEntry = null } }
-      shownTask?.let { TaskDetailsDialog(it, onCompleteTask, onOpenWeb) { shownEntry = null } }
+      shownTask?.let { task ->
+          TaskDetailsDialog(
+              task, onCompleteTask, onOpenWeb,
+              loadText = onLoadTaskText,
+              onSave = { title, html -> onSaveTask(task.id, title, html) },
+          ) { shownEntry = null }
+      }
       Box(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().background(t.page)) {
             LazyColumn(
@@ -684,7 +702,7 @@ private fun WeatherCard(ui: WidgetUi, onClick: () -> Unit) {
     }
 }
 
-/** Journal and Budget: parallelograms in the accent tint (Predator), tonal pills (Classic). */
+/** Journal and Budget: low-key outlined buttons (parallelograms in Predator, pills in Classic) in the muted text color. */
 @Composable
 private fun QuickActions(onOpenWeb: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -698,14 +716,14 @@ private fun ActionButton(modifier: Modifier, icon: Int, label: String, onClick: 
     val t = LocalTok.current
     val shape: Shape = if (t.predator) pdParallelogramShape(8.dp) else RoundedCornerShape(12.dp)
     Row(
-        modifier.clip(shape).background(t.tint, shape).let { if (t.predator) it.border(1.dp, t.accent, shape) else it }
-            .clickable(onClick = onClick).padding(vertical = 9.dp),
+        modifier.clip(shape).border(1.dp, t.line, shape)
+            .clickable(onClick = onClick).padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Ic(icon, 14.dp, t.onTint)
+        Ic(icon, 13.dp, t.dim)
         Spacer(Modifier.width(6.dp))
-        Text(t.s(label), style = if (t.predator) t.label(12.sp) else t.body(13.sp, t.onTint, FontWeight.Bold), maxLines = 1)
+        Text(t.s(label), style = if (t.predator) t.label(11.sp, t.dim) else t.body(12.sp, t.dim, FontWeight.Medium), maxLines = 1)
     }
 }
 
@@ -1357,7 +1375,10 @@ private fun DomainCard(
                     // Items beyond the listed ones can still follow the last listed one
                     canMoveDown = i < maxOf(topic.count, topic.items.size) - 1,
                     onAction = { onItemAction(topic, item, it) },
+                    onToggle = { items.setCollapsed(item.id, !item.collapsed) },
                 )
+                // An expanded image item shows its picture, as on the web card
+                if (item.isImage && !item.collapsed) ItemPicture(item, items.loadImage)
             }
             if (topic.more > 0) {
                 Text(
@@ -1486,35 +1507,58 @@ private fun NoContent(topic: TopicUi, onClick: () -> Unit) {
 
 /**
  * An item (subsubdomain), "• 2.1 Item" indented under the topic's hex as on the web card, with the warning icon
- * when flagged and a text icon when it has content. Items don't expand in the app: a long press on the title opens a menu to rename the item, view and
- * edit its text (in a dialog) or remove it.
+ * when flagged, a text icon when it has content and an image icon when it is (or its text holds) a picture. A tap
+ * on the header opens the item's edit modal. Text items don't expand in the app; an image item's header shows a
+ * chevron and a tap on the chevron expands or collapses the picture below (saved like the web card's chevron). A
+ * long press on the title opens the item menu (edit, move, warning, copy link, delete).
  */
 @Composable
 private fun ItemRow(
     topic: TopicUi, item: TopicItemUi, number: Int,
     canMoveUp: Boolean, canMoveDown: Boolean,
     onAction: (ItemAction) -> Unit,
+    onToggle: () -> Unit,
 ) {
     val t = LocalTok.current
     val name = item.name?.takeIf { it.isNotBlank() } ?: if (item.name == null) stringResource(R.string.today_locked) else ""
     val menuLabel = stringResource(R.string.item_menu)
+    val toggleLabel = stringResource(if (item.collapsed) R.string.today_expand else R.string.today_collapse)
+    val editLabel = stringResource(R.string.item_edit)
     val haptics = LocalHapticFeedback.current
     var menuOpen by remember { mutableStateOf(false) }
+    // The gesture detector outlives recompositions (keyed by the item): it reads the latest toggle through this
+    val toggle by rememberUpdatedState(onToggle)
+    val action by rememberUpdatedState(onAction)
+    val toggles = item.isImage
     Box {
         Row(
             Modifier.fillMaxWidth()
                 .pointerInput(item.id) {
-                    detectTapGestures(onLongPress = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        menuOpen = true
-                    })
+                    detectTapGestures(
+                        onTap = { action(ItemAction.EDIT) },
+                        onLongPress = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            menuOpen = true
+                        },
+                    )
                 }
-                .semantics { onLongClick(menuLabel) { menuOpen = true; true } }
-                .padding(start = 18.dp, top = 5.dp, bottom = 5.dp),
+                .semantics {
+                    onClick(editLabel) { action(ItemAction.EDIT); true }
+                    onLongClick(menuLabel) { menuOpen = true; true }
+                }
+                .padding(start = 12.dp, top = 5.dp, bottom = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(Modifier.size(11.dp), contentAlignment = Alignment.Center) { Box(Modifier.size(5.dp).clip(CircleShape).background(t.faint)) }
-            Spacer(Modifier.width(6.dp))
+            // A 24dp slot (the bullet/chevron centered where the 11dp one sat): an image item's chevron is its own
+            // tap target that expands or collapses the picture, consuming the tap so the header's edit doesn't fire
+            Box(
+                Modifier.size(24.dp).clip(CircleShape)
+                    .let { if (toggles) it.clickable(onClickLabel = toggleLabel) { toggle() } else it },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (toggles) Ic(if (item.collapsed) LucideIcons.CHEVRON_RIGHT else LucideIcons.CHEVRON_DOWN, 11.dp, t.dim, null)
+                else Box(Modifier.size(5.dp).clip(CircleShape).background(t.faint))
+            }
             Text("${topic.number}.$number", style = t.caption(11.sp), maxLines = 1)
             Spacer(Modifier.width(5.dp))
             if (item.warning) {
@@ -1531,6 +1575,11 @@ private fun ItemRow(
             if (item.hasContent) {
                 Spacer(Modifier.width(6.dp))
                 Ic(LucideIcons.CONTENT, 13.dp, t.dim, stringResource(R.string.item_has_content))
+            }
+            // The web header's image icon: an image item, or text that embeds a picture
+            if (item.isImage || ImageContent.embedsImage(item.content)) {
+                Spacer(Modifier.width(6.dp))
+                Ic(LucideIcons.IMAGE, 13.dp, t.dim, stringResource(R.string.item_has_image))
             }
         }
         ItemMenu(

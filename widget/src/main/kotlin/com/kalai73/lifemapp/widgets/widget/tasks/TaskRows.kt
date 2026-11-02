@@ -70,6 +70,32 @@ internal fun TaskActions() {
     }
 }
 
+/**
+ * "See upcoming events" / "See upcoming tasks" under a list, opening the app's Today screen at [section] (a
+ * LifeMappWidgets.SECTION_ value). A quiet link: small muted text and chevron, no frame or fill, so it doesn't
+ * compete with the rows and action buttons.
+ */
+@Composable
+internal fun SeeUpcomingButton(label: String, section: String) {
+    val context = LocalContext.current
+    val style = LocalWidgetStyle.current
+    val pd = LocalPd.current
+    val color = pd?.dim ?: GlanceTheme.colors.onSurfaceVariant
+    Row(
+        modifier = GlanceModifier.fillMaxWidth().clickable(openSection(context, section)).padding(top = 6.dp, bottom = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            if (pd != null) style.label(label) else label,
+            style = if (pd != null) labelStyle(size = 10.sp, color = color) else textStyle(size = 11.sp, color = color),
+            maxLines = 1,
+        )
+        Spacer(GlanceModifier.width(2.dp))
+        Icon(LucideIcons.CHEVRON_RIGHT, null, size = 10.dp, tint = color)
+    }
+}
+
 @Composable
 private fun ActionButton(icon: Int, label: String, onClick: Action, modifier: GlanceModifier) {
     val style = LocalWidgetStyle.current

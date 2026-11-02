@@ -24,6 +24,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.readRawBytes
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -85,6 +86,39 @@ class LifeMappApi(
                 bearerAuth(token)
                 contentType(ContentType.Application.Json)
                 setBody(CompleteBody(true))
+            }
+        }
+    }
+
+    /**
+     * A LIFE MAPP task's whole title and description (GET /api/tasks/{id}): the snapshot cuts long descriptions,
+     * so it's no base to edit from. Null when the task no longer exists.
+     */
+    suspend fun taskContent(taskId: String): StoredTaskContent? {
+        val response = authorized(accept = { it.isSuccess() || it == HttpStatusCode.NotFound }) { token ->
+            http.get("${config.webUrl}/api/tasks/$taskId") { bearerAuth(token) }
+        }
+        if (response.status == HttpStatusCode.NotFound) return null
+        val task = response.body<JsonObject>()["task"] as? JsonObject ?: return null
+        fun text(name: String) = (task[name] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() }
+        return StoredTaskContent(
+            title = text("title"),
+            encryptedTitle = text("encrypted_title"),
+            description = text("description"),
+            encryptedDescription = text("encrypted_description"),
+        )
+    }
+
+    /**
+     * Updates fields of a LIFE MAPP task (PUT /api/tasks/{id}, the route the web's task modal saves through); a
+     * JsonNull clears one.
+     */
+    suspend fun updateTask(taskId: String, fields: JsonObject) {
+        authorized { token ->
+            http.put("${config.webUrl}/api/tasks/$taskId") {
+                bearerAuth(token)
+                contentType(ContentType.Application.Json)
+                setBody(fields)
             }
         }
     }
@@ -156,6 +190,19 @@ class LifeMappApi(
             isImage = (row["is_image"] as? JsonPrimitive)?.contentOrNull == "true",
             createdAt = text("created_at"),
         )
+    }
+
+    /**
+     * An image item's picture. The web stores public storage links (getPublicUrl), so a plain GET; a Supabase link
+     * the bucket refuses anonymously is tried once more with the session, in case the bucket is private.
+     */
+    suspend fun downloadImage(url: String): ByteArray {
+        var response = http.get(url)
+        if (!response.status.isSuccess() && url.startsWith(config.supabaseUrl)) {
+            response = authorized { token -> http.get(url) { supabase(token) } }
+        }
+        if (!response.status.isSuccess()) throw ServerException(response.status.value)
+        return response.readRawBytes()
     }
 
     /**
@@ -518,6 +565,17 @@ data class StoredItemContent(
     val isImage: Boolean,
     /** ISO timestamp */
     val createdAt: String? = null,
+)
+
+/**
+ * A task's stored title and description (HTML): plain, or end-to-end encrypted (EncryptedField JSON), the plain
+ * column then holding the web's placeholder.
+ */
+data class StoredTaskContent(
+    val title: String?,
+    val encryptedTitle: String?,
+    val description: String?,
+    val encryptedDescription: String?,
 )
 
 /** A life domain's stored rating: [rating], or (end-to-end encrypted) [encryptedRating] with the column at 0. */

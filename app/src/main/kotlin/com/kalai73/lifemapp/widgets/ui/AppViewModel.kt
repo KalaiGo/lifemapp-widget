@@ -1,6 +1,8 @@
 package com.kalai73.lifemapp.widgets.ui
 
 import android.app.Application
+import android.util.LruCache
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kalai73.lifemapp.widgets.R
@@ -8,7 +10,9 @@ import com.kalai73.lifemapp.widgets.core.data.LifeMappGraph
 import com.kalai73.lifemapp.widgets.core.data.auth.AuthException
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetPresenter
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
+import com.kalai73.lifemapp.widgets.core.data.repository.ItemImageRef
 import com.kalai73.lifemapp.widgets.core.data.repository.ItemText
+import com.kalai73.lifemapp.widgets.core.data.repository.TaskText
 import com.kalai73.lifemapp.widgets.core.data.repository.UnlockResult
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.CachedState
@@ -25,6 +29,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 
@@ -229,8 +235,56 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** A LIFE MAPP task's whole title and description for the task dialog's editor. Throws on network errors. */
+    suspend fun loadTaskText(taskId: String): TaskText = graph.tasks.loadText(taskId)
+
+    /**
+     * Saves a task's new [title] and/or [html] description (null keeps it) on the server and in the cached
+     * snapshot, encrypted when the account is.
+     */
+    fun saveTask(taskId: String, title: String?, html: String?) {
+        if (title != null && title.isBlank()) return
+        if (title == null && html == null) return
+        run {
+            val encrypted = cache.value.snapshot?.settings?.encryptionEnabled == true
+            if (!graph.tasks.saveText(taskId, title, html, encrypted)) fail(R.string.error_task_locked)
+            LifeMappWidgets.updateAll(getApplication())
+        }
+    }
+
     /** An item's whole text for the edit dialog, fresh from the server. Throws on network errors. */
     suspend fun loadItemText(itemId: String): ItemText = graph.items.loadText(itemId)
+
+    /** Decoded pictures by URI (uploads get unique names, so a URI's picture doesn't change), sized in bytes */
+    private val imageCache = object : LruCache<String, ImageBitmap>(32 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
+    }
+
+    /**
+     * An image item's picture for Today: where it is comes fresh from the row (it may have been replaced on the
+     * web), the picture itself from [imageCache] when already shown. Never throws: failures are [ItemImage.Failed].
+     */
+    suspend fun loadItemImage(itemId: String): ItemImage = try {
+        when (val ref = graph.items.imageUri(itemId)) {
+            ItemImageRef.Locked -> ItemImage.Locked
+            ItemImageRef.Missing -> ItemImage.Failed
+            is ItemImageRef.Found -> {
+                val bitmap = imageCache.get(ref.uri)
+                    ?: graph.items.imageBytes(ref.uri)
+                        ?.let { bytes -> withContext(Dispatchers.Default) { decodeItemImage(bytes) } }
+                        ?.also { imageCache.put(ref.uri, it) }
+                bitmap?.let { ItemImage.Loaded(it) } ?: ItemImage.Failed
+            }
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        ItemImage.Failed
+    }
+
+    /** Collapses or expands an item (an image item's header tap), like [setTopicCollapsed]. */
+    fun setItemCollapsed(itemId: String, collapsed: Boolean) =
+        toggle { graph.items.setItemCollapsed(itemId, collapsed) { LifeMappWidgets.updateAll(getApplication()) } }
 
     /**
      * Saves an item's new [name] and/or [html] text (null keeps it) on the server and in the cached snapshot,

@@ -5,6 +5,7 @@ import com.kalai73.lifemapp.widgets.core.data.api.LifeMappApi
 import com.kalai73.lifemapp.widgets.core.data.api.ServerException
 import com.kalai73.lifemapp.widgets.core.data.auth.NotSignedInException
 import com.kalai73.lifemapp.widgets.core.data.cache.CacheStore
+import com.kalai73.lifemapp.widgets.core.data.presentation.ImageContent
 import com.kalai73.lifemapp.widgets.core.data.presentation.ItemHtml
 import com.kalai73.lifemapp.widgets.core.data.secure.DeviceLockedException
 import com.kalai73.lifemapp.widgets.core.model.CachedState
@@ -197,6 +198,74 @@ class TaskRepository(
         }
     }
 
+    /**
+     * A LIFE MAPP task's whole title and description to edit, fresh from the server (the snapshot's description is
+     * cut and may be older than an edit on the web).
+     */
+    suspend fun loadText(taskId: String): TaskText {
+        val stored = api.taskContent(taskId) ?: return TaskText.Gone
+        if (stored.encryptedTitle == null && stored.encryptedDescription == null) {
+            return TaskText.Loaded(stored.title.orEmpty(), stored.description.orEmpty())
+        }
+        val key = dataKey() ?: return TaskText.Locked
+        val title = stored.encryptedTitle?.let { EncryptedField.decrypt(it, key) ?: return TaskText.Unreadable } ?: stored.title.orEmpty()
+        val description = stored.encryptedDescription?.let { EncryptedField.decrypt(it, key) ?: return TaskText.Unreadable }
+            ?: stored.description.orEmpty()
+        return TaskText.Loaded(title, description)
+    }
+
+    /**
+     * Saves a new [title] and/or [html] description (null keeps that field) as the web's task modal does: with
+     * encryption on both are encrypted with the data key, the plain columns holding the web's placeholder title
+     * and no description; otherwise a stale encrypted copy is cleared, since it would hide the new text.
+     *
+     * @return false when the account is encrypted and this device isn't unlocked
+     */
+    suspend fun saveText(taskId: String, title: String?, html: String?, encrypted: Boolean): Boolean {
+        val key = if (encrypted) dataKey() ?: return false else null
+        val newTitle = title?.trim()
+        val blank = ItemHtml.isBlank(html)
+        val description = if (html == null || blank) "" else html.trim()
+        val encryptedTitle = if (key != null && newTitle != null) EncryptedField.encrypt(newTitle, key) else null
+        val encryptedDescription = if (key != null && html != null) EncryptedField.encrypt(description, key) else null
+        val fields = buildJsonObject {
+            if (newTitle != null) {
+                put("title", if (key != null) ENCRYPTED_TITLE else newTitle)
+                put("encrypted_title", encryptedTitle?.let { JsonPrimitive(it) } ?: JsonNull)
+            }
+            if (html != null) {
+                put("description", if (key != null) "" else description)
+                put("encrypted_description", encryptedDescription?.let { JsonPrimitive(it) } ?: JsonNull)
+            }
+        }
+        if (fields.isEmpty()) return true
+        api.updateTask(taskId, fields)
+        cache.update { state ->
+            val snapshot = state.snapshot ?: return@update state
+            state.copy(
+                snapshot = snapshot.copy(
+                    tasks = snapshot.tasks.map { task ->
+                        if (task.id != taskId) return@map task
+                        var updated = task
+                        if (newTitle != null) {
+                            updated = if (key != null) updated.copy(title = null, encryptedTitle = encryptedTitle)
+                            else updated.copy(title = newTitle, encryptedTitle = null)
+                        }
+                        if (html != null) {
+                            updated = updated.copy(
+                                // As the snapshot sends it: null when blank or encrypted, cut at its cap
+                                description = if (key != null || blank) null else description.take(MAX_CACHED_DESCRIPTION),
+                                encryptedDescription = if (blank) null else encryptedDescription,
+                            )
+                        }
+                        updated
+                    },
+                ),
+            )
+        }
+        return true
+    }
+
     /** Puts the task back after the completion failed for good. */
     suspend fun revert(taskId: String) {
         cache.update { it.copy(pendingCompletions = it.pendingCompletions - taskId, completionFailed = true) }
@@ -212,7 +281,27 @@ class TaskRepository(
 
         /** Tasks the app can check off: LIFE MAPP's own, and Todoist's with the user's API key */
         fun canComplete(source: String): Boolean = source == "local" || source == "todoist"
+
+        /** Tasks whose title and description the app can edit: LIFE MAPP's own */
+        fun canEdit(source: String): Boolean = source == "local"
+
+        /** What the web stores in the plain title column of an encrypted task */
+        private const val ENCRYPTED_TITLE = "🔒 Encrypted Task"
+        /** The snapshot's cap on a task's description (the web's WIDGET_MAX_ITEM_CONTENT) */
+        private const val MAX_CACHED_DESCRIPTION = 4000
     }
+}
+
+/** A task's title and description as the editor gets them from [TaskRepository.loadText]. */
+sealed interface TaskText {
+    /** [description] as HTML, empty when the task has none */
+    data class Loaded(val title: String, val description: String) : TaskText
+    /** Encrypted, and this device isn't unlocked */
+    data object Locked : TaskText
+    /** Encrypted, but this device's key doesn't open it */
+    data object Unreadable : TaskText
+    /** Completed or removed on another device */
+    data object Gone : TaskText
 }
 
 /**
@@ -237,6 +326,30 @@ class ItemRepository(
             EncryptedField.decrypt(encrypted, key) ?: return ItemText.Unreadable
         } ?: stored.content.orEmpty()
         return ItemText.Loaded(html, createdAt = stored.createdAt, maxChars = charLimit())
+    }
+
+    /**
+     * Where an image item's picture is, from its stored content (`[IMG:<uri>]`, decrypted when encrypted). The
+     * snapshot leaves image content out, so this reads the row.
+     */
+    suspend fun imageUri(itemId: String): ItemImageRef {
+        val stored = api.itemContent(itemId) ?: return ItemImageRef.Missing
+        val content = stored.encryptedContent?.let { encrypted ->
+            val key = dataKey() ?: return ItemImageRef.Locked
+            EncryptedField.decrypt(encrypted, key) ?: return ItemImageRef.Missing
+        } ?: stored.content
+        return ImageContent.uri(content)?.let { ItemImageRef.Found(it) } ?: ItemImageRef.Missing
+    }
+
+    /**
+     * The picture's bytes: an http(s) link is downloaded, a base64 `data:` URI decoded. Null for URIs this device
+     * can't reach (another device's file:// or content:// pictures). Throws on network errors.
+     */
+    suspend fun imageBytes(uri: String): ByteArray? = when {
+        uri.startsWith("http://", ignoreCase = true) || uri.startsWith("https://", ignoreCase = true) -> api.downloadImage(uri)
+        uri.startsWith("data:", ignoreCase = true) && uri.substringBefore(',').endsWith(";base64", ignoreCase = true) ->
+            runCatching { java.util.Base64.getMimeDecoder().decode(uri.substringAfter(',')) }.getOrNull()
+        else -> null
     }
 
     /**
@@ -424,4 +537,13 @@ sealed interface ItemText {
     data object Unreadable : ItemText
     /** Removed on another device */
     data object Gone : ItemText
+}
+
+/** Where an image item's picture is ([ItemRepository.imageUri]). */
+sealed interface ItemImageRef {
+    data class Found(val uri: String) : ItemImageRef
+    /** Encrypted, and this device isn't unlocked */
+    data object Locked : ItemImageRef
+    /** Removed, no picture in its content, or not readable with this device's key */
+    data object Missing : ItemImageRef
 }

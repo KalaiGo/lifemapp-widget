@@ -74,6 +74,10 @@ internal class ItemHandlers(
     val delete: (itemId: String) -> Unit,
     val move: (itemId: String, topicId: String, up: Boolean) -> Unit,
     val setWarning: (itemId: String, warning: Boolean) -> Unit,
+    /** An image item's picture */
+    val loadImage: suspend (itemId: String) -> ItemImage,
+    /** Collapses (true) or expands an item: an image item's header tap */
+    val setCollapsed: (itemId: String, collapsed: Boolean) -> Unit,
 )
 
 /**

@@ -156,6 +156,11 @@
     <string name="format_underline">Unterstrichen</string>
     <string name="format_strikethrough">Durchgestrichen</string>
     <string name="item_has_content">Hat Inhalt</string>
+    <string name="item_has_image">Hat Bild</string>
+    <string name="item_image_open">Bild im Vollbild zeigen</string>
+    <string name="item_image_retry">Erneut versuchen</string>
+    <string name="item_image_locked">Entsperren, um dieses Bild zu sehen.</string>
+    <string name="item_image_failed">Dieses Bild kann nicht geladen werden.</string>
     <string name="format_undo">Rückgängig</string>
     <string name="format_redo">Wiederholen</string>
     <string name="format_text_color">Textfarbe</string>
@@ -236,4 +241,12 @@
     <string name="details_open_event">Termin öffnen</string>
     <string name="details_open_tasks">In LIFE MAPP öffnen</string>
     <string name="details_description_locked">Entsperren, um die Beschreibung zu sehen</string>
+    <string name="details_edit">Aufgabe bearbeiten</string>
+    <string name="details_cancel">Abbrechen</string>
+    <string name="details_save">Speichern</string>
+    <string name="task_title_hint">Aufgabentitel…</string>
+    <string name="task_description_hint">Notizen oder Details hinzufügen…</string>
+    <string name="task_gone">Diese Aufgabe wurde auf einem anderen Gerät erledigt oder entfernt.</string>
+    <string name="task_discard_text">Deine Änderungen an dieser Aufgabe wurden nicht gespeichert.</string>
+    <string name="error_task_locked">Zum Bearbeiten verschlüsselter Aufgaben entsperren.</string>
 </resources>

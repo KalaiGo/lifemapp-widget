@@ -18,7 +18,24 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import com.kalai73.lifemapp.widgets.core.data.repository.TaskText
+import kotlinx.coroutines.CancellationException
+import java.io.IOException
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -101,13 +118,40 @@ internal fun EventDetailsDialog(event: EventUi, openLink: (String) -> Unit, onDi
     }
 }
 
+/** The task dialog's editor while its title and description load and after. */
+private sealed interface TaskEditState {
+    data object Loading : TaskEditState
+    data class Ready(val text: TaskText.Loaded) : TaskEditState
+    /** Nothing to edit: [message] says why (locked, removed, failed to load) */
+    data class Unavailable(val message: Int) : TaskEditState
+}
+
 /**
- * The web's task details modal (tasks/task-details-modal.tsx), to read: title with the provider tag, due date,
- * priority, list, repeat and description, then Complete (tasks the app can complete) and the web's task list
- * for editing.
+ * The web's task details modal (tasks/task-details-modal.tsx): title with the provider tag, due date, priority,
+ * list, repeat and description, then Complete (tasks the app can complete) and the web's task list. LIFE MAPP
+ * tasks also get Edit in the header: the title becomes a field and the description the item editor's rich text
+ * editor, loaded whole from the server; Save sends what changed, closing with changes asks to discard them.
  */
 @Composable
-internal fun TaskDetailsDialog(task: TaskUi, onComplete: (String) -> Unit, onOpenWeb: (String) -> Unit, onDismiss: () -> Unit) {
+internal fun TaskDetailsDialog(
+    task: TaskUi,
+    onComplete: (String) -> Unit,
+    onOpenWeb: (String) -> Unit,
+    loadText: suspend (String) -> TaskText,
+    /** New title and new HTML description, null keeping either */
+    onSave: (title: String?, html: String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var editing by remember(task.id) { mutableStateOf(false) }
+    if (editing && task.editable) {
+        TaskEditPanel(task, loadText, onSave = { title, html -> onSave(title, html); editing = false }, onCancel = { editing = false }, onDismiss = onDismiss)
+    } else {
+        TaskReadPanel(task, onComplete, onOpenWeb, onEdit = if (task.editable) ({ editing = true }) else null, onDismiss)
+    }
+}
+
+@Composable
+private fun TaskReadPanel(task: TaskUi, onComplete: (String) -> Unit, onOpenWeb: (String) -> Unit, onEdit: (() -> Unit)?, onDismiss: () -> Unit) {
     val t = LocalTok.current
     val tagColor = LifeMappColors.parseHex(task.tagColor) ?: Color(0xFF10B981)
     DetailsPanel(
@@ -116,6 +160,7 @@ internal fun TaskDetailsDialog(task: TaskUi, onComplete: (String) -> Unit, onOpe
         title = task.title,
         status = null,
         onDismiss = onDismiss,
+        onEdit = onEdit,
         footer = {
             SecondaryButton(LucideIcons.EXTERNAL_LINK, stringResource(R.string.details_open_tasks)) {
                 onOpenWeb(com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes.TASKS)
@@ -168,6 +213,111 @@ internal fun TaskDetailsDialog(task: TaskUi, onComplete: (String) -> Unit, onOpe
     }
 }
 
+@Composable
+private fun TaskEditPanel(
+    task: TaskUi,
+    loadText: suspend (String) -> TaskText,
+    onSave: (title: String?, html: String?) -> Unit,
+    onCancel: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val t = LocalTok.current
+    var state by remember(task.id) { mutableStateOf<TaskEditState>(TaskEditState.Loading) }
+    var title by remember(task.id) { mutableStateOf(TextFieldValue("")) }
+    var editor by remember(task.id) { mutableStateOf<RichEditText?>(null) }
+    var tick by remember(task.id) { mutableIntStateOf(0) }
+    // Where a confirmed discard goes: back to the details, or closed
+    var discardThen by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val titleFocus = remember { FocusRequester() }
+
+    LaunchedEffect(task.id) {
+        state = try {
+            when (val loaded = loadText(task.id)) {
+                is TaskText.Loaded -> {
+                    title = TextFieldValue(loaded.title, TextRange(loaded.title.length))
+                    TaskEditState.Ready(loaded)
+                }
+                TaskText.Locked -> TaskEditState.Unavailable(R.string.error_task_locked)
+                TaskText.Unreadable -> TaskEditState.Unavailable(R.string.item_text_unreadable)
+                TaskText.Gone -> TaskEditState.Unavailable(R.string.task_gone)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: IOException) {
+            TaskEditState.Unavailable(R.string.error_network)
+        } catch (_: Exception) {
+            TaskEditState.Unavailable(R.string.item_text_failed)
+        }
+    }
+    val ready = state as? TaskEditState.Ready
+    LaunchedEffect(ready != null) { if (ready != null) runCatching { titleFocus.requestFocus() } }
+
+    val newTitle = title.text.trim()
+    val titleChanged = ready != null && newTitle != ready.text.title.trim()
+    val textChanged = tick >= 0 && editor?.changed == true
+    val dirty = titleChanged || textChanged
+    val canSave = ready != null && newTitle.isNotEmpty()
+    val leave = { then: () -> Unit -> if (dirty) discardThen = then else then() }
+    val save = {
+        if (!dirty) onCancel()
+        else if (canSave) onSave(if (titleChanged) newTitle else null, if (textChanged) editor?.text?.let(ItemHtml::toHtml) else null)
+    }
+
+    discardThen?.let { then ->
+        DiscardDialog(onDiscard = { discardThen = null; then() }, onKeep = { discardThen = null }, message = R.string.task_discard_text)
+    }
+
+    val tagColor = LifeMappColors.parseHex(task.tagColor) ?: Color(0xFF10B981)
+    DetailsPanel(
+        badge = stringResource(R.string.details_task_badge),
+        tag = task.tagLabel?.let { it to tagColor },
+        title = task.title,
+        status = null,
+        onDismiss = { leave(onDismiss) },
+        imePadding = true,
+        titleContent = if (ready == null) null else ({ style ->
+            Box {
+                if (title.text.isEmpty()) Text(stringResource(R.string.task_title_hint), style = style.copy(color = t.dim.copy(alpha = 0.35f)))
+                BasicTextField(
+                    title, { title = it },
+                    textStyle = style,
+                    cursorBrush = SolidColor(t.ink),
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth().focusRequester(titleFocus),
+                )
+            }
+        }),
+        footer = {
+            SecondaryButton(LucideIcons.CLOSE, stringResource(R.string.details_cancel)) { leave(onCancel) }
+            Spacer(Modifier.width(8.dp))
+            PrimaryButton(LucideIcons.CHECK, stringResource(R.string.details_save), enabled = !dirty || canSave, onClick = save)
+        },
+    ) {
+        when (val s = state) {
+            TaskEditState.Loading -> Box(Modifier.fillMaxWidth().heightIn(min = COMPACT_EDITOR_HEIGHT), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(Modifier.size(24.dp), color = t.ink, strokeWidth = 2.dp)
+            }
+            is TaskEditState.Unavailable -> Text(stringResource(s.message), style = t.body(13.sp, t.dim))
+            is TaskEditState.Ready -> {
+                Field(LucideIcons.ALIGN_LEFT, stringResource(R.string.details_description)) {}
+                RichTextBox(
+                    html = s.text.description,
+                    hint = stringResource(R.string.task_description_hint),
+                    height = COMPACT_EDITOR_HEIGHT,
+                    editor = editor,
+                    tick = tick,
+                    focus = false,
+                    onEditor = { editor = it },
+                    onChange = { tick++ },
+                )
+                if (ItemHtml.hasUnsupportedFormatting(s.text.description)) {
+                    Text(stringResource(R.string.item_text_simplified), style = t.body(12.sp, t.dim))
+                }
+            }
+        }
+    }
+}
+
 /**
  * The shared modal shell, as the item editor's: Predator's chamfered panel or Classic's rounded card near the top,
  * the badge (with the calendar / provider tag) and close, the large title over a faint rule, the scrolling
@@ -181,6 +331,12 @@ private fun DetailsPanel(
     status: String?,
     onDismiss: () -> Unit,
     footer: @Composable () -> Unit,
+    /** Shows the pencil beside close */
+    onEdit: (() -> Unit)? = null,
+    /** Replaces the title text (the task editor's field), drawn in the title's style */
+    titleContent: (@Composable (TextStyle) -> Unit)? = null,
+    /** Keeps the panel above the keyboard (editing) */
+    imePadding: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val t = LocalTok.current
@@ -198,6 +354,7 @@ private fun DetailsPanel(
         ) {
             Column(
                 Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 16.dp).widthIn(max = 480.dp).fillMaxWidth()
+                    .let { if (imePadding) it.imePadding() else it }
                     .then(panel)
                     // Taps on the panel itself must not reach the backdrop
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
@@ -208,20 +365,23 @@ private fun DetailsPanel(
                     ItemBadge(t.predator, t.ink, badge.uppercase())
                     tag?.let { (label, color) -> Tag(label, color) }
                     Spacer(Modifier.weight(1f))
+                    onEdit?.let { RoundIconButton(LucideIcons.PENCIL, stringResource(R.string.details_edit), t.dim, size = 32.dp, onClick = it) }
                     RoundIconButton(LucideIcons.CLOSE, stringResource(R.string.item_close), t.dim, size = 32.dp, onClick = onDismiss)
                 }
 
                 Column {
-                    Text(
-                        title ?: stringResource(R.string.today_locked),
-                        style = TextStyle(
-                            fontFamily = if (t.predator) CondensedFontFamily else FontFamily.Default,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 20.sp,
-                            letterSpacing = (-0.01).em,
-                            color = if (title == null) t.dim else t.text,
-                        ),
+                    val titleStyle = TextStyle(
+                        fontFamily = if (t.predator) CondensedFontFamily else FontFamily.Default,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 20.sp,
+                        letterSpacing = (-0.01).em,
+                        color = t.text,
                     )
+                    if (titleContent != null) {
+                        titleContent(titleStyle)
+                    } else {
+                        Text(title ?: stringResource(R.string.today_locked), style = if (title == null) titleStyle.copy(color = t.dim) else titleStyle)
+                    }
                     status?.let {
                         Spacer(Modifier.height(8.dp))
                         Text(
@@ -323,10 +483,10 @@ private fun LinkedText(value: String, color: Color) {
 
 /** The footer's main action: Predator's parallelogram accent button, Classic's primary pill */
 @Composable
-private fun PrimaryButton(icon: Int, label: String, onClick: () -> Unit) {
+private fun PrimaryButton(icon: Int, label: String, enabled: Boolean = true, onClick: () -> Unit) {
     val t = LocalTok.current
     if (t.predator) {
-        PdButton(onClick = onClick, modifier = Modifier.height(36.dp)) {
+        PdButton(onClick = onClick, enabled = enabled, modifier = Modifier.height(36.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(icon), null, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(6.dp))
@@ -336,8 +496,8 @@ private fun PrimaryButton(icon: Int, label: String, onClick: () -> Unit) {
     } else {
         val colors = MaterialTheme.colorScheme
         Row(
-            Modifier.height(32.dp).clip(CircleShape).background(colors.primary)
-                .clickable(role = Role.Button, onClick = onClick)
+            Modifier.height(32.dp).clip(CircleShape).background(if (enabled) colors.primary else colors.primary.copy(alpha = 0.4f))
+                .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

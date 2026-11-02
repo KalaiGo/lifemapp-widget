@@ -99,4 +99,6 @@
     <string name="integrity_add_item">Add item</string>
     <string name="integrity_expand">Expand</string>
     <string name="integrity_collapse">Collapse</string>
+    <string name="see_upcoming_events">See upcoming events</string>
+    <string name="see_upcoming_tasks">See upcoming tasks</string>
 </resources>

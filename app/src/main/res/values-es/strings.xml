@@ -158,6 +158,11 @@
     <string name="format_underline">Subrayado</string>
     <string name="format_strikethrough">Tachado</string>
     <string name="item_has_content">Tiene contenido</string>
+    <string name="item_has_image">Tiene imagen</string>
+    <string name="item_image_open">Ver imagen a pantalla completa</string>
+    <string name="item_image_retry">Reintentar</string>
+    <string name="item_image_locked">Desbloquea para ver esta imagen.</string>
+    <string name="item_image_failed">No se puede cargar esta imagen.</string>
     <string name="format_undo">Deshacer</string>
     <string name="format_redo">Rehacer</string>
     <string name="format_text_color">Color del texto</string>
@@ -238,4 +243,12 @@
     <string name="details_open_event">Abrir evento</string>
     <string name="details_open_tasks">Abrir en LIFE MAPP</string>
     <string name="details_description_locked">Desbloquea para ver la descripción</string>
+    <string name="details_edit">Editar tarea</string>
+    <string name="details_cancel">Cancelar</string>
+    <string name="details_save">Guardar</string>
+    <string name="task_title_hint">Título de la tarea…</string>
+    <string name="task_description_hint">Añade notas o detalles…</string>
+    <string name="task_gone">Esta tarea se completó o eliminó en otro dispositivo.</string>
+    <string name="task_discard_text">Los cambios en esta tarea no se han guardado.</string>
+    <string name="error_task_locked">Desbloquea para editar tareas cifradas.</string>
 </resources>

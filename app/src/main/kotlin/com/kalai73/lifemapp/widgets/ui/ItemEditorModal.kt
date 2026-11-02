@@ -89,7 +89,7 @@ private sealed interface TextState {
  * Editor height: the web's COMPACT_EDITOR_HEIGHT (140) plus 30% for a phone; the expand button makes it
  * [EXPANDED_EDITOR_HEIGHT], three times as tall
  */
-private val COMPACT_EDITOR_HEIGHT = 182.dp
+internal val COMPACT_EDITOR_HEIGHT = 182.dp
 private val EXPANDED_EDITOR_HEIGHT = 546.dp
 private val CREATED_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
 
@@ -236,46 +236,16 @@ internal fun ItemEditorDialog(
                     CircularProgressIndicator(Modifier.size(24.dp), color = accentInk, strokeWidth = 2.dp)
                 }
                 is TextState.Unavailable -> Text(stringResource(state.message), style = MaterialTheme.typography.bodyMedium, color = dim)
-                is TextState.Ready -> {
-                    val boxShape = if (predator) pdChamferShape(6.dp) else RoundedCornerShape(16.dp)
-                    Column(
-                        Modifier.fillMaxWidth()
-                            .clip(boxShape)
-                            .background(if (predator) pd.well.copy(alpha = 0.35f) else colors.onSurface.copy(alpha = 0.03f), boxShape)
-                            .border(1.dp, line.copy(alpha = if (predator) 1f else 0.4f), boxShape),
-                    ) {
-                        editor?.let { EditorToolbar(it, tick) }
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(line.copy(alpha = 0.4f)))
-                        val textColor = text.toArgb()
-                        val hintColor = dim.copy(alpha = 0.6f).toArgb()
-                        val linkColor = accentInk.toArgb()
-                        val hint = stringResource(R.string.item_text_hint)
-                        AndroidView(
-                            factory = { context ->
-                                RichEditText(context).apply {
-                                    background = null
-                                    gravity = Gravity.TOP or Gravity.START
-                                    isVerticalScrollBarEnabled = true
-                                    val pad = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10f, resources.displayMetrics).toInt()
-                                    setPadding(pad, pad, pad, pad)
-                                    // text-[0.8rem], leading-relaxed
-                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                                    setLineSpacing(0f, 1.35f)
-                                    setTextColor(textColor)
-                                    setHintTextColor(hintColor)
-                                    setLinkTextColor(linkColor)
-                                    this.hint = hint
-                                    load(ItemHtml.toSpanned(state.text.html))
-                                    onStateChange = { tick++ }
-                                    editor = this
-                                    // load() opens the text at its beginning (cursor at the start, scrolled to the top)
-                                    if (autoFocus && (!focusTitle || !nameKnown)) requestFocus()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth().height(if (expanded) EXPANDED_EDITOR_HEIGHT else COMPACT_EDITOR_HEIGHT),
-                        )
-                    }
-                }
+                is TextState.Ready -> RichTextBox(
+                    html = state.text.html,
+                    hint = stringResource(R.string.item_text_hint),
+                    height = if (expanded) EXPANDED_EDITOR_HEIGHT else COMPACT_EDITOR_HEIGHT,
+                    editor = editor,
+                    tick = tick,
+                    focus = autoFocus && (!focusTitle || !nameKnown),
+                    onEditor = { editor = it },
+                    onChange = { tick++ },
+                )
             }
             if (ready != null && ItemHtml.hasUnsupportedFormatting(ready.text.html)) {
                 Text(stringResource(R.string.item_text_simplified), style = MaterialTheme.typography.bodySmall, color = dim)
@@ -318,6 +288,68 @@ internal fun ItemEditorDialog(
             }
             }
         }
+    }
+}
+
+/**
+ * The web's content canvas: the formatting toolbar over the rich text editor, in one bordered box (Predator's
+ * chamfered well, Classic's rounded card). [onEditor] hands over the editor once made; [onChange] fires on every
+ * text or selection change, so the caller's [tick] redraws the toolbar.
+ */
+@Composable
+internal fun RichTextBox(
+    html: String,
+    hint: String,
+    height: androidx.compose.ui.unit.Dp,
+    editor: RichEditText?,
+    tick: Int,
+    focus: Boolean,
+    onEditor: (RichEditText) -> Unit,
+    onChange: () -> Unit,
+) {
+    val predator = LocalUiStyle.current == UiStyle.PREDATOR
+    val pd = LocalPdPalette.current
+    val colors = MaterialTheme.colorScheme
+    val text = if (predator) pd.text else colors.onSurface
+    val dim = if (predator) pd.dim else colors.onSurfaceVariant
+    val accentInk = if (predator) pd.ink else colors.primary
+    val line = if (predator) pd.edge else colors.outlineVariant
+    val boxShape = if (predator) pdChamferShape(6.dp) else RoundedCornerShape(16.dp)
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(boxShape)
+            .background(if (predator) pd.well.copy(alpha = 0.35f) else colors.onSurface.copy(alpha = 0.03f), boxShape)
+            .border(1.dp, line.copy(alpha = if (predator) 1f else 0.4f), boxShape),
+    ) {
+        editor?.let { EditorToolbar(it, tick) }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(line.copy(alpha = 0.4f)))
+        val textColor = text.toArgb()
+        val hintColor = dim.copy(alpha = 0.6f).toArgb()
+        val linkColor = accentInk.toArgb()
+        AndroidView(
+            factory = { context ->
+                RichEditText(context).apply {
+                    background = null
+                    gravity = Gravity.TOP or Gravity.START
+                    isVerticalScrollBarEnabled = true
+                    val pad = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10f, resources.displayMetrics).toInt()
+                    setPadding(pad, pad, pad, pad)
+                    // text-[0.8rem], leading-relaxed
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                    setLineSpacing(0f, 1.35f)
+                    setTextColor(textColor)
+                    setHintTextColor(hintColor)
+                    setLinkTextColor(linkColor)
+                    this.hint = hint
+                    load(ItemHtml.toSpanned(html))
+                    onStateChange = onChange
+                    onEditor(this)
+                    // load() opens the text at its beginning (cursor at the start, scrolled to the top)
+                    if (focus) requestFocus()
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(height),
+        )
     }
 }
 
@@ -381,11 +413,11 @@ private fun DoneButton(predator: Boolean, enabled: Boolean, onClick: () -> Unit)
 }
 
 @Composable
-private fun DiscardDialog(onDiscard: () -> Unit, onKeep: () -> Unit) {
+internal fun DiscardDialog(onDiscard: () -> Unit, onKeep: () -> Unit, message: Int = R.string.item_discard_text) {
     AlertDialog(
         onDismissRequest = onKeep,
         title = { Text(stringResource(R.string.item_discard_title)) },
-        text = { Text(stringResource(R.string.item_discard_text)) },
+        text = { Text(stringResource(message)) },
         confirmButton = { TextButton(onClick = onDiscard) { Text(stringResource(R.string.item_discard), color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = onKeep) { Text(stringResource(R.string.item_keep_editing)) } },
     )

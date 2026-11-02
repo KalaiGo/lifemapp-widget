@@ -99,4 +99,6 @@
     <string name="integrity_add_item">Element hinzufügen</string>
     <string name="integrity_expand">Aufklappen</string>
     <string name="integrity_collapse">Zuklappen</string>
+    <string name="see_upcoming_events">Kommende Termine ansehen</string>
+    <string name="see_upcoming_tasks">Kommende Aufgaben ansehen</string>
 </resources>

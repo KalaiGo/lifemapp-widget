@@ -215,6 +215,8 @@ object LucideIcons {
     val CLOSE = R.drawable.lm_ic_x
     /** An item (subsubdomain) with text */
     val CONTENT = R.drawable.lm_ic_file_text
+    /** An image item, or an item whose text embeds a picture */
+    val IMAGE = R.drawable.lm_ic_image
 
     // The web rich text editor's toolbar (editor-toolbar.tsx)
     val UNDO = R.drawable.lm_ic_undo
