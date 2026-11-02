@@ -2,6 +2,7 @@ package com.kalai73.lifemapp.widgets.widget.today
 
 // The hero section (components/layout/hero-section.tsx on the web), shown at the top of the Dashboard widget.
 
+import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import com.kalai73.lifemapp.widgets.widget.common.PdWrapFrame
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
@@ -35,12 +36,11 @@ import com.kalai73.lifemapp.widgets.widget.common.PdHex
 import com.kalai73.lifemapp.widgets.widget.common.captionStyle
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
 import com.kalai73.lifemapp.widgets.widget.common.numberStyle
-import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.widget.R
 import com.kalai73.lifemapp.widgets.widget.common.Icon
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
 import com.kalai73.lifemapp.widgets.widget.common.openExternal
-import com.kalai73.lifemapp.widgets.widget.common.openRoute
+import com.kalai73.lifemapp.widgets.widget.common.openSection
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 
 /**
@@ -144,12 +144,12 @@ internal fun Counters(ui: WidgetUi, caption: String? = null) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
-    val mailAction = ui.mailUrl?.let(::openExternal) ?: openRoute(context, WebRoutes.MAIL)
+    val mailAction = ui.mailUrl?.let(::openExternal) ?: openSection(context, LifeMappWidgets.SECTION_SHORTCUTS)
     val row: @Composable (GlanceModifier) -> Unit = { modifier ->
         Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Counter(LucideIcons.CALENDAR, ui.eventsCount.toString(), context.getString(R.string.events), openRoute(context, WebRoutes.EVENTS))
+            Counter(LucideIcons.CALENDAR, ui.eventsCount.toString(), context.getString(R.string.events), openSection(context, LifeMappWidgets.SECTION_EVENTS))
             if (pd != null) PdDivider(18.dp)
-            Counter(LucideIcons.TASKS, ui.tasksCount.toString(), context.getString(R.string.tasks), openRoute(context, WebRoutes.TASKS))
+            Counter(LucideIcons.TASKS, ui.tasksCount.toString(), context.getString(R.string.tasks), openSection(context, LifeMappWidgets.SECTION_TASKS))
             if (pd != null) PdDivider(18.dp)
             Counter(LucideIcons.MAIL, if (ui.mailConnected) ui.mailCount.toString() else "–", context.getString(R.string.mail), mailAction)
         }
@@ -183,18 +183,19 @@ internal fun Counters(ui: WidgetUi, caption: String? = null) {
 @Composable
 private fun androidx.glance.layout.RowScope.Counter(icon: Int, value: String, label: String, onClick: Action) {
     val style = LocalWidgetStyle.current
-    Column(
-        modifier = GlanceModifier.defaultWeight().clickable(onClick).padding(vertical = 2.dp),
+    // Icon, number and label on one line, the label right after its number
+    Row(
+        modifier = GlanceModifier.defaultWeight().clickable(onClick).padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, label, size = 14.dp)
-            Spacer(GlanceModifier.width(4.dp))
-            Text(value, style = if (style.isPredator) numberStyle(16.sp) else textStyle(size = 16.sp, weight = FontWeight.Bold))
-        }
+        Icon(icon, label, size = 14.dp)
+        Spacer(GlanceModifier.width(4.dp))
+        Text(value, style = if (style.isPredator) numberStyle(16.sp) else textStyle(size = 16.sp, weight = FontWeight.Bold), maxLines = 1)
+        Spacer(GlanceModifier.width(4.dp))
         Text(
             style.label(label),
-            style = if (style.isPredator) captionStyle(size = 8.sp) else textStyle(size = 9.sp, color = GlanceTheme.colors.onSurfaceVariant),
+            style = if (style.isPredator) captionStyle(size = 9.sp) else textStyle(size = 10.sp, color = GlanceTheme.colors.onSurfaceVariant),
             maxLines = 1,
         )
     }

@@ -51,6 +51,14 @@ object SyncScheduler {
     /** False within 10 s of the last manual reload. */
     fun canSyncManually(now: Long = System.currentTimeMillis()): Boolean = now - lastManualSyncAt >= MANUAL_DEBOUNCE_MS
 
+    /** Records a manual reload that runs inline (not through [syncNow]); false when debounced. */
+    @Synchronized
+    fun claimManualSync(now: Long = System.currentTimeMillis()): Boolean {
+        if (!canSyncManually(now)) return false
+        lastManualSyncAt = now
+        return true
+    }
+
     /**
      * Sync now. Manual reloads are debounced: taps within 10 s of the last one are ignored.
      * @return false when debounced

@@ -1,6 +1,6 @@
 package com.kalai73.lifemapp.widgets.core.designsystem
 
-import android.graphics.Typeface
+import androidx.compose.ui.text.font.Font
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -153,12 +153,26 @@ fun Modifier.pdPanel(
         .pdChamferCorners(cut = cut, accentColor = palette.accent, strokeWidth = 2.dp, cornerExtension = 6.dp)
 }
 
-/** Chakra Petch fallback on Android: sans-serif-condensed */
-val CondensedFontFamily: FontFamily by lazy {
-    runCatching {
-        FontFamily(Typeface.create("sans-serif-condensed", Typeface.NORMAL))
-    }.getOrDefault(FontFamily.SansSerif)
-}
+/** Predator display face, same as the web's `--font-predator`: Chakra Petch (bundled, OFL). */
+val CondensedFontFamily: FontFamily = FontFamily(
+    Font(R.font.chakra_petch_regular, FontWeight.Normal),
+    Font(R.font.chakra_petch_italic, FontWeight.Normal, FontStyle.Italic),
+    Font(R.font.chakra_petch_medium, FontWeight.Medium),
+    Font(R.font.chakra_petch_medium_italic, FontWeight.Medium, FontStyle.Italic),
+    Font(R.font.chakra_petch_semi_bold, FontWeight.SemiBold),
+    Font(R.font.chakra_petch_semi_bold_italic, FontWeight.SemiBold, FontStyle.Italic),
+    Font(R.font.chakra_petch_bold, FontWeight.Bold),
+    Font(R.font.chakra_petch_bold_italic, FontWeight.Bold, FontStyle.Italic),
+)
+
+/** Data/numeral face, same as the web's `--font-mono`: JetBrains Mono (bundled, OFL). */
+val MonoFontFamily: FontFamily = FontFamily(
+    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+    Font(R.font.jetbrains_mono_medium, FontWeight.Medium),
+    Font(R.font.jetbrains_mono_semi_bold, FontWeight.SemiBold),
+    Font(R.font.jetbrains_mono_bold, FontWeight.Bold),
+    Font(R.font.jetbrains_mono_extra_bold, FontWeight.ExtraBold),
+)
 
 /** pd-label: short fixed labels (buttons, tabs, headers). Condensed bold italic uppercase with tracking. */
 fun pdLabelStyle(
@@ -181,7 +195,7 @@ fun pdCaptionStyle(
     color: Color = Color.Unspecified,
     letterSpacing: TextUnit = 0.14.em,
 ): TextStyle = TextStyle(
-    fontFamily = FontFamily.Monospace,
+    fontFamily = MonoFontFamily,
     fontWeight = FontWeight.Normal,
     fontSize = size,
     letterSpacing = letterSpacing,

@@ -195,7 +195,7 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("Inbox")).assertExists()
         onNode(hasTextEqualTo("LINKS")).assertExists()
         onNode(hasTextEqualTo("MANAGE")).assertDoesNotExist()
-        onNode(hasTextEqualTo("TOMORROW")).assertExists()
+        onNode(hasTextEqualTo("TOMORROW")).assertDoesNotExist() // today only
         onNode(hasTextEqualTo("Standup")).assertExists()
         onNode(hasTextEqualTo("Coffee")).assertExists()
     }
@@ -214,20 +214,28 @@ class WidgetRenderTest {
     }
 
     @Test
-    fun `events group by day and respect the days-ahead setting`() = runGlanceAppWidgetUnitTest {
-        dashboard(populated, daysAhead = 3)
+    fun `events show today only, whatever the days-ahead setting`() = runGlanceAppWidgetUnitTest {
+        dashboard(populated, daysAhead = 7)
         onNode(hasText("Standup")).assertExists()
-        onNode(hasText("Family lunch")).assertExists()
-        onNode(hasText("All day")).assertExists()
+        onNode(hasText("Family lunch")).assertDoesNotExist() // tomorrow
         onNode(hasText("Dentist")).assertDoesNotExist() // 5 days out
     }
 
     @Test
-    fun `events list today even when it is empty, and hide filtered calendars`() = runGlanceAppWidgetUnitTest {
+    fun `events say so when today is empty, and hide filtered calendars`() = runGlanceAppWidgetUnitTest {
         dashboard(populated, daysAhead = 7, hidden = setOf("Work"))
         onNode(hasText("No events today")).assertExists()
         onNode(hasText("Standup")).assertDoesNotExist()
-        onNode(hasText("Dentist")).assertExists()
+        onNode(hasText("Dentist")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `tasks show today only`() = runGlanceAppWidgetUnitTest {
+        val tomorrow = TaskUi("t3", "Call mum", "Su. 01/11/2026", overdue = false, priority = 1, listName = null, listColor = null, recurring = false, completable = true, day = DayKind.TOMORROW)
+        dashboard(populated.copy(tasks = populated.tasks + tomorrow))
+        onNode(hasText("Pay rent")).assertExists()
+        onNode(hasText("Call mum")).assertDoesNotExist()
+        onAllNodes(hasContentDescription("Complete task")).assertCountEquals(2)
     }
 
     @Test
@@ -239,21 +247,20 @@ class WidgetRenderTest {
     }
 
     @Test
-    fun `events are numbered across days with calendar tag and time line`() = runGlanceAppWidgetUnitTest {
+    fun `events are numbered with calendar tag and time line`() = runGlanceAppWidgetUnitTest {
         dashboard(populated.copy(uiStyle = UiStyle.PREDATOR), daysAhead = 7)
         // Events, tasks and links are numbered separately; "2" is also the hero's events counter, "3" the links count
         onAllNodes(hasTextEqualTo("1")).assertCountEquals(3)
-        onAllNodes(hasTextEqualTo("2")).assertCountEquals(4)
-        onAllNodes(hasTextEqualTo("3")).assertCountEquals(3)
+        onAllNodes(hasTextEqualTo("2")).assertCountEquals(3)
+        onAllNodes(hasTextEqualTo("3")).assertCountEquals(2)
         onNode(hasContentDescriptionEqualTo("Add link")).assertExists()
         onNode(hasTextEqualTo("WORK")).assertExists()
-        onAllNodes(hasTextEqualTo("HOME")).assertCountEquals(2)
+        onNode(hasTextEqualTo("HOME")).assertDoesNotExist() // tomorrow's and later events aren't listed
         onNode(hasTextEqualTo("09:00 – 09:15 · Sa. 31/10/2026")).assertExists()
-        onNode(hasTextEqualTo("All day · Su. 01/11/2026")).assertExists()
         onAllNodes(hasTextEqualTo("TODAY")).assertCountEquals(2) // events day divider and the tasks divider
         onAllNodes(hasTextEqualTo("LIFE MAPP")).assertCountEquals(2) // both tasks carry the provider tag
         onNode(hasTextEqualTo("No due date")).assertExists()
-        onNode(hasTextEqualTo("TOMORROW")).assertExists()
+        onNode(hasTextEqualTo("TOMORROW")).assertDoesNotExist()
     }
 
     @Test
@@ -336,17 +343,18 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("8")).assertExists()
         onNode(hasTextEqualTo("Capture & Organize")).assertExists()
         onNode(hasTextEqualTo("RECEPTION")).assertExists()
-        // The Reception's type button, the Reminders "+" and the empty Reminders chip all create reminders
-        onAllNodes(hasContentDescriptionEqualTo("Create reminder")).assertCountEquals(3)
+        // The Reception's type button and the empty Reminders chip both create reminders
+        onAllNodes(hasContentDescriptionEqualTo("Create reminder")).assertCountEquals(2)
         onNode(hasTextEqualTo("Reminders")).assertExists()
         onNode(hasTextEqualTo("No content yet")).assertExists()
+        // Other topics show their header only (a tap opens the app), never their items
         onNode(hasTextEqualTo("Topic 1")).assertExists()
         onNode(hasTextEqualTo("(10)")).assertExists()
-        onNode(hasTextEqualTo("2.1")).assertExists()
-        onNode(hasTextEqualTo("Item")).assertExists()
-        onNode(hasTextEqualTo("Call the bank")).assertExists()
-        onAllNodes(hasTextEqualTo("🔒 Locked")).assertCountEquals(2) // the locked task and the locked item
-        onNode(hasTextEqualTo("+7 more")).assertExists()
+        onNode(hasTextEqualTo("2.1")).assertDoesNotExist()
+        onNode(hasTextEqualTo("Item")).assertDoesNotExist()
+        onNode(hasTextEqualTo("Call the bank")).assertDoesNotExist()
+        onAllNodes(hasTextEqualTo("🔒 Locked")).assertCountEquals(1) // the locked task only
+        onNode(hasTextEqualTo("+7 more")).assertDoesNotExist()
         onNode(hasTextEqualTo("Warnings")).assertExists()
     }
 
@@ -357,6 +365,32 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("RECEPTION")).assertExists()
         onNode(hasTextEqualTo("TOPIC 1")).assertExists()
         onNode(hasTextEqualTo("WARNINGS")).assertExists()
+    }
+
+    @Test
+    fun `tenacity card closes the list, topics as headers only, without warnings`() = runGlanceAppWidgetUnitTest {
+        val tenacity = IntegrityUi(
+            domainId = "d5",
+            position = 5,
+            name = "Tenacity",
+            infoBox = "Keep going",
+            rating = 6,
+            topics = listOf(
+                TopicUi("t1", 1, "Projects", reminders = false, count = 4, items = listOf(
+                    TopicItemUi("p1", "Ship it", warning = false, isImage = false),
+                )),
+            ),
+            warnings = 3,
+        )
+        dashboard(populated.copy(todayDomains = listOf(integrity.copy(domainId = "d2", position = 2, name = "Serenity"), tenacity)))
+        onNode(hasTextEqualTo("05")).assertExists()
+        onNode(hasTextEqualTo("Tenacity")).assertExists()
+        onNode(hasTextEqualTo("Keep going")).assertExists()
+        onNode(hasTextEqualTo("Projects")).assertExists()
+        onNode(hasTextEqualTo("Ship it")).assertDoesNotExist()
+        onNode(hasTextEqualTo("Warnings")).assertDoesNotExist()
+        // Only Tenacity among the other domains
+        onNode(hasTextEqualTo("Serenity")).assertDoesNotExist()
     }
 
     @Test

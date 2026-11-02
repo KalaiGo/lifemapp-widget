@@ -12,3 +12,4 @@ Transfer, Create task and Properties. Each opens a larger dialog on the web; I c
 
 
 
+On the widget content when tapping on the title area of subdomains their child items should be expanded or collapsed

@@ -26,8 +26,6 @@ import com.kalai73.lifemapp.widgets.core.data.api.VoiceIntent
 import com.kalai73.lifemapp.widgets.core.data.api.VoiceItem
 import com.kalai73.lifemapp.widgets.core.data.auth.NotSignedInException
 import com.kalai73.lifemapp.widgets.core.data.repository.VoiceRepository.Understood
-import com.kalai73.lifemapp.widgets.core.weblauncher.WebLauncher
-import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.core.data.repository.SyncResult
 import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import com.kalai73.lifemapp.widgets.widget.R
@@ -52,8 +50,7 @@ import java.util.Locale
  * The widgets refresh afterwards.
  *
  * The system recognizer listens in the LIFE MAPP language when that differs from the phone's, and needs no
- * microphone permission from this app. Only a device without any speech recognizer falls back to the web's
- * own mic, which records and transcribes on the server.
+ * microphone permission from this app. A device without any speech recognizer opens the dialog to type instead.
  *
  * Started with [EXTRA_REMINDERS] (the Integrity card's Reception), everything said becomes reminders.
  */
@@ -97,9 +94,8 @@ class VoiceInputActivity : Activity() {
             @Suppress("DEPRECATION")
             startActivityForResult(listen, REQUEST_SPEECH)
         } catch (_: ActivityNotFoundException) {
-            // No speech recognizer on this device: the web's mic records and transcribes instead
-            runCatching { startActivity(WebLauncher.routeIntent(this, WebRoutes.TODAY, WebRoutes.VOICE_RECORD_FRAGMENT)) }
-            finishQuietly()
+            // No speech recognizer on this device: type it instead (widget taps never open the web app)
+            review(VoiceItem("", if (asReminders) VoiceIntent.REMINDER else VoiceIntent.TASK))
         }
     }
 
@@ -194,24 +190,7 @@ class VoiceInputActivity : Activity() {
      * up meanwhile) and every widget, and the app's Today screen, redraws from it. A queued sync, which the system
      * may hold back for a while, only covers a failed or interrupted reload.
      */
-    private suspend fun reloadWidgets() {
-        var reloaded = false
-        try {
-            graph.snapshots.markSyncing()
-            LifeMappWidgets.updateAll(applicationContext) // spinner
-            reloaded = graph.snapshots.refresh() == SyncResult.Success
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w(TAG, "reload failed: ${e::class.simpleName}")
-        } finally {
-            withContext(NonCancellable) {
-                graph.snapshots.clearSyncing()
-                LifeMappWidgets.updateAll(applicationContext)
-                if (!reloaded) SyncScheduler.syncNow(applicationContext)
-            }
-        }
-    }
+    private suspend fun reloadWidgets() = LifeMappWidgets.reloadNow(applicationContext)
 
     /** Runs [block]; on failure tells the user why nothing was added and finishes, returning null. */
     private suspend fun <T> attempt(block: suspend () -> T): T? = try {

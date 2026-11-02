@@ -22,15 +22,15 @@ import androidx.glance.LocalContext
 import com.kalai73.lifemapp.widgets.core.data.presentation.MailTagUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
-import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.widget.R
+import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import com.kalai73.lifemapp.widgets.widget.common.ConnectCard
 import com.kalai73.lifemapp.widgets.widget.common.PdBar
 import com.kalai73.lifemapp.widgets.widget.common.PdDivider
 import com.kalai73.lifemapp.widgets.widget.common.PdWrapFrame
 import com.kalai73.lifemapp.widgets.widget.common.captionStyle
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
-import com.kalai73.lifemapp.widgets.widget.common.openRoute
+import com.kalai73.lifemapp.widgets.widget.common.openSection
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
@@ -52,8 +52,8 @@ import com.kalai73.lifemapp.widgets.widget.common.openExternal
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 
 internal val TILE_WIDTH = 64.dp
-/** Minimum width of a numbered link row (Predator), for the column count. */
-internal val LINK_ROW_WIDTH = 130.dp
+/** Numbered link rows (Predator) per line, at any widget width. */
+internal const val LINK_COLUMNS = 2
 
 /**
  * A section title inside the Shortcuts card ("MAIL", "LINKS 3"): a divider line above, small icon and label in
@@ -128,7 +128,7 @@ internal fun ShortcutsSubHeader(
 internal fun MailBody(ui: WidgetUi) {
     val context = LocalContext.current
     if (!ui.mailConnected) {
-        ConnectCard(LucideIcons.MAIL, context.getString(R.string.mail_not_connected), context.getString(R.string.connect_mail), openRoute(context, WebRoutes.MAIL))
+        ConnectCard(LucideIcons.MAIL, context.getString(R.string.mail_not_connected), context.getString(R.string.connect_mail), openSection(context, LifeMappWidgets.SECTION_SHORTCUTS))
         return
     }
     if (ui.mailTags.isNotEmpty()) {
@@ -154,7 +154,7 @@ internal fun MailBody(ui: WidgetUi) {
 @Composable
 private fun InboxRow(ui: WidgetUi) {
     val context = LocalContext.current
-    val action = ui.mailUrl?.let(::openExternal) ?: openRoute(context, WebRoutes.MAIL)
+    val action = ui.mailUrl?.let(::openExternal) ?: openSection(context, LifeMappWidgets.SECTION_SHORTCUTS)
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
     val label = context.getString(R.string.inbox)
@@ -166,11 +166,12 @@ private fun InboxRow(ui: WidgetUi) {
                 Spacer(GlanceModifier.width(6.dp))
                 Icon(LucideIcons.INBOX, null, size = 14.dp, tint = if (unread) pd.accent else pd.dim)
                 Spacer(GlanceModifier.width(6.dp))
-                Text(label, style = textStyle(size = 13.sp, weight = FontWeight.Bold, color = pd.text), maxLines = 1, modifier = GlanceModifier.defaultWeight())
-                // Unread count: accent parallelogram when there is unread mail, framed panel otherwise
+                Text(label, style = textStyle(size = 13.sp, weight = FontWeight.Bold, color = pd.text), maxLines = 1, modifier = GlanceModifier.padding(end = 8.dp))
+                // Unread count, right after the label: accent parallelogram when there is unread mail, framed panel otherwise
                 PdWrapFrame(PdShape.PARA, edge = if (unread) pd.accentHi else pd.edge, fill = if (unread) pd.accent else pd.panel) { badge ->
                     Text("${ui.mailCount}", style = numberStyle(11.sp, color = if (unread) pd.on else pd.dim), modifier = badge.padding(horizontal = 9.dp, vertical = 1.dp))
                 }
+                Spacer(GlanceModifier.defaultWeight())
             }
         }
         return
@@ -182,13 +183,14 @@ private fun InboxRow(ui: WidgetUi) {
     ) {
         Icon(LucideIcons.INBOX, null, size = 16.dp, tint = if (unread) GlanceTheme.colors.primary else GlanceTheme.colors.onSurfaceVariant)
         Spacer(GlanceModifier.width(8.dp))
-        Text(label, style = textStyle(size = 13.sp, weight = FontWeight.Medium), maxLines = 1, modifier = GlanceModifier.defaultWeight())
+        Text(label, style = textStyle(size = 13.sp, weight = FontWeight.Medium), maxLines = 1, modifier = GlanceModifier.padding(end = 8.dp))
         Text(
             "${ui.mailCount}",
             style = textStyle(size = 11.sp, weight = FontWeight.Bold, color = if (unread) GlanceTheme.colors.onPrimary else GlanceTheme.colors.onSurfaceVariant),
             modifier = GlanceModifier.background(if (unread) GlanceTheme.colors.primary else GlanceTheme.colors.surfaceVariant)
                 .cornerRadius(10.dp).padding(horizontal = 8.dp, vertical = 1.dp),
         )
+        Spacer(GlanceModifier.defaultWeight())
     }
 }
 
@@ -203,7 +205,7 @@ private fun MailTagRow(tag: MailTagUi, number: Int, modifier: GlanceModifier) {
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
     val colors = LocalWidgetColors.current
-    val action = tag.url?.let(::openExternal) ?: openRoute(context, WebRoutes.MAIL)
+    val action = tag.url?.let(::openExternal) ?: openSection(context, LifeMappWidgets.SECTION_SHORTCUTS)
     val inbox = tag.name == null
     val unread = tag.unread > 0
     val faded = tag.fade < 1f
@@ -225,9 +227,9 @@ private fun MailTagRow(tag: MailTagUi, number: Int, modifier: GlanceModifier) {
                         name,
                         style = textStyle(size = 12.sp, weight = if (inbox) FontWeight.Bold else FontWeight.Medium, color = if (faded) pd.dim else pd.text),
                         maxLines = 1,
-                        modifier = GlanceModifier.defaultWeight().padding(start = 5.dp),
+                        modifier = GlanceModifier.padding(start = 5.dp, end = 6.dp),
                     )
-                    // Inbox with unread mail: accent parallelogram; otherwise a framed panel
+                    // Right after the name. Inbox with unread mail: accent parallelogram; otherwise a framed panel
                     PdWrapFrame(PdShape.PARA, edge = if (inbox && unread) pd.accentHi else pd.edge, fill = if (inbox && unread) pd.accent else pd.panel) { badge ->
                         Text(
                             counts,
@@ -239,6 +241,7 @@ private fun MailTagRow(tag: MailTagUi, number: Int, modifier: GlanceModifier) {
                             modifier = badge.padding(horizontal = 7.dp, vertical = 1.dp),
                         )
                     }
+                    Spacer(GlanceModifier.defaultWeight())
                 }
             }
         }
@@ -268,7 +271,7 @@ private fun MailTagRow(tag: MailTagUi, number: Int, modifier: GlanceModifier) {
                     color = if (faded) GlanceTheme.colors.onSurfaceVariant else GlanceTheme.colors.onSurface,
                 ),
                 maxLines = 1,
-                modifier = GlanceModifier.defaultWeight(),
+                modifier = GlanceModifier.padding(end = 6.dp),
             )
             Text(
                 counts,
@@ -284,6 +287,7 @@ private fun MailTagRow(tag: MailTagUi, number: Int, modifier: GlanceModifier) {
                 modifier = GlanceModifier.background(if (inbox && unread) GlanceTheme.colors.primary else GlanceTheme.colors.surfaceVariant)
                     .cornerRadius(10.dp).padding(horizontal = 7.dp, vertical = 1.dp),
             )
+            Spacer(GlanceModifier.defaultWeight())
         }
     }
 }

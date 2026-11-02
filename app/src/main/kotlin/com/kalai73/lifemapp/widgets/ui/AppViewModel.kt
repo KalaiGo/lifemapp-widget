@@ -55,6 +55,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _today = MutableStateFlow(WidgetUi.SignedOut)
     val today: StateFlow<WidgetUi> = _today.asStateFlow()
 
+    /** The item (subsubdomain) a widget tap asked to open in the Today screen's item modal, until it's shown */
+    private val _openItem = MutableStateFlow<String?>(null)
+    val openItem: StateFlow<String?> = _openItem.asStateFlow()
+
+    fun openItem(itemId: String) { _openItem.value = itemId }
+
+    fun itemOpened() { _openItem.value = null }
+
+    /** The Today section (a LifeMappWidgets.SECTION_ value) a widget tap asked to scroll to, until it's shown */
+    private val _openSection = MutableStateFlow<String?>(null)
+    val openSection: StateFlow<String?> = _openSection.asStateFlow()
+
+    fun openSection(section: String) { _openSection.value = section }
+
+    fun sectionOpened() { _openSection.value = null }
+
     val colorScheme: ColorSchemeName get() = cache.value.colorScheme
     val uiStyle: UiStyle get() = UiStyle.from(cache.value.snapshot?.settings?.uiStyle)
 
@@ -117,6 +133,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun signIn(email: String, password: String) = run {
         graph.auth.signIn(email, password)
         afterSignIn()
+        // The encryption password is usually the account password: try it so the unlock screen isn't shown
+        // right after typing it. Silent on failure — the unlock screen then asks as before.
+        tryUnlockWith(password)
+    }
+
+    private suspend fun tryUnlockWith(password: String) {
+        val encrypted = graph.cache.current().snapshot?.settings?.encryptionEnabled == true
+        if (!encrypted || graph.encryption.dataKey() != null) return
+        val result = runCatching { graph.encryption.unlock(password) }.getOrNull()
+        if (result == UnlockResult.Unlocked) LifeMappWidgets.updateAll(getApplication())
     }
 
     suspend fun googleSignInUrl(): String = graph.auth.startGoogleSignIn()
@@ -235,6 +261,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun setTopicCollapsed(topicId: String, collapsed: Boolean) =
         toggle { graph.items.setTopicCollapsed(topicId, collapsed) { LifeMappWidgets.updateAll(getApplication()) } }
+
+    /** A widget topic header's tap: the topic opens expanded (saved like a header tap in the app); no-op if it already is. */
+    fun expandTopic(topicId: String) {
+        viewModelScope.launch {
+            val snapshot = graph.cache.current().snapshot ?: return@launch
+            val topic = (listOfNotNull(snapshot.integrity) + snapshot.todayDomains)
+                .flatMap { it.topics }.firstOrNull { it.id == topicId } ?: return@launch
+            if (topic.collapsed) setTopicCollapsed(topicId, false)
+        }
+    }
 
     /** Hides or shows a domain on Today (the scoring section's tap); Integrity and Tenacity always stay. */
     fun toggleDomainHidden(domainId: String) {

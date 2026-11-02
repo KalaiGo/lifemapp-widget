@@ -14,6 +14,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -57,6 +61,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
@@ -65,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import com.kalai73.lifemapp.widgets.R
 import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
 import com.kalai73.lifemapp.widgets.core.data.presentation.EventDayUi
+import com.kalai73.lifemapp.widgets.core.data.presentation.EventLimits
 import com.kalai73.lifemapp.widgets.core.data.presentation.EventUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.IntegrityUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.MailTagUi
@@ -91,11 +97,9 @@ import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.model.SyncError
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
-import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
-import com.kalai73.lifemapp.widgets.widget.events.EventsConfig
 import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
 import kotlinx.coroutines.launch
 
@@ -129,6 +133,14 @@ fun TodayScreen(
     onRateDomains: (Map<String, Int>) -> Unit,
     onUnlock: () -> Unit,
     onOpenWeb: (String) -> Unit,
+    /** An item (subsubdomain) a widget tap asked to open in the item modal; null for none */
+    openItemId: String? = null,
+    /** The [openItemId] request was handled (shown, or not on Today) */
+    onItemOpened: () -> Unit = {},
+    /** A section key ("events", "tasks", "shortcuts", "integrity") a widget tap asked to scroll to; null for none */
+    openSection: String? = null,
+    /** The [openSection] request was handled */
+    onSectionOpened: () -> Unit = {},
 ) {
     val t = rememberTokens()
     val itemHandlers = ItemHandlers(onLoadItemText, onSaveItem, onDeleteItem, onMoveItem, onSetItemWarning)
@@ -157,6 +169,51 @@ fun TodayScreen(
     var navOpen by remember { mutableStateOf(false) }
     BackHandler(enabled = navOpen) { navOpen = false }
 
+    // A widget section tap: scroll there once Today has it (Integrity only while the user has one)
+    LaunchedEffect(openSection, keys) {
+        val section = openSection ?: return@LaunchedEffect
+        when {
+            section in keys -> {
+                navOpen = false
+                // In the screen's scope: clearing the request restarts (cancels) this effect
+                scrollTo(section)
+                onSectionOpened()
+            }
+            ui.hasData && !ui.syncing -> onSectionOpened()
+        }
+    }
+
+    // A widget item tap: scroll to the item's domain card and open the item in the modal, once Today has the item
+    var widgetItem by remember { mutableStateOf<TopicItemUi?>(null) }
+    LaunchedEffect(openItemId, ui) {
+        val id = openItemId ?: return@LaunchedEffect
+        val domains = listOfNotNull(ui.integrity) + ui.todayDomains
+        val domain = domains.firstOrNull { d -> d.topics.any { topic -> topic.items.any { it.id == id } } }
+        val item = domain?.topics?.firstNotNullOfOrNull { topic -> topic.items.firstOrNull { it.id == id } }
+        when {
+            item != null -> {
+                navOpen = false
+                widgetItem = item
+                onItemOpened()
+                scrollTo(if (domain === ui.integrity) "integrity" else domainKey(domain))
+            }
+            // Loaded and the item isn't there (removed since the widget drew it): Today alone
+            ui.hasData && !ui.syncing -> onItemOpened()
+        }
+    }
+    widgetItem?.let { item ->
+        val close = { widgetItem = null }
+        ItemEditorDialog(
+            item,
+            focusTitle = false,
+            loadText = itemHandlers.loadText,
+            onSave = { name, html -> itemHandlers.save(item.id, name, html); close() },
+            onDelete = { itemHandlers.delete(item.id); close() },
+            onDismiss = close,
+            autoFocus = false,
+        )
+    }
+
     CompositionLocalProvider(LocalTok provides t) {
       Box(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().background(t.page)) {
@@ -167,7 +224,7 @@ fun TodayScreen(
                 items(keys, key = { it }) { key ->
                     when (key) {
                         "greeting" -> GreetingBlock(ui)
-                        "date" -> DateBlock(ui, onReload)
+                        "date" -> DateBlock(ui)
                         "counters" -> Counters(
                             ui,
                             onEvents = { scrollTo("events") },
@@ -323,17 +380,6 @@ internal fun Modifier.framed(t: Tok, fill: Color, edge: Color = fill, cut: Dp = 
     return clip(shape).background(fill, shape).border(1.dp, edge, shape)
 }
 
-/** The hero banner (styleguide §7): a block pointing right, like the web's hero. */
-private val ArrowShape: Shape = GenericShape { size, _ ->
-    val tip = minOf(size.height / 2f, 22f * 3f)
-    moveTo(0f, 0f)
-    lineTo(size.width - tip, 0f)
-    lineTo(size.width, size.height / 2f)
-    lineTo(size.width - tip, size.height)
-    lineTo(0f, size.height)
-    close()
-}
-
 /** L-shaped brackets in the four corners plus short ticks at the middle of the top and bottom edges. */
 internal fun Modifier.bracketCorners(color: Color, arm: Dp = 9.dp, stroke: Dp = 1.5.dp, tick: Dp = 5.dp): Modifier = drawBehind {
     val a = arm.toPx(); val s = stroke.toPx(); val h = s / 2f; val k = tick.toPx()
@@ -421,15 +467,14 @@ private fun TopBar(ui: WidgetUi, onOpenSettings: () -> Unit, onReload: () -> Uni
             Ic(LucideIcons.MIC, 18.dp, t.ink, stringResource(R.string.today_voice))
         }
         Spacer(Modifier.width(8.dp))
-        ReloadButton(ui, onReload, primary = false)
+        ReloadButton(ui, onReload)
     }
 }
 
 @Composable
-private fun ReloadButton(ui: WidgetUi, onReload: () -> Unit, primary: Boolean) {
-    val t = LocalTok.current
-    val tint = if (primary) t.onAccent else t.ink
-    HeaderButton(onReload, stringResource(R.string.today_reload), primary, width = 64.dp) {
+private fun ReloadButton(ui: WidgetUi, onReload: () -> Unit) {
+    val tint = LocalTok.current.ink
+    HeaderButton(onReload, stringResource(R.string.today_reload), primary = false, width = 64.dp) {
         if (ui.syncing) CircularProgressIndicator(Modifier.size(16.dp), color = tint, strokeWidth = 2.dp)
         else Ic(LucideIcons.RELOAD, 16.dp, tint, stringResource(R.string.today_reload))
     }
@@ -448,17 +493,21 @@ private fun StatusLine(ui: WidgetUi) {
     Text(text, style = t.caption(10.sp, t.destructive), maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
-/** "HELLO," over the name, in a frame as wide as its text, centered. */
+/**
+ * "HELLO," (left-aligned) over the name, in a frame as wide as its text, centered: the same chamfered card as the
+ * date and counters below, as on the widget's stacked hero (StackedHero.GreetingBlock).
+ */
 @Composable
 private fun GreetingBlock(ui: WidgetUi) {
     val t = LocalTok.current
     val name = ui.username?.takeIf { it.isNotBlank() } ?: stringResource(R.string.today_welcome)
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.Center) {
         Column(
-            Modifier.framed(t, t.card, cut = 8.dp, shape = if (t.predator) ArrowShape else t.shape(8.dp))
-                .padding(start = 22.dp, end = if (t.predator) 40.dp else 22.dp, top = 6.dp, bottom = 6.dp),
+            Modifier.framed(t, t.card, cut = 8.dp).padding(horizontal = 22.dp, vertical = 6.dp),
+            horizontalAlignment = Alignment.Start,
         ) {
             Text(t.s(stringResource(R.string.today_hello)), style = t.heroCaption(10.sp))
+            // Display face as on the widget: condensed bold italic (Predator), bold (Classic), in the accent ink
             Text(
                 name,
                 style = (if (t.predator) t.label(28.sp) else t.body(26.sp, t.ink, FontWeight.Bold)).copy(textAlign = TextAlign.Center),
@@ -468,27 +517,24 @@ private fun GreetingBlock(ui: WidgetUi) {
     }
 }
 
-/** "TODAY IS," over the date, the reload button on the right of the same frame. */
+/** "TODAY IS," over the date, in a chamfered frame. */
 @Composable
-private fun DateBlock(ui: WidgetUi, onReload: () -> Unit) {
+private fun DateBlock(ui: WidgetUi) {
     val t = LocalTok.current
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-        Row(
-            Modifier.fillMaxWidth(0.9f).framed(t, t.card, cut = 8.dp).padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            Modifier.fillMaxWidth(0.72f).framed(t, t.card, cut = 8.dp).padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    t.s(stringResource(R.string.today_is)), style = t.heroCaption(10.sp),
-                    modifier = Modifier.align(Alignment.Start),
-                )
-                Text(
-                    ui.todayLabel,
-                    style = if (t.predator) t.label(22.sp) else t.body(20.sp, t.ink, FontWeight.Bold),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-            }
-            ReloadButton(ui, onReload, primary = true)
+            Text(
+                t.s(stringResource(R.string.today_is_caption)), style = t.heroCaption(10.sp),
+                modifier = Modifier.align(Alignment.Start),
+            )
+            Text(
+                ui.todayLabel,
+                style = if (t.predator) t.label(22.sp) else t.body(20.sp, t.ink, FontWeight.Bold),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -511,13 +557,17 @@ private fun Counters(ui: WidgetUi, onEvents: () -> Unit, onTasks: () -> Unit, on
 @Composable
 private fun Counter(modifier: Modifier, icon: Int, value: String, label: String, onClick: () -> Unit) {
     val t = LocalTok.current
-    Column(modifier.clickable(onClick = onClick).padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Ic(icon, 16.dp, t.ink)
-            Spacer(Modifier.width(5.dp))
-            Text(value, style = if (t.predator) t.label(20.sp, t.text) else t.body(20.sp, t.text, FontWeight.Bold))
-        }
-        Text(t.s(label), style = if (t.predator) t.caption(9.sp) else t.body(11.sp, t.dim), maxLines = 1)
+    // Icon, number and label on one line, the label right after its number (as on the widget)
+    Row(
+        modifier.clickable(onClick = onClick).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Ic(icon, 16.dp, t.ink)
+        Spacer(Modifier.width(5.dp))
+        Text(value, style = if (t.predator) t.label(20.sp, t.text) else t.body(20.sp, t.text, FontWeight.Bold), maxLines = 1)
+        Spacer(Modifier.width(5.dp))
+        Text(t.s(label), style = if (t.predator) t.caption(10.sp) else t.body(11.sp, t.dim), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -539,14 +589,17 @@ private fun WeatherCard(ui: WidgetUi, onClick: () -> Unit) {
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (w != null) {
-                Ic(LucideIcons.weather(w.icon), 34.dp, t.ink, w.condition)
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    Text(w.temperature, style = if (t.predator) t.label(24.sp) else t.body(22.sp, t.text, FontWeight.Bold))
-                    Text(w.low, style = t.caption(11.sp))
+                // Today's forecast, centered in the space left of the rating
+                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Ic(LucideIcons.weather(w.icon), 34.dp, t.ink, w.condition)
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(w.temperature, style = if (t.predator) t.label(24.sp) else t.body(22.sp, t.text, FontWeight.Bold))
+                        Text(w.low, style = t.caption(11.sp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Text(t.s(w.condition), style = t.caption(10.sp), maxLines = 2, modifier = Modifier.weight(1f, fill = false))
                 }
-                Spacer(Modifier.width(12.dp))
-                Text(t.s(w.condition), style = t.caption(10.sp), maxLines = 2, modifier = Modifier.weight(1f))
             } else {
                 Spacer(Modifier.weight(1f))
             }
@@ -630,19 +683,51 @@ private fun LockedBanner(onUnlock: () -> Unit) {
 
 // ── Sections ────────────────────────────────────────────────────────────────
 
-/** Centered section title: icon and name in the ink color, no rule. */
+/**
+ * The web's Today widget card (events, tasks, shortcuts): a bordered surface with an accent ring, rounded (Predator:
+ * chamfered), the faint "01" watermark top-left, the honeycomb corner, and the centered title badge with its icon.
+ * [rule] draws the line under the header (Classic), as the web's events and tasks cards have.
+ */
 @Composable
-private fun SectionHeader(title: String, icon: Int, onClick: () -> Unit) {
+private fun WidgetCard(title: String, icon: Int, rule: Boolean, onTitle: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val t = LocalTok.current
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(top = 32.dp, bottom = 4.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+    val shape = t.shape(if (t.predator) 8.dp else 24.dp)
+    Box(
+        Modifier.fillMaxWidth().padding(top = 32.dp)
+            // The web's border plus its inset primary/20 ring: the line tinted toward the accent
+            .framed(t, t.card, edge = PredatorColors.mix(t.line, t.accent, 0.35f), shape = shape)
+            .hexCorner(t.accent, if (t.dark) 0.5f else 1f),
     ) {
-        // Predator: hex icon well (accent edge, raised fill); Classic: plain icon
-        if (t.predator) Hex(28.dp, edge = t.accent, fill = t.card) { Ic(icon, 14.dp, t.ink) } else Ic(icon, 15.dp, t.ink)
-        Spacer(Modifier.width(8.dp))
-        Text(t.s(title), style = if (t.predator) t.label(16.sp) else t.body(15.sp, t.ink, FontWeight.Bold), maxLines = 1)
+        Text(
+            "01",
+            style = TextStyle(fontSize = 64.sp, fontWeight = FontWeight.Black, color = t.text.copy(alpha = if (t.dark) 0.06f else 0.04f), lineHeight = 64.sp),
+            modifier = Modifier.padding(start = 16.dp).offset(y = (-6).dp),
+        )
+        Column(Modifier.fillMaxWidth()) {
+            Box(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    Modifier.let {
+                        // Classic: the frosted title badge; Predator: the bare display label
+                        if (t.predator) it else it.clip(RoundedCornerShape(12.dp)).background(t.page.copy(alpha = 0.6f))
+                            .border(1.5.dp, t.line, RoundedCornerShape(12.dp))
+                    }.clickable(onClick = onTitle).padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Ic(icon, 14.dp, t.ink)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (t.predator) t.s(title) else title.uppercase(),
+                        style = if (t.predator) t.label(16.sp) else t.body(14.sp, t.ink, FontWeight.Black),
+                        maxLines = 1,
+                    )
+                }
+            }
+            if (rule && !t.predator) Box(Modifier.fillMaxWidth().height(1.dp).background(t.line.copy(alpha = 0.6f)))
+            Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 14.dp), content = content)
+        }
     }
 }
 
@@ -669,10 +754,10 @@ private fun EmptyLine(text: String, onClick: () -> Unit) {
 
 @Composable
 private fun EventsSection(ui: WidgetUi, openLink: (String) -> Unit, onOpenWeb: (String) -> Unit) {
-    // The Dashboard widget's own filter: the next days (default 3), today always listed
-    val days = EventsConfig.filter(ui.eventDays, ui.today, EventsConfig.DEFAULT_DAYS, emptySet())
-    Column {
-        SectionHeader(stringResource(R.string.today_events), LucideIcons.CALENDAR) { onOpenWeb(WebRoutes.EVENTS) }
+    // The user's events settings from the web (days to show, event cap), today always listed
+    val (days, more) = EventLimits.apply(ui.eventDays, ui.today, ui.eventsDaysAhead, ui.eventsMaxEvents)
+    val t = LocalTok.current
+    WidgetCard(stringResource(R.string.today_events), LucideIcons.CALENDAR, rule = true, onTitle = { onOpenWeb(WebRoutes.EVENTS) }) {
         when {
             !ui.calendarConnected && ui.hasData -> EmptyLine(stringResource(R.string.today_not_connected)) { onOpenWeb(WebRoutes.SETTINGS) }
             days.none { it.events.isNotEmpty() } -> EmptyLine(stringResource(R.string.today_no_events)) { onOpenWeb(WebRoutes.EVENTS) }
@@ -684,6 +769,13 @@ private fun EventsSection(ui: WidgetUi, openLink: (String) -> Unit, onOpenWeb: (
                     if (day.events.isEmpty()) EmptyLine(stringResource(R.string.today_no_events)) { onOpenWeb(WebRoutes.EVENTS) }
                     day.events.forEachIndexed { i, e -> EventRow(e, offset + i + 1, day, openLink, onOpenWeb) }
                     offset += day.events.size
+                }
+                if (more > 0) {
+                    Text(
+                        stringResource(R.string.today_items_more, more), style = t.caption(10.sp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        textAlign = TextAlign.Center,
+                    )
                 }
             }
         }
@@ -697,20 +789,25 @@ private fun dayName(day: EventDayUi): String = when (day.kind) {
     DayKind.OTHER -> day.label
 }
 
-/** Numbered hex, calendar color bar, title with the calendar tag, then clock, time and date. Days after today are faded. */
+/**
+ * Numbered hex, calendar color bar, title with the calendar tag, then clock, time and date. Days after today are
+ * faded; today's past events are faded with the title struck through (the web's isTodayPastEvent styling).
+ */
 @Composable
 private fun EventRow(event: EventUi, number: Int, day: EventDayUi, openLink: (String) -> Unit, onOpenWeb: (String) -> Unit) {
     val t = LocalTok.current
     val color = LifeMappColors.parseHex(event.color) ?: Color(0xFF3B82F6)
     val upcoming = day.kind != DayKind.TODAY
-    val dimmed = upcoming || event.secondary
+    val past = event.past && !upcoming
+    val faded = upcoming || past
+    val dimmed = faded || event.secondary
     val time = listOfNotNull(event.timeLabel ?: stringResource(R.string.today_all_day), day.label.ifEmpty { null }).joinToString(" · ")
     val calendar = event.calendarName?.takeIf { it.isNotBlank() }
-    val titleColor = if (upcoming) t.faint else if (event.secondary) t.dim else t.text
-    val captionColor = if (upcoming) t.faint else t.dim
+    val titleColor = if (faded) t.faint else if (event.secondary) t.dim else t.text
+    val captionColor = if (faded) t.faint else t.dim
     val barColor = if (dimmed) color.copy(alpha = 0.45f) else color
     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-        NumberBadge(number, faded = upcoming)
+        NumberBadge(number, faded = faded)
         // Secondary calendars are indented from the left, as on the web's events card
         Spacer(Modifier.width(if (event.secondary) 18.dp else 6.dp))
         Row(
@@ -724,7 +821,8 @@ private fun EventRow(event: EventUi, number: Int, day: EventDayUi, openLink: (St
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        event.title, style = t.body(14.sp, titleColor, FontWeight.Bold),
+                        event.title,
+                        style = t.body(14.sp, titleColor, FontWeight.Bold).let { if (past) it.copy(textDecoration = TextDecoration.LineThrough) else it },
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                     )
                     if (calendar != null) {
@@ -750,8 +848,7 @@ private fun EventRow(event: EventUi, number: Int, day: EventDayUi, openLink: (St
 @Composable
 private fun TasksSection(ui: WidgetUi, onComplete: (String) -> Unit, onOpenWeb: (String) -> Unit) {
     val t = LocalTok.current
-    Column {
-        SectionHeader(stringResource(R.string.today_tasks), LucideIcons.TASKS) { onOpenWeb(WebRoutes.TASKS) }
+    WidgetCard(stringResource(R.string.today_tasks), LucideIcons.TASKS, rule = true, onTitle = { onOpenWeb(WebRoutes.TASKS) }) {
         Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionButton(Modifier.weight(1f), LucideIcons.ADD, stringResource(R.string.today_add_task)) { onOpenWeb(WebRoutes.NEW_TASK) }
             ActionButton(Modifier.weight(1f), LucideIcons.TASKS, stringResource(R.string.today_task_lists)) { onOpenWeb(WebRoutes.TASKS) }
@@ -855,8 +952,7 @@ private fun TaskRow(task: TaskUi, number: Int, onComplete: (String) -> Unit, onO
 @Composable
 private fun ShortcutsSection(ui: WidgetUi, openLink: (String) -> Unit, onOpenWeb: (String) -> Unit, onUnlock: () -> Unit) {
     val t = LocalTok.current
-    Column {
-        SectionHeader(stringResource(R.string.today_shortcuts), LucideIcons.ZAP) { onOpenWeb(WebRoutes.QUICK_LINKS) }
+    WidgetCard(stringResource(R.string.today_shortcuts), LucideIcons.ZAP, rule = false, onTitle = { onOpenWeb(WebRoutes.QUICK_LINKS) }) {
         SubHeader(LucideIcons.MAIL, stringResource(R.string.today_mail), count = null) { openLink(ui.mailUrl ?: WebRoutes.MAIL) }
         MailBody(ui, openLink, onOpenWeb)
         if (ui.driveLinks.isNotEmpty()) {
@@ -975,7 +1071,7 @@ private fun InboxRow(ui: WidgetUi, openLink: (String) -> Unit, modifier: Modifie
     val t = LocalTok.current
     val unread = ui.mailCount > 0
     Row(
-        modifier.padding(vertical = 4.dp).framed(t, if (t.predator) t.row else t.card, edge = if (t.predator) t.pd.edge else t.card)
+        modifier.padding(vertical = 4.dp).framed(t, if (t.predator) t.row else t.card)
             .clickable { openLink(ui.mailUrl ?: WebRoutes.MAIL) }.padding(start = 8.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -985,8 +1081,9 @@ private fun InboxRow(ui: WidgetUi, openLink: (String) -> Unit, modifier: Modifie
         }
         Ic(LucideIcons.INBOX, 16.dp, if (unread) t.accent else t.dim)
         Spacer(Modifier.width(8.dp))
-        Text(stringResource(R.string.today_inbox), style = t.body(14.sp, t.text, FontWeight.Bold), maxLines = 1, modifier = Modifier.weight(1f))
-        // Unread count: accent parallelogram when there is unread mail, framed panel otherwise
+        Text(stringResource(R.string.today_inbox), style = t.body(14.sp, t.text, FontWeight.Bold), maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+        Spacer(Modifier.width(8.dp))
+        // Unread count, right after the label: accent parallelogram when there is unread mail, framed panel otherwise
         val shape: Shape = if (t.predator) pdParallelogramShape(5.dp) else RoundedCornerShape(10.dp)
         Text(
             "${ui.mailCount}",
@@ -1009,8 +1106,9 @@ private fun MailTagRow(tag: MailTagUi, number: Int, openLink: (String) -> Unit, 
     val unread = tag.unread > 0
     val tint = LifeMappColors.parseHex(tag.color) ?: t.accent
     Row(
+        // No border: the row fill alone sets the tag apart
         modifier.padding(vertical = 2.dp).alpha(tag.fade)
-            .framed(t, if (t.predator) t.row else t.card, edge = if (t.predator) t.pd.edge else t.card)
+            .framed(t, if (t.predator) t.row else t.card)
             .clickable { openLink(tag.url ?: WebRoutes.MAIL) }.padding(start = 4.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1025,8 +1123,10 @@ private fun MailTagRow(tag: MailTagUi, number: Int, openLink: (String) -> Unit, 
             style = t.body(13.sp, t.text, if (inbox) FontWeight.Bold else FontWeight.SemiBold),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
+            // The count follows the name; a long name ellipsizes rather than pushing the count out
+            modifier = Modifier.weight(1f, fill = false),
         )
+        Spacer(Modifier.width(6.dp))
         val shape: Shape = if (t.predator) pdParallelogramShape(5.dp) else RoundedCornerShape(10.dp)
         val filled = inbox && unread
         val ink = when {

@@ -84,7 +84,7 @@
     <string name="config_no_calendars">Los calendarios aparecen aquí tras la primera actualización.</string>
     <string name="save">Guardar</string>
     <string name="today_hello">Hola,</string>
-    <string name="today_is">Hoy es,</string>
+    <string name="today_is_caption">Hoy es,</string>
     <string name="today_and_you_have">Tienes:</string>
     <string name="today_welcome">Bienvenido</string>
     <string name="today_weather_in">Tiempo en %1$s</string>
@@ -221,4 +221,5 @@
     <string name="rating_desc_8">Prosperando</string>
     <string name="rating_desc_9">Volando alto</string>
     <string name="rating_desc_10">Floreciendo</string>
+    <string name="loading_data">Desbloqueando y cargando tus datos</string>
 </resources>

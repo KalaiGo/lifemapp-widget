@@ -41,8 +41,8 @@ import com.kalai73.lifemapp.widgets.core.data.presentation.EventDayUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
-import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.widget.R
+import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import com.kalai73.lifemapp.widgets.widget.common.DismissFailureAction
 import com.kalai73.lifemapp.widgets.widget.common.Icon
 import com.kalai73.lifemapp.widgets.widget.common.LocalPd
@@ -58,7 +58,7 @@ import com.kalai73.lifemapp.widgets.widget.common.WidgetRoot
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
 import com.kalai73.lifemapp.widgets.widget.common.liveWidgetUi
 import com.kalai73.lifemapp.widgets.widget.common.openApp
-import com.kalai73.lifemapp.widgets.widget.common.openRoute
+import com.kalai73.lifemapp.widgets.widget.common.openSection
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 import com.kalai73.lifemapp.widgets.widget.events.DayHeader
 import com.kalai73.lifemapp.widgets.widget.events.EventRow
@@ -67,7 +67,7 @@ import com.kalai73.lifemapp.widgets.widget.integrity.integritySection
 import com.kalai73.lifemapp.widgets.widget.shortcuts.MailBody
 import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutTile
 import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutRow
-import com.kalai73.lifemapp.widgets.widget.shortcuts.LINK_ROW_WIDTH
+import com.kalai73.lifemapp.widgets.widget.shortcuts.LINK_COLUMNS
 import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutsSubHeader
 import com.kalai73.lifemapp.widgets.widget.shortcuts.SUB_HEADER_GAP
 import com.kalai73.lifemapp.widgets.widget.common.openExternal
@@ -92,11 +92,16 @@ import com.kalai73.lifemapp.widgets.widget.today.stackedHero
 class DashboardWidget : GlanceAppWidget() {
     companion object {
         val HERO_ONLY = DpSize(250.dp, 110.dp) // 4×2: the hero alone
-        val MEDIUM = DpSize(250.dp, 250.dp)    // 4×4 (default) and taller
-        val LARGE = DpSize(320.dp, 250.dp)     // 5×4+: weather location and "Updated"
+        val MEDIUM = DpSize(250.dp, 250.dp)    // 4×4 (default) and taller, any width
     }
 
-    override val sizeMode = SizeMode.Responsive(setOf(HERO_ONLY, MEDIUM, LARGE))
+    /**
+     * One tall layout only. Android 12+ receives every responsive layout in each update, and the tall one carries
+     * the whole list (~300 KB with real data): a second tall layout (e.g. a wider one) pushed updates past the
+     * ~500 KB binder limit, so the launcher dropped them (TransactionTooLargeException) and the widget froze,
+     * reload spinner included.
+     */
+    override val sizeMode = SizeMode.Responsive(setOf(HERO_ONLY, MEDIUM))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val graph = LifeMappGraph.get(context)
@@ -121,9 +126,12 @@ class DashboardWidgetReceiver : GlanceAppWidgetReceiver() {
     }
 }
 
+/** Tenacity's place among the life domains (1 Integrity … 5 Tenacity) */
+private const val TENACITY_POSITION = 5
+
 /** Below this height there's no room for the list: the hero only. */
 private val LIST_MIN_HEIGHT = 200.dp
-/** From this width: the weather location and "Updated 10:42". */
+/** From this width the compact hero shows the weather location and "Updated 10:42" (the tall one always does). */
 private val LOCATION_MIN_WIDTH = 310.dp
 
 /** Root padding on each side (LifeMappWidgetTheme), subtracted when fitting shortcut tiles. */
@@ -142,11 +150,15 @@ internal fun DashboardContent(ui: WidgetUi, days: List<EventDayUi>, modifier: Gl
     // view trees, so their frames don't count against the root's 10 nesting levels.
     Column(modifier = modifier.fillMaxSize()) {
         LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-            stackedHero(ui, showStatus)
+            // "Updated 10:42" always: the date block has room for it at any width
+            stackedHero(ui, showStatus = true)
             ui.integrity?.let { integritySection(it) }
-            eventsSection(ui, days)
-            tasksSection(ui)
+            // Today only: no upcoming days of events, no Tomorrow / Tomorrow ++ 1 tasks (the app shows those)
+            eventsSection(ui, days.filter { it.kind == DayKind.TODAY })
+            tasksSection(ui.copy(tasks = ui.tasks.filterNot { it.upcoming }))
             shortcutsSection(ui, columns = shortcutColumns(size.width, rows = predator))
+            // Tenacity (life domain 5) closes the list, unless it's hidden on the web's Today page
+            ui.todayDomains.firstOrNull { it.position == TENACITY_POSITION }?.let { integritySection(it) }
         }
         HeroFooter(ui)
     }
@@ -176,11 +188,11 @@ private fun CompactHero(ui: WidgetUi, showStatus: Boolean, modifier: GlanceModif
     }
 }
 
-/** Tiles (Classic) fit up to 8 per line; numbered link rows (Predator) up to 4. */
+/** Tiles (Classic) fit up to 8 per line; numbered link rows (Predator) always two, like the Mail tags. */
 private fun shortcutColumns(width: Dp, rows: Boolean): Int {
+    if (rows) return LINK_COLUMNS
     val available = width.value - 2 * ROOT_PADDING.value
-    return if (rows) (available / LINK_ROW_WIDTH.value).toInt().coerceIn(1, 4)
-    else (available / TILE_WIDTH.value).toInt().coerceIn(1, 8)
+    return (available / TILE_WIDTH.value).toInt().coerceIn(1, 8)
 }
 
 // Item ids: one range per section, so ids never collide across sections.
@@ -207,15 +219,16 @@ private const val ID_SHORTCUT_ROW_BASE = 2_000_000_000L
 private fun LazyListScope.eventsSection(ui: WidgetUi, days: List<EventDayUi>) {
     item(itemId = ID_EVENTS) {
         val context = LocalContext.current
-        SectionHeader(context.getString(R.string.events), LucideIcons.CALENDAR, openRoute(context, WebRoutes.EVENTS), centered = true)
+        SectionHeader(context.getString(R.string.events), LucideIcons.CALENDAR, openSection(context, LifeMappWidgets.SECTION_EVENTS), centered = true)
     }
     when {
         !ui.calendarConnected -> item(itemId = ID_EVENTS_EMPTY) {
-            NoCalendarCard(openRoute(LocalContext.current, WebRoutes.SETTINGS))
+            NoCalendarCard(openSection(LocalContext.current, LifeMappWidgets.SECTION_EVENTS))
         }
+        // Only today is listed, so an empty list means nothing today
         days.none { it.events.isNotEmpty() } -> item(itemId = ID_EVENTS_EMPTY) {
             val context = LocalContext.current
-            EmptyLine(context.getString(R.string.no_events), openRoute(context, WebRoutes.EVENTS))
+            EmptyLine(context.getString(R.string.no_events_today), openSection(context, LifeMappWidgets.SECTION_EVENTS))
         }
         // Events are numbered across days (1, 2, 3 today, 4, 5 tomorrow), as on the web
         else -> days.runningFold(0) { count, day -> count + day.events.size }.zip(days).forEach { (offset, day) ->
@@ -224,7 +237,7 @@ private fun LazyListScope.eventsSection(ui: WidgetUi, days: List<EventDayUi>) {
             if (day.events.isEmpty()) {
                 item(itemId = dayId + 1) {
                     val context = LocalContext.current
-                    EmptyLine(context.getString(R.string.no_events_today), openRoute(context, WebRoutes.EVENTS))
+                    EmptyLine(context.getString(R.string.no_events_today), openSection(context, LifeMappWidgets.SECTION_EVENTS))
                 }
             }
             // Same ids as the Events widget: epochDay × 1_000_003 puts them around 2·10¹⁰, clear of the day
@@ -239,7 +252,7 @@ private fun LazyListScope.eventsSection(ui: WidgetUi, days: List<EventDayUi>) {
 private fun LazyListScope.tasksSection(ui: WidgetUi) {
     item(itemId = ID_TASKS) {
         val context = LocalContext.current
-        SectionHeader(context.getString(R.string.tasks), LucideIcons.TASKS, openRoute(context, WebRoutes.TASKS), centered = true)
+        SectionHeader(context.getString(R.string.tasks), LucideIcons.TASKS, openSection(context, LifeMappWidgets.SECTION_TASKS), centered = true)
     }
     item(itemId = ID_TASKS_ACTIONS) { TaskActions() }
     if (ui.completionFailed) {
@@ -266,7 +279,7 @@ private fun LazyListScope.tasksSection(ui: WidgetUi) {
     if (ui.tasks.isEmpty()) {
         item(itemId = ID_TASKS_EMPTY) {
             val context = LocalContext.current
-            EmptyLine(context.getString(R.string.no_tasks), openRoute(context, WebRoutes.TASKS))
+            EmptyLine(context.getString(R.string.no_tasks), openSection(context, LifeMappWidgets.SECTION_TASKS))
         }
     } else {
         // Segmented as on the web's Task List Widget: TODAY, TOMORROW, TOMORROW ++ 1, numbered across them;
@@ -275,7 +288,7 @@ private fun LazyListScope.tasksSection(ui: WidgetUi) {
             item(itemId = ID_TASKS_DAY) { TaskDayHeader(DayKind.TODAY) }
             item(itemId = ID_TASKS_TODAY_EMPTY) {
                 val context = LocalContext.current
-                EmptyLine(context.getString(R.string.no_tasks), openRoute(context, WebRoutes.TASKS))
+                EmptyLine(context.getString(R.string.no_tasks), openSection(context, LifeMappWidgets.SECTION_TASKS))
             }
         }
         ui.tasks.forEachIndexed { index, task ->
@@ -291,11 +304,11 @@ private fun LazyListScope.tasksSection(ui: WidgetUi) {
 private fun LazyListScope.shortcutsSection(ui: WidgetUi, columns: Int) {
     item(itemId = ID_SHORTCUTS) {
         val context = LocalContext.current
-        SectionHeader(context.getString(R.string.shortcuts), LucideIcons.ZAP, openRoute(context, WebRoutes.QUICK_LINKS), centered = true)
+        SectionHeader(context.getString(R.string.shortcuts), LucideIcons.ZAP, openSection(context, LifeMappWidgets.SECTION_SHORTCUTS), centered = true)
     }
     item(itemId = ID_MAIL) {
         val context = LocalContext.current
-        ShortcutsSubHeader(LucideIcons.MAIL, context.getString(R.string.mail), ui.mailUrl?.let(::openExternal) ?: openRoute(context, WebRoutes.MAIL))
+        ShortcutsSubHeader(LucideIcons.MAIL, context.getString(R.string.mail), ui.mailUrl?.let(::openExternal) ?: openSection(context, LifeMappWidgets.SECTION_SHORTCUTS))
     }
     item(itemId = ID_MAIL_BODY) { MailBody(ui) }
     if (ui.driveLinks.isNotEmpty()) {
@@ -308,9 +321,9 @@ private fun LazyListScope.shortcutsSection(ui: WidgetUi, columns: Int) {
     item(itemId = ID_LINKS) {
         val context = LocalContext.current
         ShortcutsSubHeader(
-            LucideIcons.LINK, context.getString(R.string.links), openRoute(context, WebRoutes.QUICK_LINKS),
+            LucideIcons.LINK, context.getString(R.string.links), openSection(context, LifeMappWidgets.SECTION_SHORTCUTS),
             count = ui.shortcuts.size.takeUnless { ui.shortcutsLocked },
-            onAdd = openRoute(context, WebRoutes.QUICK_LINKS).takeUnless { ui.shortcutsLocked },
+            onAdd = openSection(context, LifeMappWidgets.SECTION_SHORTCUTS).takeUnless { ui.shortcutsLocked },
             top = SUB_HEADER_GAP,
             chevron = true,
         )
@@ -322,7 +335,7 @@ private fun LazyListScope.shortcutsSection(ui: WidgetUi, columns: Int) {
         }
         ui.shortcuts.isEmpty() -> item(itemId = ID_SHORTCUTS_EMPTY) {
             val context = LocalContext.current
-            EmptyLine(context.getString(R.string.no_shortcuts), openRoute(context, WebRoutes.QUICK_LINKS))
+            EmptyLine(context.getString(R.string.no_shortcuts), openSection(context, LifeMappWidgets.SECTION_SHORTCUTS))
         }
         else -> ui.shortcuts.chunked(columns).forEachIndexed { index, row ->
             item(itemId = ID_SHORTCUT_ROW_BASE + index) {

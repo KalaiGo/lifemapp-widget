@@ -33,16 +33,16 @@ import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
 import com.kalai73.lifemapp.widgets.core.data.presentation.EventDayUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.TaskUi
 import com.kalai73.lifemapp.widgets.widget.events.DayHeader
-import com.kalai73.lifemapp.widgets.widget.events.RowTag
+import com.kalai73.lifemapp.widgets.widget.events.TitleWithTag
 import java.time.LocalDate
 import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdDrawables
 import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
-import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
 import androidx.glance.appwidget.action.actionStartActivity
 import com.kalai73.lifemapp.widgets.widget.R
+import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import com.kalai73.lifemapp.widgets.widget.common.CompleteTaskAction
 import com.kalai73.lifemapp.widgets.widget.common.Icon
 import com.kalai73.lifemapp.widgets.widget.common.LocalPd
@@ -55,7 +55,7 @@ import com.kalai73.lifemapp.widgets.widget.common.captionStyle
 import com.kalai73.lifemapp.widgets.widget.common.color
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
 import com.kalai73.lifemapp.widgets.widget.common.numberStyle
-import com.kalai73.lifemapp.widgets.widget.common.openRoute
+import com.kalai73.lifemapp.widgets.widget.common.openSection
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 
 /** "Add task" and "Task lists", sharing the row equally. Predator: parallelograms in the accent tint. */
@@ -65,7 +65,7 @@ internal fun TaskActions() {
     Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         ActionButton(LucideIcons.ADD, context.getString(R.string.add_task), actionStartActivity(VoiceInputActivity.intent(context, typed = true)), GlanceModifier.defaultWeight())
         Spacer(GlanceModifier.width(6.dp))
-        ActionButton(LucideIcons.TASKS, context.getString(R.string.task_lists), openRoute(context, WebRoutes.TASKS), GlanceModifier.defaultWeight())
+        ActionButton(LucideIcons.TASKS, context.getString(R.string.task_lists), openSection(context, LifeMappWidgets.SECTION_TASKS), GlanceModifier.defaultWeight())
     }
 }
 
@@ -115,7 +115,7 @@ internal fun TaskDayHeader(day: DayKind) {
 internal fun TaskRow(task: TaskUi, number: Int) {
     val context = LocalContext.current
     val pd = LocalPd.current
-    val openTasks = openRoute(context, WebRoutes.TASKS)
+    val openTasks = openSection(context, LifeMappWidgets.SECTION_TASKS)
     val colors = LocalWidgetColors.current
     val upcoming = task.upcoming
     // As on the web: the checkbox and bar in the task's color tier (red, orange, blue, or neutral), and later
@@ -138,18 +138,15 @@ internal fun TaskRow(task: TaskUi, number: Int) {
                     PdBar(tier ?: pd.edge2, height = 26.dp)
                     Spacer(GlanceModifier.width(6.dp))
                     Column(modifier = GlanceModifier.defaultWeight().clickable(openTasks)) {
-                        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                task.title ?: context.getString(R.string.locked),
-                                style = textStyle(
-                                    size = 13.sp, weight = FontWeight.Bold,
-                                    color = if (upcoming) pd.faint else if (task.title == null) pd.dim else pd.text,
-                                ),
-                                maxLines = 1,
-                                modifier = GlanceModifier.defaultWeight(),
-                            )
-                            if (tagLabel != null) RowTag(tagLabel, tagColor, upcoming)
-                        }
+                        // Hex, checkbox, bar and its spacer, end padding
+                        TitleWithTag(
+                            task.title ?: context.getString(R.string.locked),
+                            textStyle(
+                                size = 13.sp, weight = FontWeight.Bold,
+                                color = if (upcoming) pd.faint else if (task.title == null) pd.dim else pd.text,
+                            ),
+                            tagLabel, tagColor, upcoming, overhead = 70.dp,
+                        )
                         DueLine(task, color = if (task.overdue && !upcoming) pd.destructive else muted, dim = muted)
                     }
                 }
@@ -168,15 +165,12 @@ internal fun TaskRow(task: TaskUi, number: Int) {
         )
         Checkbox(task, LucideIcons.CHECK_OFF, size = 20.dp, tint = tier ?: faded)
         Column(modifier = GlanceModifier.defaultWeight().clickable(openTasks)) {
-            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    task.title ?: context.getString(R.string.locked),
-                    style = textStyle(size = 13.sp, weight = FontWeight.Medium, color = if (task.title == null || upcoming) faded else GlanceTheme.colors.onBackground),
-                    maxLines = 1,
-                    modifier = GlanceModifier.defaultWeight(),
-                )
-                if (tagLabel != null) RowTag(tagLabel, tagColor, upcoming)
-            }
+            // Number and checkbox
+            TitleWithTag(
+                task.title ?: context.getString(R.string.locked),
+                textStyle(size = 13.sp, weight = FontWeight.Medium, color = if (task.title == null || upcoming) faded else GlanceTheme.colors.onBackground),
+                tagLabel, tagColor, upcoming, overhead = 48.dp,
+            )
             DueLine(task, color = if (task.overdue && !upcoming) GlanceTheme.colors.error else faded, dim = faded)
         }
     }

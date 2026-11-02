@@ -83,7 +83,7 @@
     <string name="config_no_calendars">Calendars appear here after the first update.</string>
     <string name="save">Save</string>
     <string name="today_hello">Hello,</string>
-    <string name="today_is">Today is,</string>
+    <string name="today_is_caption">Today is,</string>
     <string name="today_and_you_have">And you have:</string>
     <string name="today_welcome">Welcome</string>
     <string name="today_weather_in">Weather in %1$s</string>
@@ -220,4 +220,5 @@
     <string name="rating_desc_8">Thriving</string>
     <string name="rating_desc_9">Soaring</string>
     <string name="rating_desc_10">Flourishing</string>
+    <string name="loading_data">Unlocking and loading your data</string>
 </resources>

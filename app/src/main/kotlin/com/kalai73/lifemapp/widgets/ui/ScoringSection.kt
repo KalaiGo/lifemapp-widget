@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -55,7 +56,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.kalai73.lifemapp.widgets.core.designsystem.MonoFontFamily
 import com.kalai73.lifemapp.widgets.R
 import com.kalai73.lifemapp.widgets.core.data.presentation.ScoreDomainUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.ScoringUi
@@ -118,16 +119,27 @@ internal fun ScoringSection(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Two on the first row (72% wide), three on the second, as the web's phone pyramid
-            listOf(scoring.domains.take(2), scoring.domains.drop(2).take(3)).filter { it.isNotEmpty() }.forEachIndexed { i, row ->
+            // Predator: all five in one zigzag row, the odd ones dropped so their names (above the hexagon) sit
+            // below the neighbours' names. Classic: two on the first row (72% wide), three on the second.
+            val rows = if (t.predator) listOf(scoring.domains.take(5))
+            else listOf(scoring.domains.take(2), scoring.domains.drop(2).take(3))
+            rows.filter { it.isNotEmpty() }.forEachIndexed { i, row ->
                 Row(
-                    Modifier.fillMaxWidth(if (i == 0) 0.72f else 1f),
+                    Modifier.fillMaxWidth(if (i == 0 && !t.predator) 0.72f else 1f),
                     horizontalArrangement = Arrangement.SpaceAround,
                     verticalAlignment = Alignment.Top,
                 ) {
-                    row.forEach { d ->
+                    row.forEachIndexed { j, d ->
+                        // Outer names pin to the row edges so they stay inside the card
+                        val labelAlign = when (j) {
+                            0 -> Alignment.Start
+                            row.lastIndex -> Alignment.End
+                            else -> Alignment.CenterHorizontally
+                        }
                         DomainScore(
-                            d, Modifier.weight(1f),
+                            d,
+                            Modifier.weight(1f).then(if (t.predator && j % 2 == 1) Modifier.padding(top = 28.dp) else Modifier),
+                            labelAlign = labelAlign,
                             onTap = { if (!d.unhidable && scoring.ready) onToggleHidden(d.id) },
                             onLongPress = { openRating(listOf(d)) },
                         )
@@ -155,7 +167,13 @@ private fun shownScore(d: ScoreDomainUi) = d.rating?.takeIf { it > 0 } ?: 5
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun DomainScore(d: ScoreDomainUi, modifier: Modifier, onTap: () -> Unit, onLongPress: () -> Unit) {
+private fun DomainScore(
+    d: ScoreDomainUi,
+    modifier: Modifier,
+    labelAlign: Alignment.Horizontal,
+    onTap: () -> Unit,
+    onLongPress: () -> Unit,
+) {
     val t = LocalTok.current
     val haptics = LocalHapticFeedback.current
     val name = scoreDomainName(d)
@@ -173,14 +191,28 @@ private fun DomainScore(d: ScoreDomainUi, modifier: Modifier, onTap: () -> Unit,
             .semantics { contentDescription = desc },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (t.predator) PredatorHex(d, score, name) else ClassicCircle(d, score, name)
+        if (t.predator) PredatorHex(d, score, name, labelAlign) else ClassicCircle(d, score, name)
     }
 }
 
-/** PdHexScore with the slanted name tag: the hexagon fills from the bottom in the domain's hue. */
+/**
+ * PdHexScore under its name tag (a panel with corner brackets in the domain's hue, allowed to overflow into the
+ * neighbouring columns): the hexagon fills from the bottom in the domain's hue.
+ */
 @Composable
-private fun PredatorHex(d: ScoreDomainUi, score: Int, name: String) {
+private fun PredatorHex(d: ScoreDomainUi, score: Int, name: String, labelAlign: Alignment.Horizontal) {
     val t = LocalTok.current
+    val (tagHue, _) = domainHue(d.colorName)
+    Text(
+        t.s(name),
+        style = t.label(10.sp, if (d.hidden) t.dim else t.text).copy(letterSpacing = 0.08.em),
+        maxLines = 1, overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth().wrapContentWidth(labelAlign, unbounded = true)
+            .padding(bottom = 4.dp).alpha(if (d.name == null) 0.6f else 1f)
+            .framed(t, t.pd.panel, edge = t.line, cut = 0.dp)
+            .bracketCorners(if (d.hidden) t.line else tagHue, arm = 5.dp, stroke = 1.dp, tick = 0.dp)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+    )
     val (hue, onHue) = domainHue(d.colorName)
     // Hidden: half opacity and 35% grayscale, as the web
     val fill = if (d.hidden) hue.desaturate(0.35f) else hue
@@ -217,15 +249,6 @@ private fun PredatorHex(d: ScoreDomainUi, score: Int, name: String) {
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp),
         )
     }
-    val shape = pdParallelogramShape(5.dp)
-    Text(
-        t.s(name),
-        style = t.label(10.sp, if (d.hidden) t.dim else onHue).copy(letterSpacing = 0.08.em),
-        maxLines = 1, overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.padding(top = 4.dp).alpha(if (d.name == null) 0.6f else 1f)
-            .clip(shape).background(if (d.hidden) t.pd.well else hue, shape)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-    )
 }
 
 /** hexFillPercent (pd-hex-score.tsx): score/10 with a 15% minimum, full only at 10 */
@@ -264,7 +287,7 @@ private fun ClassicCircle(d: ScoreDomainUi, score: Int, name: String) {
             Text(
                 "$score",
                 style = t.body((28 * scale).sp, numeral, FontWeight.Black).copy(
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = MonoFontFamily,
                     shadow = Shadow(if (numeral == Color.White) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.4f), Offset(0f, 1f), 2f),
                 ),
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = (dim.value * 0.1f).dp),
@@ -376,8 +399,8 @@ private fun AverageBadge(average: Double, locked: Boolean, onClick: () -> Unit) 
                 Ic(LucideIcons.LOCK, 16.dp, t.text)
             } else {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(text, style = t.body(18.sp, t.text, FontWeight.Black).copy(fontFamily = FontFamily.Monospace))
-                    Text("/10", style = t.body(10.sp, t.dim, FontWeight.SemiBold).copy(fontFamily = FontFamily.Monospace), modifier = Modifier.padding(start = 2.dp, bottom = 3.dp))
+                    Text(text, style = t.body(18.sp, t.text, FontWeight.Black).copy(fontFamily = MonoFontFamily))
+                    Text("/10", style = t.body(10.sp, t.dim, FontWeight.SemiBold).copy(fontFamily = MonoFontFamily), modifier = Modifier.padding(start = 2.dp, bottom = 3.dp))
                 }
             }
         }
@@ -501,7 +524,7 @@ private fun ScoringCapsule(scoring: ScoringUi, onScore: () -> Unit, onHistory: (
             }
             Text(
                 value,
-                style = t.body(13.sp, color, FontWeight.Bold).let { if (days != null && days > 0) it.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp) else it },
+                style = t.body(13.sp, color, FontWeight.Bold).let { if (days != null && days > 0) it.copy(fontFamily = MonoFontFamily, fontSize = 12.sp) else it },
                 maxLines = 1,
             )
         }
@@ -707,7 +730,7 @@ private fun Color.desaturate(amount: Float): Color {
  * The web's HexCorner: a honeycomb in the top-right corner fading out along the diagonal to the bottom-left
  * (160 × 84 at grid radius 10), drawn under the content.
  */
-private fun Modifier.hexCorner(color: Color, opacity: Float, width: Dp = 160.dp, height: Dp = 84.dp, grid: Dp = 10.dp): Modifier = drawBehind {
+internal fun Modifier.hexCorner(color: Color, opacity: Float, width: Dp = 160.dp, height: Dp = 84.dp, grid: Dp = 10.dp): Modifier = drawBehind {
     val w = width.toPx()
     val h = height.toPx()
     val r = grid.toPx()

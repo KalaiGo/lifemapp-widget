@@ -2,7 +2,7 @@ package com.kalai73.lifemapp.widgets.widget.integrity
 
 // The Integrity domain card as on the web's Today page (components/domains/integrity-domain-with-widgets.tsx),
 // read-only: number, name and rating, the score gauge, the info box, the Reception (reminders by voice), each topic
-// with its first items, then the Warnings bar. Editing, collapsing and "Add topic" stay on the web; taps open it.
+// with its first items, then the Warnings bar. Taps open the app (an item in its item modal), never the web app.
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -46,10 +46,9 @@ import com.kalai73.lifemapp.widgets.core.designsystem.ColorContrast
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdDrawables
 import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
-import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.widget.R
+import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import com.kalai73.lifemapp.widgets.widget.common.Icon
-import com.kalai73.lifemapp.widgets.widget.common.ToggleTopicAction
 import com.kalai73.lifemapp.widgets.widget.common.LocalPd
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetColors
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
@@ -60,7 +59,8 @@ import com.kalai73.lifemapp.widgets.widget.common.captionStyle
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
 import com.kalai73.lifemapp.widgets.widget.common.numberStyle
 import com.kalai73.lifemapp.widgets.widget.common.openApp
-import com.kalai73.lifemapp.widgets.widget.common.openRoute
+import com.kalai73.lifemapp.widgets.widget.common.openItem
+import com.kalai73.lifemapp.widgets.widget.common.openSection
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
 
@@ -73,17 +73,29 @@ private const val ID_TOPIC_BASE = 3L shl 40
 
 private const val SEGMENTS = 10
 
-/** The card's rows, for the Dashboard's list. Each row sits on the card surface, so together they read as the web's domain card. */
+/** The Today section a tap opens in the app: the Integrity card, or the other domain's card ("domain-<id>"). */
+private fun sectionOf(card: IntegrityUi): String =
+    if (card.position == 1 || card.domainId.isBlank()) LifeMappWidgets.SECTION_INTEGRITY else "domain-${card.domainId}"
+
+/**
+ * A life domain card's rows, for the Dashboard's list: Integrity (position 1) or another Today domain such as
+ * Tenacity (5). Each row sits on the card surface, so together they read as the web's domain card. Item ids are
+ * offset by the position so two cards in one list never collide.
+ */
 internal fun LazyListScope.integritySection(integrity: IntegrityUi) {
-    item(itemId = ID_MARGIN) { Spacer(GlanceModifier.height(18.dp)) }
-    item(itemId = ID_HEADER) { CardRow { IntegrityHeader(integrity) } }
+    val shift = (integrity.position - 1).coerceAtLeast(0).toLong()
+    val fixed = -10L * shift // -30…-32 for Integrity, -70…-72 for Tenacity
+    val topicBase = ID_TOPIC_BASE + (shift shl 34)
+    val section = sectionOf(integrity)
+    item(itemId = ID_MARGIN + fixed) { Spacer(GlanceModifier.height(18.dp)) }
+    item(itemId = ID_HEADER + fixed) { CardRow { IntegrityHeader(integrity, section) } }
     integrity.topics.forEachIndexed { index, topic ->
-        val base = ID_TOPIC_BASE + (index.toLong() shl 20)
+        val base = topicBase + (index.toLong() shl 20)
         // The Reception sits right above the Reminders topic, as on the web
         if (topic.reminders) item(itemId = base) { CardRow { Reception() } }
-        item(itemId = base + 1) { CardRow { TopicHeader(topic) } }
-        // A topic collapsed on the web shows its header only
-        if (topic.collapsed && topic.items.isNotEmpty()) return@forEachIndexed
+        item(itemId = base + 1) { CardRow { TopicHeader(topic, section) } }
+        // Topics show their header only (a tap opens them in the app); Reminders alone lists its items
+        if (!topic.reminders) return@forEachIndexed
         if (topic.items.isEmpty()) {
             item(itemId = base + 2) { CardRow { NoContent(topic) } }
         } else {
@@ -91,7 +103,8 @@ internal fun LazyListScope.integritySection(integrity: IntegrityUi) {
         }
         if (topic.more > 0) item(itemId = base + 3) { CardRow { MoreLine(topic.more) } }
     }
-    item(itemId = ID_WARNINGS) { CardRow { WarningsBar(integrity.warnings) } }
+    // Warnings belong to Integrity only, as in the app
+    if (integrity.position == 1) item(itemId = ID_WARNINGS + fixed) { CardRow { WarningsBar(integrity.warnings) } }
 }
 
 /** One row of the web's domain card: the card surface, inset from the widget edge, with padding inside. */
@@ -142,15 +155,16 @@ private fun warnTintClassic(): ColorProvider = LocalWidgetColors.current.of(day 
 
 /** "01 INTEGRITY" with the rating hex, the score gauge, then the info box ("Capture & Organize"). */
 @Composable
-private fun IntegrityHeader(integrity: IntegrityUi) {
+private fun IntegrityHeader(integrity: IntegrityUi, section: String) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
-    val name = integrity.name?.takeIf { it.isNotBlank() } ?: context.getString(R.string.integrity)
-    val open = openRoute(context, WebRoutes.INTEGRITY)
+    val name = integrity.name?.takeIf { it.isNotBlank() }
+        ?: if (integrity.position == 1) context.getString(R.string.integrity) else ""
+    val open = openSection(context, section)
     Column(modifier = GlanceModifier.fillMaxWidth().clickable(open).padding(top = 14.dp, bottom = 2.dp)) {
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("01", style = numberStyle(20.sp, color = pd?.faint ?: GlanceTheme.colors.outline), maxLines = 1)
+            Text(integrity.position.toString().padStart(2, '0'), style = numberStyle(20.sp, color = pd?.faint ?: GlanceTheme.colors.outline), maxLines = 1)
             Spacer(GlanceModifier.width(8.dp))
             Text(
                 style.label(name),
@@ -288,34 +302,23 @@ private fun Reception() {
     }
 }
 
-/** Numbered hex, name, item count, and "+" to edit on the web card (none for Reminders). */
+/** Numbered hex, name and item count; no "+" (items are added from the empty-topic row and the Reception). */
 @Composable
-private fun TopicHeader(topic: TopicUi) {
+private fun TopicHeader(topic: TopicUi, section: String) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
     val accent = pd?.ink ?: GlanceTheme.colors.primary
     val dim = pd?.dim ?: GlanceTheme.colors.onSurfaceVariant
     val name = topic.name ?: context.getString(R.string.locked)
-    // The web card's collapse toggle: one tap anywhere on the header (but "+") collapses or expands the topic.
-    // Reminders (always expanded, as on the web) and a topic without items have nothing to fold, so they open the app.
-    val toggles = !topic.reminders && topic.items.isNotEmpty()
-    val tap = if (toggles) {
-        actionRunCallback<ToggleTopicAction>(
-            actionParametersOf(ToggleTopicAction.TopicIdKey to topic.id, ToggleTopicAction.CollapsedKey to !topic.collapsed),
-        )
-    } else {
-        openApp(context)
-    }
+    // A tap anywhere on the header opens the topic's content in the app (its domain card on the Today screen),
+    // with the topic expanded there; Reminders is always expanded
+    val tap = openSection(context, section, topic.id.takeUnless { topic.reminders || it.isBlank() })
     Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(modifier = GlanceModifier.defaultWeight().height(28.dp).clickable(tap), verticalAlignment = Alignment.CenterVertically) {
             if (!topic.reminders) {
                 Box(modifier = GlanceModifier.width(22.dp), contentAlignment = Alignment.CenterStart) {
-                    Icon(
-                        if (topic.collapsed) LucideIcons.CHEVRON_RIGHT else LucideIcons.CHEVRON_DOWN,
-                        if (toggles) context.getString(if (topic.collapsed) R.string.integrity_expand else R.string.integrity_collapse) else null,
-                        size = 12.dp, tint = dim,
-                    )
+                    Icon(LucideIcons.CHEVRON_RIGHT, null, size = 12.dp, tint = dim)
                 }
             } else {
                 // A bullet in the toggle's slot, so the hex lines up with the other topics
@@ -342,10 +345,6 @@ private fun TopicHeader(topic: TopicUi) {
                 Spacer(GlanceModifier.width(5.dp))
                 Text("(${topic.count})", style = if (pd != null) captionStyle(size = 10.sp, color = dim) else textStyle(size = 11.sp, color = dim), maxLines = 1)
             }
-        }
-        // Reminders: "+" types one (the Reception above them speaks them)
-        Box(modifier = GlanceModifier.size(28.dp).clickable(addAction(topic)), contentAlignment = Alignment.Center) {
-            Icon(LucideIcons.ADD, context.getString(if (topic.reminders) R.string.integrity_create_reminder else R.string.integrity_add_item), size = 14.dp, tint = pd?.ink ?: GlanceTheme.colors.primary)
         }
     }
 }
@@ -394,7 +393,7 @@ private fun NoContent(topic: TopicUi) {
     }
 }
 
-/** "• 2.1 Item", with the warning icon when flagged. */
+/** "• 2.1 Item", with the warning icon when flagged; a tap opens the item's content in the app's item modal. */
 @Composable
 private fun ItemRow(topic: TopicUi, item: TopicItemUi, number: Int) {
     val context = LocalContext.current
@@ -404,7 +403,7 @@ private fun ItemRow(topic: TopicUi, item: TopicItemUi, number: Int) {
     val name = item.name?.takeIf { it.isNotBlank() }
         ?: if (item.name == null) context.getString(R.string.locked) else if (item.isImage) context.getString(R.string.integrity_image) else ""
     Row(
-        modifier = GlanceModifier.fillMaxWidth().clickable(openApp(context)).padding(start = 10.dp, top = 3.dp, bottom = 3.dp),
+        modifier = GlanceModifier.fillMaxWidth().clickable(openItem(context, item.id)).padding(start = 10.dp, top = 3.dp, bottom = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(modifier = GlanceModifier.size(5.dp).cornerRadius(3.dp).background(pd?.faint ?: GlanceTheme.colors.outline)) {}
@@ -437,13 +436,13 @@ private fun MoreLine(more: Int) {
     )
 }
 
-/** The amber "WARNINGS" bar with its count, opening the web's warnings list. */
+/** The amber "WARNINGS" bar with its count, opening the app at the Integrity card. */
 @Composable
 private fun WarningsBar(count: Int) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
-    val open = openRoute(context, WebRoutes.WARNINGS)
+    val open = openSection(context, LifeMappWidgets.SECTION_INTEGRITY)
     val label = context.getString(R.string.integrity_warnings)
     Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp)) {
         if (pd != null) {
@@ -484,8 +483,8 @@ private fun speakReminders(): Action = actionStartActivity(VoiceInputActivity.in
 @Composable
 private fun typeReminder(): Action = actionStartActivity(VoiceInputActivity.intent(LocalContext.current, reminders = true, typed = true))
 
-/** "+" of a topic: Reminders are typed in a dialog (or spoken via the Reception); other topics are edited on the web. */
+/** Adding to a topic (its empty row): Reminders are typed in a dialog (or spoken via the Reception); other topics open the app at the Integrity card. */
 @Composable
 private fun addAction(topic: TopicUi): Action =
     if (topic.reminders) actionStartActivity(VoiceInputActivity.intent(LocalContext.current, reminders = true, typed = true))
-    else openRoute(LocalContext.current, WebRoutes.INTEGRITY)
+    else openSection(LocalContext.current, LifeMappWidgets.SECTION_INTEGRITY)

@@ -2,6 +2,7 @@ package com.kalai73.lifemapp.widgets.widget.events
 
 // Event rows as on the web's events card (components/calendar/calendar-events-card.tsx).
 
+import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import com.kalai73.lifemapp.widgets.widget.common.PdWrapFrame
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
@@ -34,12 +35,11 @@ import com.kalai73.lifemapp.widgets.widget.common.labelStyle
 import androidx.glance.background
 import androidx.glance.layout.Box
 import androidx.glance.layout.height
-import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.widget.R
 import com.kalai73.lifemapp.widgets.widget.common.Dot
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
 import com.kalai73.lifemapp.widgets.widget.common.openExternal
-import com.kalai73.lifemapp.widgets.widget.common.openRoute
+import com.kalai73.lifemapp.widgets.widget.common.openSection
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 import androidx.glance.action.Action
 import androidx.glance.appwidget.cornerRadius
@@ -51,6 +51,16 @@ import com.kalai73.lifemapp.widgets.widget.common.Icon
 import com.kalai73.lifemapp.widgets.widget.common.PdHex
 import com.kalai73.lifemapp.widgets.widget.common.ConnectCard
 import com.kalai73.lifemapp.widgets.widget.common.numberStyle
+import android.appwidget.AppWidgetManager
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.util.TypedValue
+import androidx.compose.ui.unit.Dp
+import androidx.glance.LocalGlanceId
+import androidx.glance.LocalSize
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.text.TextStyle
+import androidx.glance.text.TextDecoration
 
 /** Per-widget events settings, kept in the widget's Glance state (written by WidgetConfigActivity in the app). */
 object EventsConfig {
@@ -98,29 +108,33 @@ internal fun DayHeader(day: EventDayUi, emphasized: Boolean = false) {
 
 /**
  * An event as on the web's events card: numbered hex, calendar color bar, title with the calendar tag, then
- * clock, time and date. Days after today are faded.
+ * clock, time and date. Days after today are faded; today's past events are faded with the title struck through
+ * (the web's isTodayPastEvent styling).
  */
 @Composable
 internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
-    val action = event.link?.let(::openExternal) ?: openRoute(context, WebRoutes.EVENTS)
+    val action = event.link?.let(::openExternal) ?: openSection(context, LifeMappWidgets.SECTION_EVENTS)
     val color = LifeMappColors.parseHex(event.color) ?: androidx.compose.ui.graphics.Color(0xFF3B82F6)
     val upcoming = day.kind != DayKind.TODAY
-    val dimmed = upcoming || event.secondary
+    val past = event.past && !upcoming
+    val faded = upcoming || past
+    val dimmed = faded || event.secondary
+    val strike: (TextStyle) -> TextStyle = { if (past) it.copy(textDecoration = TextDecoration.LineThrough) else it }
     val time = listOfNotNull(event.timeLabel ?: context.getString(R.string.all_day), day.label.ifEmpty { null }).joinToString(" · ")
     val calendar = event.calendarName?.takeIf { it.isNotBlank() }
     val colors = LocalWidgetColors.current
 
     if (pd != null) {
-        val titleColor = if (upcoming) pd.faint else if (event.secondary) pd.dim else pd.text
-        val captionColor = if (upcoming) pd.faint else pd.dim
+        val titleColor = if (faded) pd.faint else if (event.secondary) pd.dim else pd.text
+        val captionColor = if (faded) pd.faint else pd.dim
         // Faded rows keep a faded color; current ones get the calendar color adjusted to read on the row
         val barColor = if (dimmed) pd.tint(color, 0.45f) else colors.graphic(color)
         Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            PdHex(18.dp, edge = if (upcoming) pd.edge2 else pd.accent, fill = pd.panel) {
-                Text("$number", style = numberStyle(9.sp, color = if (upcoming) pd.faint else pd.ink))
+            PdHex(18.dp, edge = if (faded) pd.edge2 else pd.accent, fill = pd.panel) {
+                Text("$number", style = numberStyle(9.sp, color = if (faded) pd.faint else pd.ink))
             }
             // Secondary calendars are indented from the left, as on the web's events card
             Spacer(GlanceModifier.width(if (event.secondary) 17.dp else 5.dp))
@@ -131,15 +145,11 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
                     PdBar(barColor, height = 26.dp)
                     Spacer(GlanceModifier.width(6.dp))
                     Column(modifier = GlanceModifier.defaultWeight()) {
-                        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                event.title,
-                                style = textStyle(size = 13.sp, weight = FontWeight.Bold, color = titleColor),
-                                maxLines = 1,
-                                modifier = GlanceModifier.defaultWeight(),
-                            )
-                            if (calendar != null) RowTag(calendar, color, dimmed)
-                        }
+                        // Hex, indent, frame padding, bar and its spacer
+                        TitleWithTag(
+                            event.title, strike(textStyle(size = 13.sp, weight = FontWeight.Bold, color = titleColor)),
+                            calendar, color, dimmed, overhead = if (event.secondary) 58.dp else 46.dp,
+                        )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(LucideIcons.CLOCK, null, size = 10.dp, tint = captionColor)
                             Spacer(GlanceModifier.width(3.dp))
@@ -160,36 +170,97 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
     }
 
     // Classic: the same structure, flat
-    val faded = GlanceTheme.colors.onSurfaceVariant
+    val muted = GlanceTheme.colors.onSurfaceVariant
     Row(
         modifier = GlanceModifier.fillMaxWidth().clickable(action).padding(vertical = if (event.secondary) 2.dp else 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             "$number",
-            style = textStyle(size = 11.sp, weight = FontWeight.Bold, color = if (upcoming) faded else GlanceTheme.colors.primary).copy(textAlign = TextAlign.Center),
+            style = textStyle(size = 11.sp, weight = FontWeight.Bold, color = if (faded) muted else GlanceTheme.colors.primary).copy(textAlign = TextAlign.Center),
             modifier = GlanceModifier.width(16.dp),
         )
         Spacer(GlanceModifier.width(if (event.secondary) 16.dp else 4.dp))
         Dot(if (dimmed) color.copy(alpha = 0.45f) else color)
         Spacer(GlanceModifier.width(8.dp))
         Column(modifier = GlanceModifier.defaultWeight()) {
-            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    event.title,
-                    style = textStyle(size = 13.sp, weight = FontWeight.Medium, color = if (dimmed) faded else GlanceTheme.colors.onBackground),
-                    maxLines = 1,
-                    modifier = GlanceModifier.defaultWeight(),
-                )
-                if (calendar != null) RowTag(calendar, color, dimmed)
-            }
+            // Number, indent, dot and its spacer
+            TitleWithTag(
+                event.title, strike(textStyle(size = 13.sp, weight = FontWeight.Medium, color = if (dimmed) muted else GlanceTheme.colors.onBackground)),
+                calendar, color, dimmed, overhead = if (event.secondary) 48.dp else 36.dp,
+            )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(LucideIcons.CLOCK, null, size = 10.dp, tint = faded)
+                Icon(LucideIcons.CLOCK, null, size = 10.dp, tint = muted)
                 Spacer(GlanceModifier.width(3.dp))
-                Text(time, style = textStyle(size = 10.sp, color = faded), maxLines = 1)
+                Text(time, style = textStyle(size = 10.sp, color = muted), maxLines = 1)
             }
         }
     }
+}
+
+/**
+ * A row's title with its tag (calendar or task manager) right after it, as on the app's Today screen. RemoteViews
+ * have no "wrap but shrink" weight: a weighted title pushes the tag to the row's end, an unweighted long one
+ * squeezes the tag out. So the title is measured: when title and tag fit the row, the title wraps and the tag
+ * follows it; otherwise the title takes the row (ellipsized) and the tag ends it, which is then right after it.
+ * [overhead] is the row's width taken by everything but the title line (number, checkbox, bar, paddings).
+ */
+@Composable
+internal fun TitleWithTag(
+    title: String,
+    titleStyle: TextStyle,
+    tag: String?,
+    tagColor: androidx.compose.ui.graphics.Color,
+    dimmed: Boolean,
+    overhead: Dp,
+) {
+    val context = LocalContext.current
+    val style = LocalWidgetStyle.current
+    val fits = tag != null && run {
+        val available = widgetWidth() - ROOT_SIDES - overhead
+        val tagText = if (LocalPd.current != null) style.label(tag) else tag
+        // Bold system font for both: at least as wide as the condensed label font, so the estimate errs safe
+        val needed = textWidth(context, title, titleStyle.fontSize?.value ?: 13f) +
+            textWidth(context, tagText, 9f) + TAG_EXTRA
+        needed <= available
+    }
+    Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = titleStyle, maxLines = 1, modifier = if (fits) GlanceModifier else GlanceModifier.defaultWeight())
+        if (tag != null) RowTag(tag, tagColor, dimmed)
+        if (fits) Spacer(GlanceModifier.defaultWeight())
+    }
+}
+
+/** The root's padding on both sides (LifeMappWidgetTheme) and the list's scrollbar gutter. */
+private val ROOT_SIDES = 32.dp
+/** The tag's spacer and horizontal padding, plus slack for font differences. */
+private val TAG_EXTRA = 24.dp
+
+/**
+ * The widget's real width: with SizeMode.Responsive LocalSize is the matched bucket, not the widget. The portrait
+ * width (the options' min width) is the narrower one; LocalSize when the options aren't available.
+ */
+@Composable
+private fun widgetWidth(): Dp {
+    val context = LocalContext.current
+    val glanceId = LocalGlanceId.current
+    val fallback = LocalSize.current.width
+    return runCatching {
+        val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(glanceId)
+        val min = AppWidgetManager.getInstance(context).getAppWidgetOptions(appWidgetId)
+            .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
+        if (min > 0) min.dp else fallback
+    }.getOrDefault(fallback)
+}
+
+/** The width of [text] in bold at [sp], in dp. */
+private fun textWidth(context: android.content.Context, text: String, sp: Float): Dp {
+    val metrics = context.resources.displayMetrics
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = Typeface.DEFAULT_BOLD
+        textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, metrics)
+    }
+    return (paint.measureText(text) / metrics.density).dp
 }
 
 /**
@@ -219,7 +290,7 @@ internal fun RowTag(name: String, color: androidx.compose.ui.graphics.Color, dim
     }
 }
 
-/** No calendar connected: icon, message and the "Add calendar" button (opens the web settings). */
+/** No calendar connected: icon, message and the "Add calendar" button (opens the app at the events). */
 @Composable
 internal fun NoCalendarCard(onAdd: Action) {
     val context = LocalContext.current

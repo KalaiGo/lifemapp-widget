@@ -6,7 +6,25 @@ import android.content.Context
 import android.content.Intent
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextAlign
+import com.kalai73.lifemapp.widgets.core.designsystem.PdHexagonShape
+import com.kalai73.lifemapp.widgets.core.designsystem.pdParallelogramShape
 import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -96,6 +114,8 @@ fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOp
     val state by viewModel.state.collectAsState()
     val cache by viewModel.cache.collectAsState()
     val today by viewModel.today.collectAsState()
+    val openItem by viewModel.openItem.collectAsState()
+    val openSection by viewModel.openSection.collectAsState()
     if (state.screen == Screen.HOME) {
         // Main page = Today; the former main page (sync, widgets, encryption, battery, account) is the side panel
         val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -132,10 +152,18 @@ fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOp
                         onRateDomains = viewModel::rateDomains,
                         onUnlock = viewModel::showUnlock,
                         onOpenWeb = onOpenWeb,
+                        openItemId = openItem,
+                        onItemOpened = viewModel::itemOpened,
+                        openSection = openSection,
+                        onSectionOpened = viewModel::sectionOpened,
                     )
                 }
             }
         }
+        return
+    }
+    if (state.screen == Screen.LOADING) {
+        LoadingScreen()
         return
     }
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -147,7 +175,7 @@ fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOp
                 Spacer(Modifier.height(24.dp))
             }
             when (state.screen) {
-                Screen.LOADING -> Centered { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
+                Screen.LOADING -> Unit // handled above
                 Screen.SIGN_IN -> SignInScreen(state, viewModel::signIn, onOpenWeb)
                 Screen.UNLOCK -> UnlockScreen(state, viewModel::unlock, viewModel::skipUnlock)
                 Screen.HOME -> Unit // handled above
@@ -156,9 +184,93 @@ fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOp
     }
 }
 
+/**
+ * Startup view, matching the web's loading overlay (StoreInitializer): a pulsing shield in a
+ * pinging circle (hexagon in Predator), "LIFE MAPP", a caption, and a spinner (Predator: a
+ * slanted indeterminate meter).
+ */
 @Composable
-private fun Centered(content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { content() }
+private fun LoadingScreen() {
+    val style = LocalUiStyle.current
+    val pd = LocalPdPalette.current
+    val predator = style == UiStyle.PREDATOR
+    val primary = MaterialTheme.colorScheme.primary
+    val transition = rememberInfiniteTransition(label = "loading")
+    // Tailwind animate-ping: scale 1 → 2 while fading out, 1s.
+    val ping by transition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1000, easing = CubicBezierEasing(0f, 0f, 0.2f, 1f))),
+        label = "ping",
+    )
+    // Tailwind animate-pulse: opacity 1 → 0.5 → 1, 2s.
+    val pulse by transition.animateFloat(
+        initialValue = 1f, targetValue = 0.5f,
+        animationSpec = infiniteRepeatable(tween(1000, easing = CubicBezierEasing(0.4f, 0f, 0.6f, 1f)), RepeatMode.Reverse),
+        label = "pulse",
+    )
+    Surface(modifier = Modifier.fillMaxSize(), color = if (predator) pd.panel else MaterialTheme.colorScheme.background) {
+        Box(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val shape = if (predator) PdHexagonShape else CircleShape
+                val width = 64.dp
+                val height = if (predator) 70.dp else 64.dp
+                Box(contentAlignment = Alignment.Center) {
+                    Box(
+                        Modifier.size(width, height)
+                            .graphicsLayer { scaleX = 1f + ping; scaleY = 1f + ping; alpha = 1f - ping }
+                            .background(if (predator) pd.accent.copy(alpha = 0.25f) else primary.copy(alpha = 0.2f), shape),
+                    )
+                    Box(
+                        Modifier.size(width, height)
+                            .clip(shape)
+                            .background(if (predator) pd.accentTint else primary.copy(alpha = 0.1f), shape)
+                            .then(if (predator) Modifier.border(1.5.dp, pd.accent, shape) else Modifier),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painterResource(LucideIcons.SHIELD), null,
+                            tint = if (predator) pd.ink else primary,
+                            modifier = Modifier.size(32.dp).graphicsLayer { alpha = pulse },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    "LIFE MAPP",
+                    style = if (predator) pdLabelStyle(size = 24.sp, color = pd.ink, letterSpacing = 0.2.em)
+                    else MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.02).em),
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(8.dp))
+                val caption = stringResource(R.string.loading_data)
+                Text(
+                    if (predator) caption.uppercase() else caption,
+                    style = if (predator) pdCaptionStyle(size = 12.sp, color = pd.dim)
+                    else MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(24.dp))
+                if (predator) {
+                    // Slanted indeterminate meter: a 40% accent bar sliding across a well.
+                    val slide by transition.animateFloat(
+                        initialValue = -0.4f, targetValue = 1f,
+                        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing)),
+                        label = "meter",
+                    )
+                    val meterShape = remember { pdParallelogramShape(4.dp) }
+                    BoxWithConstraints(Modifier.size(160.dp, 6.dp).clip(meterShape).background(pd.well)) {
+                        Box(
+                            Modifier.fillMaxHeight().width(maxWidth * 0.4f)
+                                .graphicsLayer { translationX = slide * constraints.maxWidth }
+                                .background(pd.accent),
+                        )
+                    }
+                } else {
+                    CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, strokeWidth = 2.dp)
+                }
+            }
+        }
+    }
 }
 
 @Composable

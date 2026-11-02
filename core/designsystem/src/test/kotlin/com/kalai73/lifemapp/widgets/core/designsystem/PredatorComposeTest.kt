@@ -1,6 +1,5 @@
 package com.kalai73.lifemapp.widgets.core.designsystem
 
-import androidx.compose.ui.text.font.FontFamily
 import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import org.junit.Assert.assertEquals
@@ -34,7 +33,7 @@ class PredatorComposeTest {
     @Test
     fun `predator text styles use monospace and condensed font families`() {
         val caption = pdCaptionStyle()
-        assertEquals(FontFamily.Monospace, caption.fontFamily)
+        assertEquals(MonoFontFamily, caption.fontFamily)
 
         val label = pdLabelStyle()
         assertNotNull(label.fontFamily)

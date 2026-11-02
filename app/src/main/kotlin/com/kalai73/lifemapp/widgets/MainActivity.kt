@@ -17,11 +17,14 @@ import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappAppTheme
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebLauncher
 import com.kalai73.lifemapp.widgets.ui.AppViewModel
 import com.kalai73.lifemapp.widgets.ui.LifeMappAppContent
+import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import kotlinx.coroutines.launch
 
 /**
  * The app's only screen host: sign-in, encryption unlock and settings. Everything else happens in the
- * widgets and the web app. Also receives the Google sign-in redirect (lifemappwidgets://auth/callback).
+ * widgets and the web app. Also receives the Google sign-in redirect (lifemappwidgets://auth/callback) and the
+ * widget's taps: an item ([LifeMappWidgets.EXTRA_ITEM_ID]) opens in the Today screen's item modal, a section
+ * ([LifeMappWidgets.EXTRA_SECTION]) scrolls Today to it. Widget taps never open the web app.
  */
 class MainActivity : ComponentActivity() {
     private val viewModel: AppViewModel by viewModels()
@@ -30,6 +33,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         handleAuthCallback(intent)
+        // A recreated activity keeps its intent: the item was opened already
+        if (savedInstanceState == null) handleWidgetTap(intent)
         setContent {
             val cache by viewModel.cache.collectAsState()
             // This device's choice, else the web's (signed out: the default unless the device chose one)
@@ -59,6 +64,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleAuthCallback(intent)
+        handleWidgetTap(intent)
     }
 
     private fun startGoogleSignIn() {
@@ -79,5 +85,23 @@ class MainActivity : ComponentActivity() {
         }
         // Don't handle the same redirect again after a configuration change
         setIntent(Intent(intent).setData(null))
+    }
+
+    /** A widget tap: an item to show in the item modal, or a Today section to scroll to */
+    private fun handleWidgetTap(intent: Intent?) {
+        intent ?: return
+        val itemId = intent.getStringExtra(LifeMappWidgets.EXTRA_ITEM_ID)?.takeIf { it.isNotBlank() }
+        val section = intent.getStringExtra(LifeMappWidgets.EXTRA_SECTION)?.takeIf { it.isNotBlank() }
+        val topicId = intent.getStringExtra(LifeMappWidgets.EXTRA_TOPIC_ID)?.takeIf { it.isNotBlank() }
+        if (itemId == null && section == null && topicId == null) return
+        itemId?.let(viewModel::openItem)
+        topicId?.let(viewModel::expandTopic)
+        section?.let(viewModel::openSection)
+        setIntent(Intent(intent).apply {
+            removeExtra(LifeMappWidgets.EXTRA_ITEM_ID)
+            removeExtra(LifeMappWidgets.EXTRA_SECTION)
+            removeExtra(LifeMappWidgets.EXTRA_TOPIC_ID)
+            data = null
+        })
     }
 }

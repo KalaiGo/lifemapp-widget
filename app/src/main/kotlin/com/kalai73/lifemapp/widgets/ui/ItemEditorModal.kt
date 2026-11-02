@@ -111,6 +111,8 @@ internal fun ItemEditorDialog(
     onSave: (name: String?, html: String?) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
+    /** False to show the item without putting the cursor anywhere (opened from the widget, to read) */
+    autoFocus: Boolean = true,
 ) {
     val predator = LocalUiStyle.current == UiStyle.PREDATOR
     val pd = LocalPdPalette.current
@@ -148,7 +150,7 @@ internal fun ItemEditorDialog(
             TextState.Unavailable(R.string.item_text_failed)
         }
     }
-    LaunchedEffect(item.id) { if (focusTitle && nameKnown) runCatching { titleFocus.requestFocus() } }
+    LaunchedEffect(item.id) { if (autoFocus && focusTitle && nameKnown) runCatching { titleFocus.requestFocus() } }
 
     val newName = name.text.trim()
     val nameChanged = nameKnown && newName != item.name
@@ -267,7 +269,7 @@ internal fun ItemEditorDialog(
                                     onStateChange = { tick++ }
                                     editor = this
                                     // load() opens the text at its beginning (cursor at the start, scrolled to the top)
-                                    if (!focusTitle || !nameKnown) requestFocus()
+                                    if (autoFocus && (!focusTitle || !nameKnown)) requestFocus()
                                 }
                             },
                             modifier = Modifier.fillMaxWidth().height(if (expanded) EXPANDED_EDITOR_HEIGHT else COMPACT_EDITOR_HEIGHT),

@@ -568,4 +568,50 @@ class SnapshotAndPresenterTest {
         // Encrypted account without the key: nothing sent
         assertFalse(repo.rate(mapOf("d1" to 2), encrypted = true))
     }
+
+    @Test
+    fun `the scoring read skips the dropped user_settings column and reads the events limits`() = runTest {
+        signIn()
+        val selects = mutableListOf<String>()
+        val api = api { request ->
+            if (request.url.encodedPath.endsWith("lm_user_settings")) {
+                selects += request.url.parameters["select"].orEmpty()
+                json("""[{"preferences":{"hidden_domain_ids":["d2"],"days_ahead":5,"max_events":4},"monthly_scoring_last_completed":"2026-10-29T08:00:00Z"}]""")
+            } else json("[]")
+        }
+        val scoring = api.scoring("u1")
+        assertFalse(selects.single().contains("user_settings"))
+        assertEquals(listOf("d2"), scoring.hiddenDomainIds)
+        assertEquals("2026-10-29T08:00:00Z", scoring.lastCompleted)
+        assertEquals(5, scoring.eventsDaysAhead)
+        assertEquals(4, scoring.eventsMaxEvents)
+    }
+
+    @Test
+    fun `the events card keeps the user's days, the latest 3 past events of today and the event cap`() {
+        val today = java.time.LocalDate.of(2026, 11, 2)
+        fun ev(id: String, past: Boolean = false) =
+            com.kalai73.lifemapp.widgets.core.data.presentation.EventUi(id, id, null, false, "#000", null, false, null, past)
+        fun day(offset: Long, kind: DayKind, vararg events: com.kalai73.lifemapp.widgets.core.data.presentation.EventUi) =
+            com.kalai73.lifemapp.widgets.core.data.presentation.EventDayUi(today.plusDays(offset), kind, "d$offset", events.toList())
+        val days = listOf(
+            day(0, DayKind.TODAY, ev("p1", true), ev("p2", true), ev("p3", true), ev("p4", true), ev("n1")),
+            day(1, DayKind.TOMORROW, ev("t1"), ev("t2")),
+            day(4, DayKind.OTHER, ev("o1")),
+        )
+        val limits = com.kalai73.lifemapp.widgets.core.data.presentation.EventLimits
+
+        val wide = limits.apply(days, today, daysAhead = 7, maxEvents = 20)
+        assertEquals(listOf("p2", "p3", "p4", "n1", "t1", "t2", "o1"), wide.days.flatMap { d -> d.events.map { it.id } })
+        assertEquals(0, wide.more)
+
+        // 3 days: day 4 is out of range; a cap of 5 cuts tomorrow and counts the rest
+        val capped = limits.apply(days, today, daysAhead = 3, maxEvents = 5)
+        assertEquals(listOf("p2", "p3", "p4", "n1", "t1"), capped.days.flatMap { d -> d.events.map { it.id } })
+        assertEquals(1, capped.more)
+
+        // Today is always listed, even when empty
+        val none = limits.apply(days.drop(1), today, daysAhead = 1, maxEvents = 7)
+        assertEquals(listOf(DayKind.TODAY), none.days.map { it.kind })
+    }
 }

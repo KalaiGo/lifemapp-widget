@@ -49,13 +49,16 @@ data class WidgetUi(
     val averageRating: Double?,
     val weather: WeatherUi?,
     val eventDays: List<EventDayUi>,
+    /** The user's events card settings from the web (days to show, event cap), for the app's Today screen */
+    val eventsDaysAhead: Int = EventLimits.DEFAULT_DAYS_AHEAD,
+    val eventsMaxEvents: Int = EventLimits.DEFAULT_MAX_EVENTS,
     val tasks: List<TaskUi>,
     val shortcuts: List<ShortcutUi>,
     /** The Integrity domain card, null when the user has none */
     val integrity: IntegrityUi?,
     /**
      * The other Today domains (positions 2–5) the Today page shows (hidden ones left out, as on the web), in order:
-     * the app's Today screen only, never the widgets
+     * the app's Today screen shows them all, the Dashboard widget only Tenacity (5), at the bottom of its list
      */
     val todayDomains: List<IntegrityUi> = emptyList(),
     /** The Today screen's scoring section (the web's ScoringCircles); null without domains */
@@ -113,6 +116,41 @@ data class ForecastDayUi(val day: String, val high: String, val low: String, val
 
 enum class DayKind { TODAY, TOMORROW, OTHER }
 
+/** The days the web's events card shows (calendar-events-card.tsx), from the user's settings. */
+data class LimitedEvents(val days: List<EventDayUi>, /** Events left out by the cap ("+N more") */ val more: Int)
+
+object EventLimits {
+    /** The web's defaults (user-settings-store.ts) */
+    const val DEFAULT_DAYS_AHEAD = 3
+    const val DEFAULT_MAX_EVENTS = 7
+    /** The web keeps the latest 3 of today's past events */
+    const val MAX_PAST_TODAY = 3
+
+    /**
+     * The web's events card: the next [daysAhead] days (the snapshot holds 7 at most), only the latest
+     * [MAX_PAST_TODAY] of today's past events, then the first [maxEvents] in order. Today is always listed.
+     */
+    fun apply(days: List<EventDayUi>, today: LocalDate, daysAhead: Int, maxEvents: Int): LimitedEvents {
+        val last = today.plusDays((daysAhead.coerceAtLeast(1) - 1).toLong())
+        val inRange = days.filter { !it.date.isAfter(last) }.map { day ->
+            if (day.kind != DayKind.TODAY) day
+            else {
+                // Events come in start order: the earliest past ones go
+                val past = day.events.filter { it.past }
+                val dropped = past.take((past.size - MAX_PAST_TODAY).coerceAtLeast(0)).toSet()
+                day.copy(events = day.events.filterNot { it in dropped })
+            }
+        }
+        var left = maxEvents.coerceAtLeast(1)
+        val total = inRange.sumOf { it.events.size }
+        val capped = inRange.map { day -> day.copy(events = day.events.take(left).also { left -= it.size }) }
+            .filter { it.events.isNotEmpty() || it.kind == DayKind.TODAY }
+        val withToday = if (capped.firstOrNull()?.kind == DayKind.TODAY) capped
+        else listOf(EventDayUi(today, DayKind.TODAY, days.firstOrNull { it.kind == DayKind.TODAY }?.label ?: "", emptyList())) + capped
+        return LimitedEvents(withToday, more = total - capped.sumOf { it.events.size })
+    }
+}
+
 data class EventDayUi(val date: LocalDate, val kind: DayKind, val label: String, val events: List<EventUi>)
 
 data class EventUi(
@@ -126,6 +164,8 @@ data class EventUi(
     val secondary: Boolean,
     /** Provider page of the event, else null (opens the Today page's events section) */
     val link: String?,
+    /** A timed event of today that has ended (or started, without an end): the web's isTodayPastEvent */
+    val past: Boolean = false,
 )
 
 data class TaskUi(
@@ -342,6 +382,8 @@ object WidgetPresenter {
                             calendarName = e.calendarName,
                             secondary = e.secondary,
                             link = e.htmlLink,
+                            past = !e.allDay && e.date == today.toString() &&
+                                runCatching { Instant.parse(e.end ?: e.start).toEpochMilli() < now }.getOrDefault(false),
                         )
                     },
                 )
@@ -410,6 +452,8 @@ object WidgetPresenter {
                 )
             },
             eventDays = eventDays,
+            eventsDaysAhead = state.scoring?.eventsDaysAhead ?: EventLimits.DEFAULT_DAYS_AHEAD,
+            eventsMaxEvents = state.scoring?.eventsMaxEvents ?: EventLimits.DEFAULT_MAX_EVENTS,
             tasks = tasks,
             shortcuts = shortcuts,
             integrity = integrityUi,

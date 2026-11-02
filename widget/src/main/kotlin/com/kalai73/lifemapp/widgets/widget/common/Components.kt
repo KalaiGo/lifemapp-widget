@@ -154,13 +154,21 @@ fun Icon(res: Int, description: String?, size: Dp = 18.dp, tint: ColorProvider =
 
 fun color(value: Color): ColorProvider = ColorProvider(value)
 
-/** Opens a LIFE MAPP web route (signed in) in a Custom Tab. */
-fun openRoute(context: Context, path: String): Action = actionStartActivity(WebLauncher.routeIntent(context, path))
+/**
+ * Opens the app on the Today screen scrolled to [section] (a LifeMappWidgets.SECTION_ value), expanding the
+ * Integrity topic [topicId] when given. Widget taps never open the LIFE MAPP web app; only external links (event
+ * pages, webmail, Drive, quick links) leave the app.
+ */
+fun openSection(context: Context, section: String, topicId: String? = null): Action =
+    actionStartActivity(LifeMappWidgets.sectionIntent(context, section, topicId))
 
 /** Opens an external link with whatever app handles it. */
 fun openExternal(url: String): Action = actionStartActivity(WebLauncher.externalIntent(url))
 
 fun openApp(context: Context): Action = actionStartActivity(LifeMappWidgets.appIntent(context))
+
+/** Opens the app with the item's (subsubdomain's) content in its item modal. */
+fun openItem(context: Context, itemId: String): Action = actionStartActivity(LifeMappWidgets.itemIntent(context, itemId))
 
 /** Widget header: title (tapping opens [onTitle]), optional trailing content, reload button with spinner. */
 @Composable

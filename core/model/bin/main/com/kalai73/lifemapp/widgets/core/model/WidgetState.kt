@@ -21,7 +21,18 @@ data class CachedState(
     val completionFailed: Boolean = false,
     /** Light / dark choice of this device for the app and the widgets (not synced with the web) */
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    /**
+     * Color scheme chosen on this device ([ColorSchemeName.id]), overriding the web's; null follows the web.
+     * Kept as the id so an unknown value from a newer version falls back instead of failing to load.
+     */
+    val colorSchemeOverride: String? = null,
+    /** The Today screen's scoring section state (hidden domains, last scoring); null until first read */
+    val scoring: Scoring? = null,
 ) {
+    /** The scheme the app and widgets use: this device's choice, else the web's, else the default. */
+    val colorScheme: ColorSchemeName
+        get() = colorSchemeOverride?.let(ColorSchemeName::from) ?: ColorSchemeName.from(snapshot?.settings?.colorScheme)
+
     /** Whether a sync is really running: a killed or cancelled worker can't leave the spinner on for good. */
     fun isSyncing(now: Long): Boolean = syncing && now - syncStartedAt < SYNC_TIMEOUT_MS
 

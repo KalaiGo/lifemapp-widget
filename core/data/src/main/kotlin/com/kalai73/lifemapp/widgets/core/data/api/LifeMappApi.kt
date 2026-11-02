@@ -311,13 +311,14 @@ class LifeMappApi(
 
     /**
      * The user's Todoist API key as the web settings store it: the plain column, or end-to-end encrypted
-     * (EncryptedField JSON) when encryption is on; legacy rows keep it in the user_settings / encrypted_settings JSONB.
+     * (EncryptedField JSON) when encryption is on; legacy rows keep the encrypted one in the encrypted_settings JSONB.
+     * The legacy user_settings column is gone from the table: selecting it fails the whole read (400).
      */
     suspend fun todoistApiKey(userId: String): StoredApiKey {
         val response = authorized { token ->
             http.get("${config.supabaseUrl}/rest/v1/lm_user_settings") {
                 supabase(token)
-                parameter("select", "task_api_key,encrypted_api_key,user_settings,encrypted_settings")
+                parameter("select", "task_api_key,encrypted_api_key,encrypted_settings")
                 parameter("user_id", "eq.$userId")
             }
         }
@@ -334,7 +335,7 @@ class LifeMappApi(
             else -> null
         }
         return StoredApiKey(
-            plain = text(row["task_api_key"]) ?: text(blob("user_settings")?.get("task_manager_api_key")),
+            plain = text(row["task_api_key"]),
             encrypted = text(row["encrypted_api_key"]) ?: text(blob("encrypted_settings")?.get("task_manager_api_key")),
         )
     }
@@ -350,17 +351,18 @@ class LifeMappApi(
 
     /**
      * The scoring section's state, read as the web's user-settings-service does: the hidden domains from
-     * preferences (legacy: user_settings.calendar_settings, then user_settings), the last scoring from its column
-     * (legacy: user_settings), and every domain's id, position, name and custom color.
+     * preferences, the last scoring from its column, and every domain's id, position, name and custom color.
+     * The legacy user_settings column is gone from the table: selecting it fails the whole read (400).
      */
     suspend fun scoring(userId: String): Scoring {
-        val row = settingsRow(userId, "preferences,user_settings,monthly_scoring_last_completed")
-        val legacy = blob(row?.get("user_settings"))
-        val calendarSettings = blob(row?.get("preferences")) ?: blob(legacy?.get("calendar_settings"))
+        val row = settingsRow(userId, "preferences,monthly_scoring_last_completed")
         fun ids(element: kotlinx.serialization.json.JsonElement?): List<String>? =
             (element as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
-        val hidden = ids(calendarSettings?.get("hidden_domain_ids")) ?: ids(legacy?.get("hidden_domain_ids"))
-        val lastCompleted = text(row?.get("monthly_scoring_last_completed")) ?: text(legacy?.get("monthly_scoring_last_completed"))
+        val preferences = blob(row?.get("preferences"))
+        val hidden = ids(preferences?.get("hidden_domain_ids"))
+        val lastCompleted = text(row?.get("monthly_scoring_last_completed"))
+        // The events card's limits live in the same preferences blob (calendar-settings-dialog.tsx)
+        fun count(name: String): Int? = text(preferences?.get(name))?.toDoubleOrNull()?.toInt()?.takeIf { it > 0 }
         val domains = authorized { token ->
             http.get("${config.supabaseUrl}/rest/v1/lm_life_domains") {
                 supabase(token)
@@ -376,7 +378,13 @@ class LifeMappApi(
                 color = text(d["color"]),
             )
         }
-        return Scoring(hiddenDomainIds = hidden, lastCompleted = lastCompleted, domains = domains)
+        return Scoring(
+            hiddenDomainIds = hidden,
+            lastCompleted = lastCompleted,
+            domains = domains,
+            eventsDaysAhead = count("days_ahead"),
+            eventsMaxEvents = count("max_events"),
+        )
     }
 
     /** Saves the hidden domains into preferences, keeping its other keys (updateHiddenDomains on the web). */
