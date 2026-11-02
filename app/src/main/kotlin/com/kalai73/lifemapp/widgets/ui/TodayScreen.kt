@@ -168,6 +168,13 @@ fun TodayScreen(
         if (url.startsWith("http", ignoreCase = true)) runCatching { uriHandler.openUri(url) } else onOpenWeb(url)
     }
     val locked = ui.encryption == EncryptionState.LOCKED
+    // Hidden domains tapped in the navigation overlay: their cards show on this screen while their hidden status
+    // stays. One that gets shown (scoring section) leaves the set, so hiding it again hides its card too
+    var revealed by remember { mutableStateOf(emptySet<String>()) }
+    val hiddenIds = ui.hiddenTodayDomains.map { it.domainId }.toSet()
+    LaunchedEffect(hiddenIds) { revealed = revealed intersect hiddenIds }
+    val allDomains = (ui.todayDomains + ui.hiddenTodayDomains).sortedBy { it.position }
+    val shownDomains = allDomains.filter { it.domainId !in hiddenIds || it.domainId in revealed }
     val keys = buildList {
         add("greeting"); add("date"); add("counters")
         // The weather card carries the average only while there's no scoring section to show it
@@ -179,12 +186,23 @@ fun TodayScreen(
         if (ui.integrity != null) add("integrity")
         add("events"); add("tasks"); add("shortcuts")
         // Serenity, Vitality, Stability, Tenacity follow the Integrity card's widgets, as on the web's Today page
-        ui.todayDomains.forEach { add(domainKey(it)) }
+        shownDomains.forEach { add(domainKey(it)) }
         add("end")
     }
     val scrollTo = { key: String -> scope.launch { listState.animateScrollToItem(keys.indexOf(key).coerceAtLeast(0)) }; Unit }
     var navOpen by remember { mutableStateOf(false) }
     BackHandler(enabled = navOpen) { navOpen = false }
+
+    // A revealed card joins the list on the next composition: scroll to it once its key is there
+    var pendingScroll by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pendingScroll, keys) {
+        val key = pendingScroll ?: return@LaunchedEffect
+        if (key in keys) { pendingScroll = null; listState.animateScrollToItem(keys.indexOf(key)) }
+    }
+    val openDomain = { domain: IntegrityUi ->
+        if (domain.domainId in hiddenIds) revealed = revealed + domain.domainId
+        pendingScroll = domainKey(domain)
+    }
 
     // A widget section tap: scroll there once Today has it (Integrity only while the user has one)
     LaunchedEffect(openSection, keys) {
@@ -204,7 +222,7 @@ fun TodayScreen(
     var widgetItem by remember { mutableStateOf<TopicItemUi?>(null) }
     LaunchedEffect(openItemId, ui) {
         val id = openItemId ?: return@LaunchedEffect
-        val domains = listOfNotNull(ui.integrity) + ui.todayDomains
+        val domains = listOfNotNull(ui.integrity) + allDomains
         val domain = domains.firstOrNull { d -> d.topics.any { topic -> topic.items.any { it.id == id } } }
         val item = domain?.topics?.firstNotNullOfOrNull { topic -> topic.items.firstOrNull { it.id == id } }
         when {
@@ -212,7 +230,8 @@ fun TodayScreen(
                 navOpen = false
                 widgetItem = item
                 onItemOpened()
-                scrollTo(if (domain === ui.integrity) "integrity" else domainKey(domain))
+                // An item of a hidden domain reveals its card, as the navigation overlay does
+                if (domain === ui.integrity) scrollTo("integrity") else openDomain(domain)
             }
             // Loaded and the item isn't there (removed since the widget drew it): Today alone
             ui.hasData && !ui.syncing -> onItemOpened()
@@ -301,7 +320,7 @@ fun TodayScreen(
                         "tasks" -> TasksSection(ui, onCompleteTask, showTask, onOpenWeb)
                         "shortcuts" -> ShortcutsSection(ui, openLink, onOpenWeb, onUnlock)
                         "end" -> Spacer(Modifier.height(28.dp))
-                        else -> ui.todayDomains.firstOrNull { domainKey(it) == key }?.let {
+                        else -> shownDomains.firstOrNull { domainKey(it) == key }?.let {
                             DomainCard(it, onOpenWeb, itemHandlers, onToggleTopic)
                         }
                     }
@@ -312,10 +331,11 @@ fun TodayScreen(
         }
         if (navOpen) {
             NavOverlay(
-                ui,
+                ui, allDomains, hiddenIds,
                 onDismiss = { navOpen = false },
                 onTop = { navOpen = false; scope.launch { listState.animateScrollToItem(0) } },
                 onSection = { key -> navOpen = false; scrollTo(key) },
+                onDomain = { domain -> navOpen = false; openDomain(domain) },
             )
         }
       }
@@ -333,11 +353,19 @@ private fun findEvent(ui: WidgetUi, entry: TodayEntry.Event): EventUi? {
 
 /**
  * The web's DomainFloatingNav on Today: a scrim and a small centered list above the footer with "Top", the
- * Integrity domain and its sections (events, tasks, shortcuts), then the other Today domains. Tapping an entry
- * scrolls the list to it.
+ * Integrity domain and its sections (events, tasks, shortcuts), then every other Today domain, hidden ones too
+ * (dimmed). Tapping an entry scrolls the list to it; a hidden domain's card is revealed first.
  */
 @Composable
-private fun BoxScope.NavOverlay(ui: WidgetUi, onDismiss: () -> Unit, onTop: () -> Unit, onSection: (String) -> Unit) {
+private fun BoxScope.NavOverlay(
+    ui: WidgetUi,
+    domains: List<IntegrityUi>,
+    hiddenIds: Set<String>,
+    onDismiss: () -> Unit,
+    onTop: () -> Unit,
+    onSection: (String) -> Unit,
+    onDomain: (IntegrityUi) -> Unit,
+) {
     val t = LocalTok.current
     Box(
         Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.3f))
@@ -357,8 +385,9 @@ private fun BoxScope.NavOverlay(ui: WidgetUi, onDismiss: () -> Unit, onTop: () -
         NavEntry(LucideIcons.CALENDAR, stringResource(R.string.today_events), t.dim) { onSection("events") }
         NavEntry(LucideIcons.TASKS, stringResource(R.string.today_tasks), t.dim) { onSection("tasks") }
         NavEntry(LucideIcons.ZAP, stringResource(R.string.today_shortcuts), t.dim) { onSection("shortcuts") }
-        ui.todayDomains.forEach { domain ->
-            NavEntry(LucideIcons.domain(domain.position), domainName(domain), t.ink) { onSection(domainKey(domain)) }
+        domains.forEach { domain ->
+            val hidden = domain.domainId in hiddenIds
+            NavEntry(LucideIcons.domain(domain.position), domainName(domain), if (hidden) t.dim else t.ink) { onDomain(domain) }
         }
     }
 }
@@ -1508,9 +1537,9 @@ private fun NoContent(topic: TopicUi, onClick: () -> Unit) {
 /**
  * An item (subsubdomain), "• 2.1 Item" indented under the topic's hex as on the web card, with the warning icon
  * when flagged, a text icon when it has content and an image icon when it is (or its text holds) a picture. A tap
- * on the header opens the item's edit modal. Text items don't expand in the app; an image item's header shows a
- * chevron and a tap on the chevron expands or collapses the picture below (saved like the web card's chevron). A
- * long press on the title opens the item menu (edit, move, warning, copy link, delete).
+ * on a text item's header opens its edit modal (text items don't expand in the app); an image item's header shows
+ * a chevron and a tap on it expands or collapses the picture below (saved like the web card's chevron). A long
+ * press on the title opens the item menu (edit, move, warning, copy link, delete).
  */
 @Composable
 private fun ItemRow(
@@ -1533,9 +1562,9 @@ private fun ItemRow(
     Box {
         Row(
             Modifier.fillMaxWidth()
-                .pointerInput(item.id) {
+                .pointerInput(item.id, toggles) {
                     detectTapGestures(
-                        onTap = { action(ItemAction.EDIT) },
+                        onTap = { if (toggles) toggle() else action(ItemAction.EDIT) },
                         onLongPress = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             menuOpen = true
@@ -1543,22 +1572,18 @@ private fun ItemRow(
                     )
                 }
                 .semantics {
-                    onClick(editLabel) { action(ItemAction.EDIT); true }
+                    if (toggles) onClick(toggleLabel) { toggle(); true }
+                    else onClick(editLabel) { action(ItemAction.EDIT); true }
                     onLongClick(menuLabel) { menuOpen = true; true }
                 }
-                .padding(start = 12.dp, top = 5.dp, bottom = 5.dp),
+                .padding(start = 18.dp, top = 5.dp, bottom = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // A 24dp slot (the bullet/chevron centered where the 11dp one sat): an image item's chevron is its own
-            // tap target that expands or collapses the picture, consuming the tap so the header's edit doesn't fire
-            Box(
-                Modifier.size(24.dp).clip(CircleShape)
-                    .let { if (toggles) it.clickable(onClickLabel = toggleLabel) { toggle() } else it },
-                contentAlignment = Alignment.Center,
-            ) {
+            Box(Modifier.size(11.dp), contentAlignment = Alignment.Center) {
                 if (toggles) Ic(if (item.collapsed) LucideIcons.CHEVRON_RIGHT else LucideIcons.CHEVRON_DOWN, 11.dp, t.dim, null)
                 else Box(Modifier.size(5.dp).clip(CircleShape).background(t.faint))
             }
+            Spacer(Modifier.width(6.dp))
             Text("${topic.number}.$number", style = t.caption(11.sp), maxLines = 1)
             Spacer(Modifier.width(5.dp))
             if (item.warning) {

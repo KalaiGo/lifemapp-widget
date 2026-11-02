@@ -397,16 +397,14 @@ class LifeMappApi(
     }
 
     /**
-     * The scoring section's state, read as the web's user-settings-service does: the hidden domains from
-     * preferences, the last scoring from its column, and every domain's id, position, name and custom color.
+     * The scoring section's state, read as the web's user-settings-service does: the last scoring from its
+     * column, and every domain's id, position, name and custom color. The web's hidden domains
+     * (preferences.hidden_domain_ids) are not read: the app keeps its own list (hiddenDomainIds stays null here).
      * The legacy user_settings column is gone from the table: selecting it fails the whole read (400).
      */
     suspend fun scoring(userId: String): Scoring {
         val row = settingsRow(userId, "preferences,monthly_scoring_last_completed")
-        fun ids(element: kotlinx.serialization.json.JsonElement?): List<String>? =
-            (element as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
         val preferences = blob(row?.get("preferences"))
-        val hidden = ids(preferences?.get("hidden_domain_ids"))
         val lastCompleted = text(row?.get("monthly_scoring_last_completed"))
         // The events card's limits live in the same preferences blob (calendar-settings-dialog.tsx)
         fun count(name: String): Int? = text(preferences?.get(name))?.toDoubleOrNull()?.toInt()?.takeIf { it > 0 }
@@ -426,19 +424,11 @@ class LifeMappApi(
             )
         }
         return Scoring(
-            hiddenDomainIds = hidden,
             lastCompleted = lastCompleted,
             domains = domains,
             eventsDaysAhead = count("days_ahead"),
             eventsMaxEvents = count("max_events"),
         )
-    }
-
-    /** Saves the hidden domains into preferences, keeping its other keys (updateHiddenDomains on the web). */
-    suspend fun setHiddenDomains(userId: String, ids: List<String>) {
-        val preferences = blob(settingsRow(userId, "preferences")?.get("preferences")) ?: JsonObject(emptyMap())
-        val updated = JsonObject(preferences + ("hidden_domain_ids" to JsonArray(ids.map(::JsonPrimitive))))
-        updateSettings(userId, JsonObject(mapOf("preferences" to updated)))
     }
 
     /** Records the last scoring (monthly_scoring_last_completed) as an ISO instant, as the web does. */

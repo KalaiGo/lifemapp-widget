@@ -28,10 +28,10 @@ class ScoringRepository(
     /**
      * Hides ([changes] value true) or shows domains on the Today page, as the web's toggleDomainHidden and its
      * "Hide all / Show all" button do. A list never set (null: every hidable domain hidden) is materialized first.
-     * Integrity, Tenacity and Trayectory stay shown. The old list comes back when the server refuses the change.
+     * Integrity, Tenacity and Trayectory stay shown. The list is this device's own: it lives in the cache only and
+     * is never read from or written to the web's preferences.hidden_domain_ids.
      */
     suspend fun setHidden(changes: Map<String, Boolean>, onLocalChange: suspend () -> Unit = {}) {
-        val user = userId() ?: throw NotSignedInException()
         val before = cache.current().scoring ?: return
         val unhidable = before.domains.filter { it.unhidable }.map { it.id }.toSet()
         val current = before.hiddenDomainIds ?: before.domains.filterNot { it.unhidable }.map { it.id }
@@ -41,12 +41,6 @@ class ScoringRepository(
         if (updated == before.hiddenDomainIds) return
         cache.update { it.copy(scoring = it.scoring?.copy(hiddenDomainIds = updated)) }
         onLocalChange()
-        try {
-            api.setHiddenDomains(user, updated)
-        } catch (e: Exception) {
-            cache.update { it.copy(scoring = it.scoring?.copy(hiddenDomainIds = before.hiddenDomainIds)) }
-            throw e
-        }
     }
 
     /**

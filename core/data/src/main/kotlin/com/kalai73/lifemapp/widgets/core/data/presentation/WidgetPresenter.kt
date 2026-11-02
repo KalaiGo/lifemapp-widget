@@ -57,10 +57,15 @@ data class WidgetUi(
     /** The Integrity domain card, null when the user has none */
     val integrity: IntegrityUi?,
     /**
-     * The other Today domains (positions 2–5) the Today page shows (hidden ones left out, as on the web), in order:
+     * The other Today domains (positions 2–5) the Today page shows (the ones hidden on the app's Today screen left out), in order:
      * the app's Today screen shows them all, the Dashboard widget only Tenacity (5), at the bottom of its list
      */
     val todayDomains: List<IntegrityUi> = emptyList(),
+    /**
+     * The Today domains hidden on the app's Today screen, in order: its navigation overlay still lists them, and
+     * tapping one there reveals its card
+     */
+    val hiddenTodayDomains: List<IntegrityUi> = emptyList(),
     /** The Today screen's scoring section (the web's ScoringCircles); null without domains */
     val scoring: ScoringUi? = null,
     /** Quick links are encrypted and this device is locked */
@@ -426,6 +431,7 @@ object WidgetPresenter {
         val integrityUi = snapshot.integrity?.let { integrity(it, key) }
         val todayDomainsUi = snapshot.todayDomains.map { integrity(it, key) }
         val scoring = scoring(state.scoring, listOfNotNull(integrityUi) + todayDomainsUi, encryption, today, deviceZone)
+        val hiddenIds = scoring?.domains?.filter { it.hidden }?.map { it.id }?.toSet().orEmpty()
 
         return WidgetUi(
             authState = authState,
@@ -486,7 +492,8 @@ object WidgetPresenter {
             tasks = tasks,
             shortcuts = shortcuts,
             integrity = integrityUi,
-            todayDomains = todayDomainsUi.filterNot { d -> scoring?.domains?.any { it.id == d.domainId && it.hidden } == true },
+            todayDomains = todayDomainsUi.filterNot { it.domainId in hiddenIds },
+            hiddenTodayDomains = todayDomainsUi.filter { it.domainId in hiddenIds },
             scoring = scoring,
             shortcutsLocked = shortcutsLocked,
             updatedAt = state.lastSuccessAt.takeIf { it > 0 }?.let { DateLabels.time(Instant.ofEpochMilli(it), deviceZone, settings?.timeFormat) },

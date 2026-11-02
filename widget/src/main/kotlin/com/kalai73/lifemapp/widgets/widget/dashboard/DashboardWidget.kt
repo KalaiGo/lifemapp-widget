@@ -158,7 +158,7 @@ internal fun DashboardContent(ui: WidgetUi, days: List<EventDayUi>, modifier: Gl
             eventsSection(ui, days.filter { it.kind == DayKind.TODAY })
             tasksSection(ui.copy(tasks = ui.tasks.filterNot { it.upcoming }))
             shortcutsSection(ui, columns = shortcutColumns(size.width, rows = predator))
-            // Tenacity (life domain 5) closes the list, unless it's hidden on the web's Today page
+            // Tenacity (life domain 5) closes the list, unless it's hidden on the app's Today screen
             ui.todayDomains.firstOrNull { it.position == TENACITY_POSITION }?.let { integritySection(it) }
         }
         HeroFooter(ui)

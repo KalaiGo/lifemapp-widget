@@ -69,7 +69,8 @@ class SnapshotRepository(
             cache.update { old ->
                 old.copy(
                     snapshot = merge(old.snapshot, fresh),
-                    scoring = freshScoring ?: old.scoring,
+                    // The hidden domains are this device's own choice: a sync never replaces them
+                    scoring = freshScoring?.copy(hiddenDomainIds = old.scoring?.hiddenDomainIds) ?: old.scoring,
                     lastSuccessAt = clock(),
                     lastError = null,
                     syncing = false,

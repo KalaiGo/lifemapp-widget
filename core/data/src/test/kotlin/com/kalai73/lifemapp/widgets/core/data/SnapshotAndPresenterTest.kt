@@ -135,6 +135,16 @@ class SnapshotAndPresenterTest {
     }
 
     @Test
+    fun `a sync keeps the app's own hidden domains`() = runTest {
+        signIn()
+        cache.update { it.copy(scoring = Scoring(hiddenDomainIds = listOf("d3"), lastCompleted = "old")) }
+        val repo = SnapshotRepository(api { json("""{"today":"2026-10-31"}""") }, cache, scoring = { Scoring(lastCompleted = "new") })
+        assertEquals(SyncResult.Success, repo.refresh())
+        assertEquals(listOf("d3"), cache.current().scoring!!.hiddenDomainIds)
+        assertEquals("new", cache.current().scoring!!.lastCompleted)
+    }
+
+    @Test
     fun `a syncing flag left behind by a killed worker expires`() {
         val state = CachedState(snapshot = Snapshot(), syncing = true, syncStartedAt = now - CachedState.SYNC_TIMEOUT_MS - 1)
         assertFalse(WidgetPresenter.present(state, AuthState.SIGNED_IN, null, now, madrid).syncing)
@@ -527,6 +537,8 @@ class SnapshotAndPresenterTest {
         val never = WidgetPresenter.present(CachedState(snapshot = snapshot, scoring = Scoring(domains = domains)), AuthState.SIGNED_IN, null, now, madrid)
         assertEquals(listOf(false, true, true, false), never.scoring!!.domains.map { it.hidden })
         assertEquals(listOf("d5"), never.todayDomains.map { it.domainId })
+        // The hidden ones stay available for the navigation overlay
+        assertEquals(listOf("d2", "d3"), never.hiddenTodayDomains.map { it.domainId })
         assertTrue(never.scoring!!.allHidableHidden)
         assertEquals(null, never.scoring!!.daysSinceScored)
         assertTrue(never.scoring!!.scoringDue)
@@ -554,7 +566,7 @@ class SnapshotAndPresenterTest {
     }
 
     @Test
-    fun `hiding a domain materializes a never-set list and keeps the other preferences`() = runTest {
+    fun `hiding a domain materializes a never-set list locally and never touches the web`() = runTest {
         signIn()
         val domains = listOf(ScoringDomain("d1", 1, "INTEGRITY"), ScoringDomain("d2", 2, "SERENITY"), ScoringDomain("d3", 3, "VITALITY"), ScoringDomain("d5", 5, "TENACITY"))
         cache.update { it.copy(scoring = Scoring(domains = domains)) }
@@ -573,10 +585,11 @@ class SnapshotAndPresenterTest {
         // Never set: Serenity and Vitality hidden; showing Serenity leaves Vitality hidden
         repo.setHidden(mapOf("d2" to false))
         assertEquals(listOf("d3"), cache.current().scoring!!.hiddenDomainIds)
-        assertEquals("""{"preferences":{"theme":"x","hidden_domain_ids":["d3"]}}""", patches.single())
         // Integrity can't be hidden
         repo.setHidden(mapOf("d1" to true, "d2" to true))
         assertEquals(listOf("d3", "d2"), cache.current().scoring!!.hiddenDomainIds)
+        // The app's own list: nothing is saved to the web's preferences
+        assertTrue(patches.isEmpty())
     }
 
     @Test
@@ -621,7 +634,8 @@ class SnapshotAndPresenterTest {
         }
         val scoring = api.scoring("u1")
         assertFalse(selects.single().contains("user_settings"))
-        assertEquals(listOf("d2"), scoring.hiddenDomainIds)
+        // The web's hidden domains are not read: the app keeps its own
+        assertNull(scoring.hiddenDomainIds)
         assertEquals("2026-10-29T08:00:00Z", scoring.lastCompleted)
         assertEquals(5, scoring.eventsDaysAhead)
         assertEquals(4, scoring.eventsMaxEvents)

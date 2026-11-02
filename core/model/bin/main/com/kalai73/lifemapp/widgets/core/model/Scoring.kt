@@ -9,8 +9,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Scoring(
     /**
-     * Domains hidden from the Today page (preferences.hidden_domain_ids). Null when never set: the web then hides
-     * every domain that can be hidden (isDomainHidden in scoring-circles.tsx).
+     * Domains hidden from the app's Today page: this device's own list, kept in the cache and never synced with
+     * the web's preferences.hidden_domain_ids. Null when never set: every domain that can be hidden is hidden
+     * (the web's default, isDomainHidden in scoring-circles.tsx).
      */
     val hiddenDomainIds: List<String>? = null,
     /** monthly_scoring_last_completed: an ISO instant, or "YYYY-MM" from older rows; null when never scored */
