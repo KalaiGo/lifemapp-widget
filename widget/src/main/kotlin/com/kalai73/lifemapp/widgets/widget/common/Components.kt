@@ -156,8 +156,8 @@ fun color(value: Color): ColorProvider = ColorProvider(value)
 
 /**
  * Opens the app on the Today screen scrolled to [section] (a LifeMappWidgets.SECTION_ value), expanding the
- * Integrity topic [topicId] when given. Widget taps never open the LIFE MAPP web app; only external links (event
- * pages, webmail, Drive, quick links) leave the app.
+ * Integrity topic [topicId] when given. Widget taps never open the LIFE MAPP web app; only external links
+ * (webmail, Drive, quick links) leave the app.
  */
 fun openSection(context: Context, section: String, topicId: String? = null): Action =
     actionStartActivity(LifeMappWidgets.sectionIntent(context, section, topicId))
@@ -169,6 +169,13 @@ fun openApp(context: Context): Action = actionStartActivity(LifeMappWidgets.appI
 
 /** Opens the app with the item's (subsubdomain's) content in its item modal. */
 fun openItem(context: Context, itemId: String): Action = actionStartActivity(LifeMappWidgets.itemIntent(context, itemId))
+
+/** Opens the app with the event's details in its event modal, as the web's events card does. */
+fun openEvent(context: Context, eventId: String, start: String): Action =
+    actionStartActivity(LifeMappWidgets.eventIntent(context, eventId, start))
+
+/** Opens the app with the task's details in its task modal, as the web's task list does. */
+fun openTask(context: Context, taskId: String): Action = actionStartActivity(LifeMappWidgets.taskIntent(context, taskId))
 
 /** Widget header: title (tapping opens [onTitle]), optional trailing content, reload button with spinner. */
 @Composable

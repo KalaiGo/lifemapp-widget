@@ -238,6 +238,12 @@ object LucideIcons {
     val ARROW_DOWN = R.drawable.lm_ic_arrow_down
     val LINK_2 = R.drawable.lm_ic_link_2
 
+    // The web's event and task details modals (event-details-modal.tsx, task-details-modal.tsx)
+    val EXTERNAL_LINK = R.drawable.lm_ic_external_link
+    val ALIGN_LEFT = R.drawable.lm_ic_align_left
+    val MAP_PIN = R.drawable.lm_ic_map_pin
+    val FLAG = R.drawable.lm_ic_flag
+
     // The Today page's scoring section (scoring-circles.tsx)
     val EYE = R.drawable.lm_ic_eye
     val EYE_OFF = R.drawable.lm_ic_eye_off

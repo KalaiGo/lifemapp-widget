@@ -116,6 +116,7 @@ fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOp
     val today by viewModel.today.collectAsState()
     val openItem by viewModel.openItem.collectAsState()
     val openSection by viewModel.openSection.collectAsState()
+    val openEntry by viewModel.openEntry.collectAsState()
     if (state.screen == Screen.HOME) {
         // Main page = Today; the former main page (sync, widgets, encryption, battery, account) is the side panel
         val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -156,6 +157,8 @@ fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOp
                         onItemOpened = viewModel::itemOpened,
                         openSection = openSection,
                         onSectionOpened = viewModel::sectionOpened,
+                        openEntry = openEntry,
+                        onEntryOpened = viewModel::entryOpened,
                     )
                 }
             }

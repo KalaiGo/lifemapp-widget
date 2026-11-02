@@ -221,4 +221,20 @@
     <string name="rating_desc_9">Soaring</string>
     <string name="rating_desc_10">Flourishing</string>
     <string name="loading_data">Unlocking and loading your data</string>
+    <!-- Event and task details modals (Today screen) -->
+    <string name="details_event_badge">Event</string>
+    <string name="details_task_badge">Task</string>
+    <string name="details_when">When</string>
+    <string name="details_location">Location</string>
+    <string name="details_description">Description</string>
+    <string name="details_calendar">Calendar</string>
+    <string name="details_list">List</string>
+    <string name="details_priority">Priority</string>
+    <string name="details_due">Due</string>
+    <string name="details_no_due">No due date</string>
+    <string name="details_repeats">Repeats</string>
+    <string name="details_overdue">Overdue</string>
+    <string name="details_open_event">Open event</string>
+    <string name="details_open_tasks">Open in LIFE MAPP</string>
+    <string name="details_description_locked">Unlock to see the description</string>
 </resources>

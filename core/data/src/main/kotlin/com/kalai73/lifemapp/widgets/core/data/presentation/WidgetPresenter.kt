@@ -166,6 +166,14 @@ data class EventUi(
     val link: String?,
     /** A timed event of today that has ended (or started, without an end): the web's isTodayPastEvent */
     val past: Boolean = false,
+    /** The snapshot's start (ISO instant or YYYY-MM-DD): with [id], tells repeated instances apart */
+    val start: String = "",
+    /** The event modal's "When": the full date, or the date range of a multi-day all-day event */
+    val dateLabel: String = "",
+    val location: String? = null,
+    val description: String? = null,
+    /** "confirmed", "tentative", "cancelled", or null */
+    val status: String? = null,
 )
 
 data class TaskUi(
@@ -191,6 +199,12 @@ data class TaskUi(
     val tagLabel: String? = null,
     /** The provider badge's hex color (emerald for LIFE MAPP, red for Todoist, …) */
     val tagColor: String? = null,
+    /** HTML; null when there is none, or it is encrypted and this device is locked */
+    val description: String? = null,
+    /** The task has an encrypted description this device can't read (locked) */
+    val descriptionLocked: Boolean = false,
+    /** Local due date; [dueLabel] leaves today's date out */
+    val dueDate: LocalDate? = null,
 ) {
     val upcoming: Boolean get() = day != DayKind.TODAY
 }
@@ -349,6 +363,9 @@ object WidgetPresenter {
                 colorTier = colorTier(t.priority, listName, due?.let { java.time.temporal.ChronoUnit.DAYS.between(today, it) }),
                 tagLabel = tagLabel,
                 tagColor = tagColor,
+                description = (t.description ?: key?.let { EncryptedField.decrypt(t.encryptedDescription, it) })?.takeIf { it.isNotBlank() },
+                descriptionLocked = key == null && !t.encryptedDescription.isNullOrBlank(),
+                dueDate = due,
             )
         }
             // Segments in order (Today, Tomorrow, Tomorrow ++ 1); the server's order within each is kept
@@ -384,6 +401,11 @@ object WidgetPresenter {
                             link = e.htmlLink,
                             past = !e.allDay && e.date == today.toString() &&
                                 runCatching { Instant.parse(e.end ?: e.start).toEpochMilli() < now }.getOrDefault(false),
+                            start = e.start,
+                            dateLabel = eventDateLabel(e, zone, language),
+                            location = e.location?.takeIf { it.isNotBlank() },
+                            description = e.description?.takeIf { it.isNotBlank() },
+                            status = e.status?.takeIf { it.isNotBlank() },
                         )
                     },
                 )
@@ -488,6 +510,17 @@ object WidgetPresenter {
      * The task's segment on the device's date, so a cached snapshot rolls over at midnight: "today" stays Today
      * (Today list or overdue); a due date otherwise decides; undated upcoming tasks ("In 7 days" list) stay later.
      */
+    /**
+     * The event modal's date, as the web's formatEventFullDate: the start day in the user's zone, and for an
+     * all-day event lasting several days its last day too (the end date is exclusive).
+     */
+    internal fun eventDateLabel(e: com.kalai73.lifemapp.widgets.core.model.Event, zone: ZoneId, language: String): String = runCatching {
+        val start = if (e.allDay) LocalDate.parse(e.start.take(10)) else Instant.parse(e.start).atZone(zone).toLocalDate()
+        val last = if (e.allDay) e.end?.let { LocalDate.parse(it.take(10)).minusDays(1) } else null
+        val first = DateLabels.dayAndDate(start, DateLabels.DATE_FORMAT, language)
+        if (last != null && last.isAfter(start)) "$first – ${DateLabels.dayAndDate(last, DateLabels.DATE_FORMAT, language)}" else first
+    }.getOrDefault(e.date)
+
     private fun segmentRank(segment: String): Int = when (segment) {
         Task.SEGMENT_TODAY -> 0
         Task.SEGMENT_TOMORROW -> 1

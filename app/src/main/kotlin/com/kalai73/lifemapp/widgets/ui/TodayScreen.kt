@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -47,13 +48,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.addOutline
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -146,6 +142,10 @@ fun TodayScreen(
     openSection: String? = null,
     /** The [openSection] request was handled */
     onSectionOpened: () -> Unit = {},
+    /** An event or task a widget tap asked to show in its details modal; null for none */
+    openEntry: TodayEntry? = null,
+    /** The [openEntry] request was handled (shown, or not on Today) */
+    onEntryOpened: () -> Unit = {},
 ) {
     val t = rememberTokens()
     val itemHandlers = ItemHandlers(onLoadItemText, onSaveItem, onDeleteItem, onMoveItem, onSetItemWarning)
@@ -219,7 +219,37 @@ fun TodayScreen(
         )
     }
 
+    // The event or task shown in its details modal, as on the web's events card and task list. Kept by id, so
+    // the modal follows syncs and closes when the entry goes (a completed task, an event removed since)
+    var shownEntry by remember { mutableStateOf<TodayEntry?>(null) }
+    val shownEvent = (shownEntry as? TodayEntry.Event)?.let { findEvent(ui, it) }
+    val shownTask = (shownEntry as? TodayEntry.Task)?.let { e -> ui.tasks.firstOrNull { it.id == e.id } }
+    if (shownEntry != null && shownEvent == null && shownTask == null) SideEffect { shownEntry = null }
+    val showEvent: (EventUi) -> Unit = { shownEntry = TodayEntry.Event(it.id, it.start) }
+    val showTask: (TaskUi) -> Unit = { shownEntry = TodayEntry.Task(it.id) }
+
+    // A widget event or task tap: scroll to its section and open it in the modal, once Today has it
+    LaunchedEffect(openEntry, ui) {
+        val entry = openEntry ?: return@LaunchedEffect
+        val found = when (entry) {
+            is TodayEntry.Event -> findEvent(ui, entry) != null
+            is TodayEntry.Task -> ui.tasks.any { it.id == entry.id }
+        }
+        when {
+            found -> {
+                navOpen = false
+                shownEntry = entry
+                onEntryOpened()
+                scrollTo(if (entry is TodayEntry.Event) "events" else "tasks")
+            }
+            // Loaded and the entry isn't there (done or removed since the widget drew it): Today alone
+            ui.hasData && !ui.syncing -> onEntryOpened()
+        }
+    }
+
     CompositionLocalProvider(LocalTok provides t) {
+      shownEvent?.let { EventDetailsDialog(it, openLink) { shownEntry = null } }
+      shownTask?.let { TaskDetailsDialog(it, onCompleteTask, onOpenWeb) { shownEntry = null } }
       Box(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().background(t.page)) {
             LazyColumn(
@@ -249,8 +279,8 @@ fun TodayScreen(
                         )
                         "locked" -> LockedBanner(onUnlock)
                         "integrity" -> DomainCard(ui.integrity!!, onOpenWeb, itemHandlers, onToggleTopic)
-                        "events" -> EventsSection(ui, openLink, onOpenWeb)
-                        "tasks" -> TasksSection(ui, onCompleteTask, onOpenWeb)
+                        "events" -> EventsSection(ui, showEvent, onOpenWeb)
+                        "tasks" -> TasksSection(ui, onCompleteTask, showTask, onOpenWeb)
                         "shortcuts" -> ShortcutsSection(ui, openLink, onOpenWeb, onUnlock)
                         "end" -> Spacer(Modifier.height(28.dp))
                         else -> ui.todayDomains.firstOrNull { domainKey(it) == key }?.let {
@@ -272,6 +302,13 @@ fun TodayScreen(
         }
       }
     }
+}
+
+/** The event [entry] names: the instance with its start, else any with its id (the start may have moved) */
+private fun findEvent(ui: WidgetUi, entry: TodayEntry.Event): EventUi? {
+    val events = ui.eventDays.flatMap { it.events }
+    return events.firstOrNull { it.id == entry.id && (entry.start == null || it.start == entry.start) }
+        ?: events.firstOrNull { it.id == entry.id }
 }
 
 // ── Navigation overlay ──────────────────────────────────────────────────────
@@ -383,14 +420,6 @@ private fun rememberTokens(): Tok {
 /** The widgets' pd-frame: shape filled with [fill], 1dp [edge]. */
 internal fun Modifier.framed(t: Tok, fill: Color, edge: Color = fill, cut: Dp = 6.dp, shape: Shape = t.shape(cut)): Modifier {
     return clip(shape).background(fill, shape).border(1.dp, edge, shape)
-}
-
-/** A dashed outline of [shape], drawn over the content (place it before any clip so the stroke isn't cut). */
-internal fun Modifier.dashedBorder(color: Color, shape: Shape, width: Dp = 1.dp, dash: Dp = 5.dp, gap: Dp = 4.dp): Modifier = drawWithContent {
-    drawContent()
-    val w = width.toPx()
-    val path = Path().apply { addOutline(shape.createOutline(size, layoutDirection, this@drawWithContent)) }
-    drawPath(path, color, style = Stroke(w, pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash.toPx(), gap.toPx()))))
 }
 
 /** L-shaped brackets in the four corners plus short ticks at the middle of the top and bottom edges. */
@@ -766,7 +795,7 @@ private fun EmptyLine(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EventsSection(ui: WidgetUi, openLink: (String) -> Unit, onOpenWeb: (String) -> Unit) {
+private fun EventsSection(ui: WidgetUi, onOpenEvent: (EventUi) -> Unit, onOpenWeb: (String) -> Unit) {
     // The user's events settings from the web (days to show, event cap), today always listed
     val (days, more) = EventLimits.apply(ui.eventDays, ui.today, ui.eventsDaysAhead, ui.eventsMaxEvents)
     val t = LocalTok.current
@@ -780,7 +809,7 @@ private fun EventsSection(ui: WidgetUi, openLink: (String) -> Unit, onOpenWeb: (
                 for (day in days) {
                     DayHeader(dayName(day))
                     if (day.events.isEmpty()) EmptyLine(stringResource(R.string.today_no_events)) { onOpenWeb(WebRoutes.EVENTS) }
-                    day.events.forEachIndexed { i, e -> EventRow(e, offset + i + 1, day, openLink, onOpenWeb) }
+                    day.events.forEachIndexed { i, e -> EventRow(e, offset + i + 1, day, onOpenEvent) }
                     offset += day.events.size
                 }
                 if (more > 0) {
@@ -807,7 +836,7 @@ private fun dayName(day: EventDayUi): String = when (day.kind) {
  * faded; today's past events are faded with the title struck through (the web's isTodayPastEvent styling).
  */
 @Composable
-private fun EventRow(event: EventUi, number: Int, day: EventDayUi, openLink: (String) -> Unit, onOpenWeb: (String) -> Unit) {
+private fun EventRow(event: EventUi, number: Int, day: EventDayUi, onOpen: (EventUi) -> Unit) {
     val t = LocalTok.current
     val color = LifeMappColors.parseHex(event.color) ?: Color(0xFF3B82F6)
     val upcoming = day.kind != DayKind.TODAY
@@ -825,7 +854,7 @@ private fun EventRow(event: EventUi, number: Int, day: EventDayUi, openLink: (St
         Spacer(Modifier.width(if (event.secondary) 18.dp else 6.dp))
         Row(
             // ...and more compact, without the card background, so primary events stand out
-            Modifier.weight(1f).framed(t, if (event.secondary) Color.Transparent else t.row).clickable { openLink(event.link ?: WebRoutes.EVENTS) }
+            Modifier.weight(1f).framed(t, if (event.secondary) Color.Transparent else t.row).clickable { onOpen(event) }
                 .padding(horizontal = 8.dp, vertical = if (event.secondary) 3.dp else 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -859,7 +888,7 @@ private fun EventRow(event: EventUi, number: Int, day: EventDayUi, openLink: (St
 }
 
 @Composable
-private fun TasksSection(ui: WidgetUi, onComplete: (String) -> Unit, onOpenWeb: (String) -> Unit) {
+private fun TasksSection(ui: WidgetUi, onComplete: (String) -> Unit, onOpenTask: (TaskUi) -> Unit, onOpenWeb: (String) -> Unit) {
     val t = LocalTok.current
     WidgetCard(stringResource(R.string.today_tasks), LucideIcons.TASKS, rule = true, onTitle = { onOpenWeb(WebRoutes.TASKS) }) {
         Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -880,7 +909,7 @@ private fun TasksSection(ui: WidgetUi, onComplete: (String) -> Unit, onOpenWeb: 
             }
             ui.tasks.forEachIndexed { i, task ->
                 if (i == 0 || ui.tasks[i - 1].day != task.day) DayHeader(taskDayName(task.day), emphasized = true)
-                TaskRow(task, i + 1, onComplete) { onOpenWeb(WebRoutes.TASKS) }
+                TaskRow(task, i + 1, onComplete) { onOpenTask(task) }
             }
         }
     }
@@ -1381,8 +1410,11 @@ private fun Reception() {
     val record = stringResource(R.string.today_record)
     Row(
         Modifier.fillMaxWidth().padding(top = 12.dp)
-            .let { if (t.predator) it else it.dashedBorder(t.accent.copy(alpha = 0.3f), t.shape(8.dp)) }
-            .framed(t, if (t.predator) t.pd.well else t.well, edge = if (t.predator) t.pd.edge2 else t.well, cut = 8.dp)
+            .let {
+                // Predator: the web's target reticle (square well, thin edge, accent corner brackets and center ticks)
+                if (t.predator) it.background(t.pd.well).border(1.dp, t.pd.edge).bracketCorners(t.accent)
+                else it.framed(t, t.well, edge = t.well, cut = 8.dp)
+            }
             .padding(horizontal = 12.dp, vertical = 27.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

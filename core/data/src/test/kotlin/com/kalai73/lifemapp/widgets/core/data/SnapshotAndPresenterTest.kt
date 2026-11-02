@@ -212,6 +212,45 @@ class SnapshotAndPresenterTest {
     }
 
     @Test
+    fun `events and tasks carry what their details modals show, encrypted descriptions decrypted when unlocked`() {
+        val dataKey = java.util.Base64.getEncoder().encodeToString(ByteArray(32) { it.toByte() })
+        val encrypted = Aes.encrypt("<p>Secret notes</p>", dataKey).let { """{"encrypted":"${it.encrypted}","iv":"${it.iv}","tag":"${it.tag}"}""" }
+        val snapshot = Snapshot(
+            today = "2026-10-31",
+            settings = SnapshotSettings(encryptionEnabled = true),
+            events = listOf(
+                Event("e1", "Standup", start = "2026-10-31T09:00:00Z", end = "2026-10-31T09:15:00Z", date = "2026-10-31",
+                    location = "Room 4", description = "Agenda: https://example.com", status = "tentative"),
+                Event("e2", "Trip", start = "2026-11-01", end = "2026-11-04", allDay = true, date = "2026-11-01"),
+            ),
+            tasks = listOf(
+                Task("t1", "Plain", dueDate = "2026-10-31", description = "<p>Bring the keys</p>"),
+                Task("t2", "Secret", dueDate = "2026-11-01", segment = Task.SEGMENT_TOMORROW, encryptedDescription = encrypted),
+            ),
+        )
+        val ui = WidgetPresenter.present(CachedState(snapshot = snapshot), AuthState.SIGNED_IN, dataKey, now, madrid)
+        val events = ui.eventDays.flatMap { it.events }
+        assertEquals("Room 4", events[0].location)
+        assertEquals("Agenda: https://example.com", events[0].description)
+        assertEquals("tentative", events[0].status)
+        assertEquals("2026-10-31T09:00:00Z", events[0].start)
+        assertEquals(DateLabels.dayAndDate(LocalDate.of(2026, 10, 31), DateLabels.DATE_FORMAT, "en"), events[0].dateLabel)
+        // All-day end dates are exclusive: the trip lasts 1–3 November
+        val trip = "${DateLabels.dayAndDate(LocalDate.of(2026, 11, 1), DateLabels.DATE_FORMAT, "en")} – " +
+            DateLabels.dayAndDate(LocalDate.of(2026, 11, 3), DateLabels.DATE_FORMAT, "en")
+        assertEquals(trip, events[1].dateLabel)
+
+        assertEquals(listOf("<p>Bring the keys</p>", "<p>Secret notes</p>"), ui.tasks.map { it.description })
+        assertEquals(listOf(LocalDate.of(2026, 10, 31), LocalDate.of(2026, 11, 1)), ui.tasks.map { it.dueDate })
+
+        // Locked: the encrypted description is withheld and flagged
+        val locked = WidgetPresenter.present(CachedState(snapshot = snapshot), AuthState.SIGNED_IN, null, now, madrid)
+        assertNull(locked.tasks[1].description)
+        assertTrue(locked.tasks[1].descriptionLocked)
+        assertFalse(locked.tasks[0].descriptionLocked)
+    }
+
+    @Test
     fun `tasks from connected task managers show their local time, Todoist ones can be completed`() {
         val snapshot = Snapshot(
             today = "2026-10-31",

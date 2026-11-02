@@ -222,4 +222,20 @@
     <string name="rating_desc_9">Volando alto</string>
     <string name="rating_desc_10">Floreciendo</string>
     <string name="loading_data">Desbloqueando y cargando tus datos</string>
+    <!-- Event and task details modals (Today screen) -->
+    <string name="details_event_badge">Evento</string>
+    <string name="details_task_badge">Tarea</string>
+    <string name="details_when">Cuándo</string>
+    <string name="details_location">Ubicación</string>
+    <string name="details_description">Descripción</string>
+    <string name="details_calendar">Calendario</string>
+    <string name="details_list">Lista</string>
+    <string name="details_priority">Prioridad</string>
+    <string name="details_due">Vence</string>
+    <string name="details_no_due">Sin fecha de vencimiento</string>
+    <string name="details_repeats">Se repite</string>
+    <string name="details_overdue">Vencida</string>
+    <string name="details_open_event">Abrir evento</string>
+    <string name="details_open_tasks">Abrir en LIFE MAPP</string>
+    <string name="details_description_locked">Desbloquea para ver la descripción</string>
 </resources>

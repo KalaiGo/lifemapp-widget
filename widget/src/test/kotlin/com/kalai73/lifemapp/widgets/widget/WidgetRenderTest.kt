@@ -17,6 +17,8 @@ import com.kalai73.lifemapp.widgets.core.data.presentation.EventUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.IntegrityUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.TopicItemUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.TopicUi
+import com.kalai73.lifemapp.widgets.core.data.presentation.ScoreDomainUi
+import com.kalai73.lifemapp.widgets.core.data.presentation.ScoringUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.ShortcutUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.TaskUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.WeatherUi
@@ -133,6 +135,21 @@ class WidgetRenderTest {
         onAllNodes(hasTextEqualTo("12")).assertCountEquals(2) // mail counter and the inbox row
         onNode(hasContentDescription("Reload")).assertExists()
         onNode(hasTextEqualTo("Standup")).assertExists()
+    }
+
+    @Test
+    fun `tall dashboard shows the scoring banner with each domain and the average`() = runGlanceAppWidgetUnitTest {
+        val domains = listOf(
+            ScoreDomainUi("d1", 1, "Integrity", 8, hidden = false, unhidable = true, colorName = null),
+            ScoreDomainUi("d2", 2, null, 3, hidden = true, unhidable = false, colorName = null),
+            ScoreDomainUi("d5", 5, "Tenacity", null, hidden = false, unhidable = true, colorName = null),
+        )
+        dashboard(populated.copy(scoring = ScoringUi(domains, daysSinceScored = 2, locked = false, ready = true)))
+        onNode(hasTextEqualTo("Avg")).assertExists()
+        onNode(hasTextEqualTo("7.4")).assertExists()
+        onNode(hasTextEqualTo("Ser")).assertExists() // default name by position, shortened
+        onNode(hasTextEqualTo("Ten")).assertExists()
+        onNode(hasTextEqualTo("–")).assertExists() // locked rating
     }
 
     @Test

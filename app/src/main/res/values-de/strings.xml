@@ -220,4 +220,20 @@
     <string name="rating_desc_9">Abhebend</string>
     <string name="rating_desc_10">Aufblühend</string>
     <string name="loading_data">Daten werden entsperrt und geladen</string>
+    <!-- Event and task details modals (Today screen) -->
+    <string name="details_event_badge">Termin</string>
+    <string name="details_task_badge">Aufgabe</string>
+    <string name="details_when">Wann</string>
+    <string name="details_location">Ort</string>
+    <string name="details_description">Beschreibung</string>
+    <string name="details_calendar">Kalender</string>
+    <string name="details_list">Liste</string>
+    <string name="details_priority">Priorität</string>
+    <string name="details_due">Fällig</string>
+    <string name="details_no_due">Kein Fälligkeitsdatum</string>
+    <string name="details_repeats">Wiederholt sich</string>
+    <string name="details_overdue">Überfällig</string>
+    <string name="details_open_event">Termin öffnen</string>
+    <string name="details_open_tasks">In LIFE MAPP öffnen</string>
+    <string name="details_description_locked">Entsperren, um die Beschreibung zu sehen</string>
 </resources>

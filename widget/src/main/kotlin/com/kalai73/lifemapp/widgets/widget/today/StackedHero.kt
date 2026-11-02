@@ -32,7 +32,12 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
+import com.kalai73.lifemapp.widgets.core.data.presentation.ScoringUi
 import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
+import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
+import com.kalai73.lifemapp.widgets.widget.common.PdHex
+import com.kalai73.lifemapp.widgets.widget.common.openSection
+import com.kalai73.lifemapp.widgets.widget.integrity.RatingBadge
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
 import com.kalai73.lifemapp.widgets.core.designsystem.WidgetStyle
@@ -63,6 +68,7 @@ private const val ID_GREETING = -101L
 private const val ID_DATE = -102L
 private const val ID_COUNTERS = -103L
 private const val ID_WEATHER = -104L
+private const val ID_SCORING = -105L
 
 /** The stacked hero as lazy items; each item is its own view tree, so the frames don't eat the root's depth. */
 internal fun LazyListScope.stackedHero(ui: WidgetUi, showStatus: Boolean) {
@@ -74,6 +80,60 @@ internal fun LazyListScope.stackedHero(ui: WidgetUi, showStatus: Boolean) {
         }
     }
     if (ui.weather != null) item(itemId = ID_WEATHER) { WeatherCard(ui) }
+    ui.scoring?.takeIf { it.domains.isNotEmpty() }?.let { scoring -> item(itemId = ID_SCORING) { ScoringBanner(scoring, ui.averageRating) } }
+}
+
+/** Default names by position, as the app's scoring section, for a domain without one (or encrypted and locked). */
+private val DEFAULT_DOMAIN_NAMES = mapOf(2 to "Serenity", 3 to "Vitality", 4 to "Stability", 5 to "Tenacity")
+
+/** Short domain names under the badges: three letters fit every cell, where full names were cut with an ellipsis. */
+private const val SHORT_NAME_LENGTH = 3
+
+/**
+ * The scoring values in one small row of equal cells: each domain's rating badge (the Integrity card's ramp colors)
+ * over its short name, then, after a divider, the average. A tap opens the app at its scoring section.
+ */
+@Composable
+private fun ScoringBanner(scoring: ScoringUi, average: Double?) {
+    val context = LocalContext.current
+    val style = LocalWidgetStyle.current
+    val pd = LocalPd.current
+    val dim = pd?.dim ?: GlanceTheme.colors.onSurfaceVariant
+    val cell = @Composable { cellModifier: GlanceModifier, label: String, labelColor: androidx.glance.unit.ColorProvider, badge: @Composable () -> Unit ->
+        Column(modifier = cellModifier, horizontalAlignment = Alignment.CenterHorizontally) {
+            badge()
+            Spacer(GlanceModifier.height(2.dp))
+            Text(style.label(label), style = captionStyle(size = 9.sp, color = labelColor).copy(textAlign = TextAlign.Center), maxLines = 1)
+        }
+    }
+    HeroCard(gap = 8.dp, modifier = GlanceModifier.fillMaxWidth().clickable(openSection(context, LifeMappWidgets.SECTION_SCORING))) { modifier ->
+        Row(modifier = modifier.padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            scoring.domains.take(5).forEach { d ->
+                val name = d.name?.takeIf { it.isNotBlank() }
+                    ?: if (d.position == 1) context.getString(R.string.integrity) else DEFAULT_DOMAIN_NAMES[d.position].orEmpty()
+                cell(GlanceModifier.defaultWeight(), name.take(SHORT_NAME_LENGTH), if (d.hidden) pd?.faint ?: GlanceTheme.colors.outline else dim) {
+                    // Locked (null): an empty badge with a dash; unrated (0): the empty badge with 0, as the domain card
+                    RatingBadge(d.rating ?: 0, label = d.rating?.toString() ?: "–")
+                }
+            }
+            average?.let { avg ->
+                Box(modifier = (if (pd != null) GlanceModifier.background(pd.edge) else GlanceModifier.background(GlanceTheme.colors.outline)).width(1.dp).height(30.dp)) {}
+                cell(GlanceModifier.defaultWeight(), context.getString(R.string.scoring_banner_avg), pd?.ink ?: GlanceTheme.colors.primary) {
+                    val text = "%.1f".format(avg)
+                    if (pd != null) {
+                        PdHex(24.dp, edge = pd.accentHi, fill = pd.accent) { Text(text, style = numberStyle(10.sp, color = pd.on), maxLines = 1) }
+                    } else {
+                        Box(
+                            modifier = GlanceModifier.height(24.dp).background(GlanceTheme.colors.primary).cornerRadius(12.dp).padding(horizontal = 6.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(text, style = textStyle(size = 11.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.onPrimary), maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** A full-width card: chamfered raised fill without border (edge drawn in the fill) in Predator, surface with rounded corners in Classic. */

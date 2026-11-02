@@ -63,6 +63,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun itemOpened() { _openItem.value = null }
 
+    /** The event or task a widget tap asked to show in the Today screen's details modal, until it's shown */
+    private val _openEntry = MutableStateFlow<TodayEntry?>(null)
+    val openEntry: StateFlow<TodayEntry?> = _openEntry.asStateFlow()
+
+    fun openEntry(entry: TodayEntry) { _openEntry.value = entry }
+
+    fun entryOpened() { _openEntry.value = null }
+
     /** The Today section (a LifeMappWidgets.SECTION_ value) a widget tap asked to scroll to, until it's shown */
     private val _openSection = MutableStateFlow<String?>(null)
     val openSection: StateFlow<String?> = _openSection.asStateFlow()

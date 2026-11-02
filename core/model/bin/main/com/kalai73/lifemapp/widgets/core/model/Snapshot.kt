@@ -73,6 +73,10 @@ data class Event(
     val source: String = "ics",
     val htmlLink: String? = null,
     val location: String? = null,
+    /** Plain text as the calendar stores it, capped by the server; null for none */
+    val description: String? = null,
+    /** "confirmed", "tentative", "cancelled", or null */
+    val status: String? = null,
 )
 
 @Serializable
@@ -91,6 +95,10 @@ data class Task(
     val listColor: String? = null,
     val recurring: Boolean = false,
     val source: String = "local",
+    /** HTML, capped by the server; null when blank, encrypted or not sent */
+    val description: String? = null,
+    /** The end-to-end encrypted description (EncryptedField JSON) */
+    val encryptedDescription: String? = null,
     /**
      * The web Task List Widget's date segment: "today" (Today list, due today or overdue), "tomorrow" or "later"
      * (its "Tomorrow ++ 1"). Servers before upcomingTasks list today's tasks only, hence the default.

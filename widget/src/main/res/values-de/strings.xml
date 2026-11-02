@@ -8,6 +8,7 @@
     <string name="today_is">Heute ist</string>
     <string name="and_you_have">Und du hast:</string>
     <string name="weather">Wetter</string>
+    <string name="scoring_banner_avg">Ø</string>
     <string name="weather_in">Wetter in %1$s</string>
     <string name="events">Termine</string>
     <string name="tasks">Aufgaben</string>

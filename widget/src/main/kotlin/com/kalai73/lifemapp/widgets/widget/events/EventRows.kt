@@ -2,7 +2,6 @@ package com.kalai73.lifemapp.widgets.widget.events
 
 // Event rows as on the web's events card (components/calendar/calendar-events-card.tsx).
 
-import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import com.kalai73.lifemapp.widgets.widget.common.PdWrapFrame
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
@@ -38,8 +37,7 @@ import androidx.glance.layout.height
 import com.kalai73.lifemapp.widgets.widget.R
 import com.kalai73.lifemapp.widgets.widget.common.Dot
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
-import com.kalai73.lifemapp.widgets.widget.common.openExternal
-import com.kalai73.lifemapp.widgets.widget.common.openSection
+import com.kalai73.lifemapp.widgets.widget.common.openEvent
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 import androidx.glance.action.Action
 import androidx.glance.appwidget.cornerRadius
@@ -116,7 +114,8 @@ internal fun EventRow(event: EventUi, number: Int, day: EventDayUi) {
     val context = LocalContext.current
     val style = LocalWidgetStyle.current
     val pd = LocalPd.current
-    val action = event.link?.let(::openExternal) ?: openSection(context, LifeMappWidgets.SECTION_EVENTS)
+    // The event's details in the app's event modal (its provider page is one tap further, from the modal)
+    val action = openEvent(context, event.id, event.start)
     val color = LifeMappColors.parseHex(event.color) ?: androidx.compose.ui.graphics.Color(0xFF3B82F6)
     val upcoming = day.kind != DayKind.TODAY
     val past = event.past && !upcoming

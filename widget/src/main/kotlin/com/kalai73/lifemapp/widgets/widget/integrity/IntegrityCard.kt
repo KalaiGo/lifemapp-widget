@@ -92,7 +92,7 @@ internal fun LazyListScope.integritySection(integrity: IntegrityUi) {
     integrity.topics.forEachIndexed { index, topic ->
         val base = topicBase + (index.toLong() shl 20)
         // The Reception sits right above the Reminders topic, as on the web
-        if (topic.reminders) item(itemId = base) { CardRow { Reception() } }
+        if (topic.reminders) item(itemId = base) { CardRow(top = 10.dp) { Reception() } }
         item(itemId = base + 1) { CardRow { TopicHeader(topic, section) } }
         // Topics show their header only (a tap opens them in the app); Reminders alone lists its items
         if (!topic.reminders) return@forEachIndexed
@@ -107,12 +107,15 @@ internal fun LazyListScope.integritySection(integrity: IntegrityUi) {
     if (integrity.position == 1) item(itemId = ID_WARNINGS + fixed) { CardRow { WarningsBar(integrity.warnings) } }
 }
 
-/** One row of the web's domain card: the card surface, inset from the widget edge, with padding inside. */
+/**
+ * One row of the web's domain card: the card surface, inset from the widget edge, with padding inside.
+ * [top] spaces the row from the one above on the card surface, without a wrapper level inside the row.
+ */
 @Composable
-private fun CardRow(content: @Composable () -> Unit) {
+private fun CardRow(top: Dp = 0.dp, content: @Composable () -> Unit) {
     val pd = LocalPd.current
     Box(modifier = GlanceModifier.fillMaxWidth()) {
-        Box(modifier = GlanceModifier.fillMaxWidth().background(pd?.raised ?: GlanceTheme.colors.surface).padding(horizontal = 12.dp)) {
+        Box(modifier = GlanceModifier.fillMaxWidth().background(pd?.raised ?: GlanceTheme.colors.surface).padding(start = 12.dp, top = top, end = 12.dp)) {
             content()
         }
     }
@@ -189,19 +192,19 @@ private fun IntegrityHeader(integrity: IntegrityUi, section: String) {
 }
 
 @Composable
-private fun RatingBadge(rating: Int) {
+internal fun RatingBadge(rating: Int, label: String = "$rating") {
     val pd = LocalPd.current
     val fill = if (rating > 0) ramp(rating - 1) else pd?.well ?: GlanceTheme.colors.surfaceVariant
     if (pd != null) {
         PdHex(22.dp, edge = pd.edge2, fill = fill) {
-            Text("$rating", style = numberStyle(11.sp, color = if (rating > 0) onRamp(rating) else pd.dim), maxLines = 1)
+            Text(label, style = numberStyle(11.sp, color = if (rating > 0) onRamp(rating) else pd.dim), maxLines = 1)
         }
     } else {
         Box(
             modifier = GlanceModifier.size(24.dp).cornerRadius(12.dp).background(fill),
             contentAlignment = Alignment.Center,
         ) {
-            Text("$rating", style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = if (rating > 0) onRamp(rating) else GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
+            Text(label, style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = if (rating > 0) onRamp(rating) else GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
         }
     }
 }
@@ -265,45 +268,44 @@ private fun Reception() {
     val label = context.getString(R.string.integrity_reception)
     val hint = context.getString(R.string.integrity_create_reminder)
     val recordLabel = context.getString(R.string.integrity_record)
-    Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 10.dp)) {
-        if (pd != null) {
-            PdWrapFrame(PdShape.CHAMFER_SM, edge = pd.edge2, fill = pd.well, modifier = GlanceModifier.fillMaxWidth()) { frame ->
-                Row(modifier = frame.fillMaxWidth().padding(horizontal = 12.dp, vertical = 26.dp), verticalAlignment = Alignment.CenterVertically) {
-                    // clickable sits on the hex itself: a wrapping Box would put the Predator card past Glance's 10-level nesting limit
-                    Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
-                        PdHex(32.dp, edge = pd.accent, fill = pd.panel, modifier = GlanceModifier.clickable(speak)) { Icon(LucideIcons.MIC, recordLabel, size = 15.dp, tint = pd.ink) }
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(style.label(label), style = labelStyle(size = 13.sp, color = pd.text), maxLines = 1)
-                        Text(hint, style = captionStyle(size = 10.sp, color = pd.dim), maxLines = 1)
-                    }
-                    Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
-                        PdHex(32.dp, edge = pd.accent, fill = pd.panel, modifier = GlanceModifier.clickable(type)) { Icon(LucideIcons.PENCIL, hint, size = 15.dp, tint = pd.ink) }
-                    }
-                }
-            }
-        } else {
-            Row(
-                modifier = GlanceModifier.fillMaxWidth().background(GlanceTheme.colors.surfaceVariant)
-                    .cornerRadius(style.innerRadius).padding(horizontal = 12.dp, vertical = 27.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+    if (pd != null) {
+        // The web's target reticle: outline, well fill, accent corner brackets and edge ticks
+        PdTargetFrame(edge = pd.edge2, fill = pd.well, marks = pd.accent, modifier = GlanceModifier.fillMaxWidth()) { frame ->
+            Row(modifier = frame.fillMaxWidth().padding(horizontal = 12.dp, vertical = 26.dp), verticalAlignment = Alignment.CenterVertically) {
+                // clickable sits on the hex itself: a wrapping Box would put the Predator card past Glance's 10-level nesting limit
                 Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
-                    Box(
-                        modifier = GlanceModifier.size(36.dp).cornerRadius(18.dp).background(GlanceTheme.colors.secondaryContainer).clickable(speak),
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(LucideIcons.MIC, recordLabel, size = 18.dp) }
+                    PdHex(32.dp, edge = pd.accent, fill = pd.panel, modifier = GlanceModifier.clickable(speak)) { Icon(LucideIcons.MIC, recordLabel, size = 15.dp, tint = pd.ink) }
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(label.uppercase(), style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
-                    Text(hint, style = textStyle(size = 11.sp, color = GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
+                    Text(style.label(label), style = labelStyle(size = 13.sp, color = pd.text), maxLines = 1)
+                    Text(hint, style = captionStyle(size = 10.sp, color = pd.dim), maxLines = 1)
                 }
                 Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
-                    Box(
-                        modifier = GlanceModifier.size(36.dp).cornerRadius(18.dp).background(GlanceTheme.colors.secondaryContainer).clickable(type),
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(LucideIcons.PENCIL, hint, size = 18.dp) }
+                    PdHex(32.dp, edge = pd.accent, fill = pd.panel, modifier = GlanceModifier.clickable(type)) { Icon(LucideIcons.PENCIL, hint, size = 15.dp, tint = pd.ink) }
                 }
+            }
+        }
+    } else {
+        Row(
+            modifier = GlanceModifier.fillMaxWidth().background(GlanceTheme.colors.surfaceVariant)
+                .cornerRadius(style.innerRadius).padding(horizontal = 12.dp, vertical = 27.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = GlanceModifier.size(36.dp).cornerRadius(18.dp).background(GlanceTheme.colors.secondaryContainer).clickable(speak),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(LucideIcons.MIC, recordLabel, size = 18.dp) }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(label.uppercase(), style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
+                Text(hint, style = textStyle(size = 11.sp, color = GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
+            }
+            Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = GlanceModifier.size(36.dp).cornerRadius(18.dp).background(GlanceTheme.colors.secondaryContainer).clickable(type),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(LucideIcons.PENCIL, hint, size = 18.dp) }
             }
         }
     }

@@ -115,7 +115,7 @@ internal fun ScoringSection(
             .hexCorner(t.accent, if (t.dark) 0.5f else 1f),
     ) {
         Column(
-            Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 16.dp, bottom = 22.dp),
+            Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 16.dp, bottom = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -147,8 +147,8 @@ internal fun ScoringSection(
                 }
             }
         }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(t.line))
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        // The summary row follows the domains directly, no divider
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             AverageBadge(average ?: 0.0, scoring.locked) { openRating(scoring.domains) }
             Spacer(Modifier.weight(1f))
             if (scoring.ready && scoring.domains.any { !it.unhidable }) {

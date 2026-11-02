@@ -321,9 +321,9 @@ internal fun ItemEditorDialog(
     }
 }
 
-/** "• ITEM": the web's rounded primary badge with its dot */
+/** "• ITEM": the web's rounded primary badge with its dot (also "• EVENT", "• TASK" on the details modals) */
 @Composable
-private fun ItemBadge(predator: Boolean, ink: Color) {
+internal fun ItemBadge(predator: Boolean, ink: Color, label: String = stringResource(R.string.item_badge).uppercase()) {
     Row(
         Modifier.clip(CircleShape)
             .background(ink.copy(alpha = 0.1f))
@@ -333,7 +333,6 @@ private fun ItemBadge(predator: Boolean, ink: Color) {
     ) {
         Box(Modifier.size(6.dp).clip(CircleShape).background(ink))
         Spacer(Modifier.width(6.dp))
-        val label = stringResource(R.string.item_badge).uppercase()
         Text(
             label,
             style = if (predator) pdCaptionStyle(10.sp, ink, letterSpacing = 0.1.em).copy(fontWeight = FontWeight.Bold)
@@ -344,7 +343,7 @@ private fun ItemBadge(predator: Boolean, ink: Color) {
 
 /** The web's `ghost` `size="icon"` round button */
 @Composable
-private fun RoundIconButton(icon: Int, description: String, tint: Color, size: androidx.compose.ui.unit.Dp = 28.dp, onClick: () -> Unit) {
+internal fun RoundIconButton(icon: Int, description: String, tint: Color, size: androidx.compose.ui.unit.Dp = 28.dp, onClick: () -> Unit) {
     Box(
         Modifier.size(size).clip(CircleShape).clickable(onClickLabel = description, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,

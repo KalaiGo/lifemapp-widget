@@ -56,6 +56,7 @@ import com.kalai73.lifemapp.widgets.widget.common.color
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
 import com.kalai73.lifemapp.widgets.widget.common.numberStyle
 import com.kalai73.lifemapp.widgets.widget.common.openSection
+import com.kalai73.lifemapp.widgets.widget.common.openTask
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 
 /** "Add task" and "Task lists", sharing the row equally. Predator: parallelograms in the accent tint. */
@@ -115,7 +116,8 @@ internal fun TaskDayHeader(day: DayKind) {
 internal fun TaskRow(task: TaskUi, number: Int) {
     val context = LocalContext.current
     val pd = LocalPd.current
-    val openTasks = openSection(context, LifeMappWidgets.SECTION_TASKS)
+    // The task's details in the app's task modal
+    val openTasks = openTask(context, task.id)
     val colors = LocalWidgetColors.current
     val upcoming = task.upcoming
     // As on the web: the checkbox and bar in the task's color tier (red, orange, blue, or neutral), and later
