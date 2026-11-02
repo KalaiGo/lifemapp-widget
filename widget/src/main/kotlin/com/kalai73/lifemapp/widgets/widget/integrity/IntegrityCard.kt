@@ -153,6 +153,9 @@ private fun warnTintClassic(): ColorProvider = LocalWidgetColors.current.of(day 
 
 // ── Rows ────────────────────────────────────────────────────────────────────
 
+/** Room each side of the centered domain title for the number (left) and the rating badge (right). */
+private val TITLE_SIDE_ROOM = 48.dp
+
 /** "01 INTEGRITY" with the rating hex, the score gauge, then the info box ("Capture & Organize"). */
 @Composable
 private fun IntegrityHeader(integrity: IntegrityUi, section: String) {
@@ -163,17 +166,21 @@ private fun IntegrityHeader(integrity: IntegrityUi, section: String) {
         ?: if (integrity.position == 1) context.getString(R.string.integrity) else ""
     val open = openSection(context, section)
     Column(modifier = GlanceModifier.fillMaxWidth().clickable(open).padding(top = 14.dp, bottom = 2.dp)) {
-        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(integrity.position.toString().padStart(2, '0'), style = numberStyle(20.sp, color = pd?.faint ?: GlanceTheme.colors.outline), maxLines = 1)
-            Spacer(GlanceModifier.width(8.dp))
+        // The title centered on the card's full width, laid over the row holding the number (left) and the rating (right);
+        // its side padding keeps it clear of both
+        Box(modifier = GlanceModifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(integrity.position.toString().padStart(2, '0'), style = numberStyle(20.sp, color = pd?.faint ?: GlanceTheme.colors.outline), maxLines = 1)
+                Spacer(GlanceModifier.defaultWeight())
+                integrity.rating?.let { RatingBadge(it) }
+            }
             Text(
                 style.label(name),
-                style = if (pd != null) labelStyle(size = 16.sp, color = pd.ink)
-                else textStyle(size = 15.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary),
+                style = (if (pd != null) labelStyle(size = 16.sp, color = pd.ink)
+                else textStyle(size = 15.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.primary)).copy(textAlign = TextAlign.Center),
                 maxLines = 1,
-                modifier = GlanceModifier.defaultWeight(),
+                modifier = GlanceModifier.fillMaxWidth().padding(horizontal = TITLE_SIDE_ROOM),
             )
-            integrity.rating?.let { RatingBadge(it) }
         }
         Spacer(GlanceModifier.height(8.dp))
         Gauge(integrity.rating)

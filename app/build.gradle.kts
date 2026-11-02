@@ -31,7 +31,7 @@ android {
             val keystorePath = config(
                 "lifemapp.keystoreFile",
                 "LIFEMAPP_KEYSTORE_FILE",
-                "../lifeMappMob/android/app/debug.keystore"
+                "debug.keystore"
             )
             val keystoreFile = file(keystorePath).let { if (it.isAbsolute) it else rootProject.file(keystorePath) }
             if (keystoreFile.exists()) {

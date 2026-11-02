@@ -129,19 +129,19 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("Weather in Madrid, ES")).assertExists()
         onNode(hasTextEqualTo("18°C")).assertExists()
         onNode(hasTextEqualTo("9°C")).assertExists()
-        onNode(hasTextEqualTo("★ 7.4")).assertExists()
+        onNode(hasTextEqualTo("★ 7.4")).assertDoesNotExist() // no rating in the weather card
         onAllNodes(hasTextEqualTo("12")).assertCountEquals(2) // mail counter and the inbox row
         onNode(hasContentDescription("Reload")).assertExists()
         onNode(hasTextEqualTo("Standup")).assertExists()
     }
 
     @Test
-    fun `predator stacked hero uppercases captions and shows the hex rating`() = runGlanceAppWidgetUnitTest {
+    fun `predator stacked hero uppercases captions and has no rating`() = runGlanceAppWidgetUnitTest {
         dashboard(populated.copy(uiStyle = UiStyle.PREDATOR))
         onNode(hasTextEqualTo("HELLO,")).assertExists()
         onNode(hasTextEqualTo("AND YOU HAVE:")).assertExists()
         onNode(hasTextEqualTo("WEATHER IN MADRID, ES")).assertExists()
-        onNode(hasTextEqualTo("7.4")).assertExists()
+        onNode(hasTextEqualTo("7.4")).assertDoesNotExist()
         onNode(hasText("JOURNAL")).assertDoesNotExist()
         onNode(hasText("BUDGET")).assertDoesNotExist()
         onNode(hasTextEqualTo("Ana")).assertExists()

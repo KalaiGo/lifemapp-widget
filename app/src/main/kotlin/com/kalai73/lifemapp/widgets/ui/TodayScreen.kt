@@ -47,8 +47,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -378,6 +383,14 @@ private fun rememberTokens(): Tok {
 /** The widgets' pd-frame: shape filled with [fill], 1dp [edge]. */
 internal fun Modifier.framed(t: Tok, fill: Color, edge: Color = fill, cut: Dp = 6.dp, shape: Shape = t.shape(cut)): Modifier {
     return clip(shape).background(fill, shape).border(1.dp, edge, shape)
+}
+
+/** A dashed outline of [shape], drawn over the content (place it before any clip so the stroke isn't cut). */
+internal fun Modifier.dashedBorder(color: Color, shape: Shape, width: Dp = 1.dp, dash: Dp = 5.dp, gap: Dp = 4.dp): Modifier = drawWithContent {
+    drawContent()
+    val w = width.toPx()
+    val path = Path().apply { addOutline(shape.createOutline(size, layoutDirection, this@drawWithContent)) }
+    drawPath(path, color, style = Stroke(w, pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash.toPx(), gap.toPx()))))
 }
 
 /** L-shaped brackets in the four corners plus short ticks at the middle of the top and bottom edges. */
@@ -1368,6 +1381,7 @@ private fun Reception() {
     val record = stringResource(R.string.today_record)
     Row(
         Modifier.fillMaxWidth().padding(top = 12.dp)
+            .let { if (t.predator) it else it.dashedBorder(t.accent.copy(alpha = 0.3f), t.shape(8.dp)) }
             .framed(t, if (t.predator) t.pd.well else t.well, edge = if (t.predator) t.pd.edge2 else t.well, cut = 8.dp)
             .padding(horizontal = 12.dp, vertical = 27.dp),
         verticalAlignment = Alignment.CenterVertically,

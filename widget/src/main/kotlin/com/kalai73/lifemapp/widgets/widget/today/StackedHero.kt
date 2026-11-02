@@ -40,7 +40,6 @@ import com.kalai73.lifemapp.widgets.widget.R
 import com.kalai73.lifemapp.widgets.widget.common.Icon
 import com.kalai73.lifemapp.widgets.widget.common.LocalPd
 import com.kalai73.lifemapp.widgets.widget.common.LocalWidgetStyle
-import com.kalai73.lifemapp.widgets.widget.common.PdHex
 import com.kalai73.lifemapp.widgets.widget.common.PdWrapFrame
 import com.kalai73.lifemapp.widgets.widget.common.ReloadAction
 import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
@@ -74,7 +73,7 @@ internal fun LazyListScope.stackedHero(ui: WidgetUi, showStatus: Boolean) {
             Counters(ui, caption = LocalContext.current.getString(R.string.and_you_have))
         }
     }
-    if (ui.weather != null || ui.averageRating != null) item(itemId = ID_WEATHER) { WeatherCard(ui) }
+    if (ui.weather != null) item(itemId = ID_WEATHER) { WeatherCard(ui) }
 }
 
 /** A full-width card: chamfered raised fill without border (edge drawn in the fill) in Predator, surface with rounded corners in Classic. */
@@ -220,69 +219,42 @@ private fun DateBlock(ui: WidgetUi, showStatus: Boolean) {
     }
 }
 
-/** "WEATHER IN ZURICH, CH", today's icon, high / low and condition, and the average rating hex. */
+/**
+ * "WEATHER IN ZURICH, CH", then today's icon, high / low and condition, centered. Same layout as the top of the app's
+ * Today screen weather card, without the rating or the following days.
+ */
 @Composable
 private fun WeatherCard(ui: WidgetUi) {
     val context = LocalContext.current
-    val style = LocalWidgetStyle.current
     val pd = LocalPd.current
-    val w = ui.weather
-    HeroCard(gap = 16.dp) { modifier ->
-        Column(modifier = modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-            if (w != null) {
-                Caption(if (w.location.isNotBlank()) context.getString(R.string.weather_in, w.location) else context.getString(R.string.weather))
-                Spacer(GlanceModifier.height(4.dp))
-            }
-            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (w != null) {
-                    Icon(LucideIcons.weather(w.icon), w.condition, size = 30.dp)
-                    Spacer(GlanceModifier.width(8.dp))
-                    Column {
-                        // Weather values: italic ink (styleguide §7 weather tile)
-                        Text(w.temperature, style = if (pd != null) numberStyle(22.sp, color = pd.ink) else textStyle(size = 20.sp, weight = FontWeight.Bold))
-                        Text(w.low, style = if (pd != null) captionStyle(size = 11.sp) else textStyle(size = 11.sp, color = GlanceTheme.colors.onSurfaceVariant))
-                    }
-                    Spacer(GlanceModifier.width(10.dp))
-                    Text(
-                        w.condition,
-                        style = if (pd != null) captionStyle(size = 10.sp) else textStyle(size = 11.sp, color = GlanceTheme.colors.onSurfaceVariant),
-                        maxLines = 2,
-                        modifier = GlanceModifier.defaultWeight(),
-                    )
-                } else {
-                    Spacer(GlanceModifier.defaultWeight())
-                }
-                ui.averageRating?.let { rating ->
-                    if (w != null) {
-                        // Thin vertical divider between the weather and the score
-                        Spacer(GlanceModifier.width(8.dp))
-                        Box(
-                            modifier = (GlanceModifier.width(1.dp).height(36.dp))
-                                .let { if (pd != null) it.background(pd.edge) else it.background(GlanceTheme.colors.outline) },
-                        ) {}
-                        Spacer(GlanceModifier.width(10.dp))
-                    }
-                    RatingBadge(rating)
-                }
-            }
-        }
+    val w = ui.weather ?: return
+    val captionText = @Composable { text: String, size: androidx.compose.ui.unit.TextUnit, maxLines: Int ->
+        Text(
+            text,
+            style = if (pd != null) captionStyle(size = size) else textStyle(size = size, color = GlanceTheme.colors.onSurfaceVariant),
+            maxLines = maxLines,
+        )
     }
-}
-
-@Composable
-private fun RatingBadge(rating: Double) {
-    val style = LocalWidgetStyle.current
-    val pd = LocalPd.current
-    if (pd != null) {
-        // Full hex score: accent fill, number in pd-on (styleguide §6 PdHexScore)
-        PdHex(36.dp, edge = pd.accentHi, fill = pd.accent) {
-            Text("%.1f".format(rating), style = numberStyle(13.sp, color = pd.on))
-        }
-    } else {
-        Box(
-            modifier = GlanceModifier.background(GlanceTheme.colors.primary).cornerRadius(style.innerRadius).padding(horizontal = 8.dp, vertical = 2.dp),
-        ) {
-            Text("★ ${"%.1f".format(rating)}", style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.onPrimary))
+    HeroCard(gap = 16.dp) { modifier ->
+        Column(modifier = modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+            Caption(if (w.location.isNotBlank()) context.getString(R.string.weather_in, w.location) else context.getString(R.string.weather))
+            Spacer(GlanceModifier.height(6.dp))
+            // Today's forecast, centered
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(LucideIcons.weather(w.icon), w.condition, size = 34.dp)
+                Spacer(GlanceModifier.width(10.dp))
+                Column {
+                    // Weather values: italic ink (styleguide §7 weather tile)
+                    Text(w.temperature, style = if (pd != null) numberStyle(24.sp, color = pd.ink) else textStyle(size = 22.sp, weight = FontWeight.Bold))
+                    captionText(w.low, 11.sp, 1)
+                }
+                Spacer(GlanceModifier.width(12.dp))
+                captionText(w.condition, 10.sp, 2)
+            }
         }
     }
 }

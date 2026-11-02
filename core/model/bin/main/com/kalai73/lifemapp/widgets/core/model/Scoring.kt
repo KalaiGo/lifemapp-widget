@@ -17,6 +17,10 @@ data class Scoring(
     val lastCompleted: String? = null,
     /** Every domain of the user, to materialize the hidden list when it was never set (as the web's toggle does) */
     val domains: List<ScoringDomain> = emptyList(),
+    /** The events card's days to show (preferences.days_ahead, 1–14 on the web); null when never set */
+    val eventsDaysAhead: Int? = null,
+    /** The events card's event cap (preferences.max_events, 1–20 on the web); null when never set */
+    val eventsMaxEvents: Int? = null,
 )
 
 @Serializable
