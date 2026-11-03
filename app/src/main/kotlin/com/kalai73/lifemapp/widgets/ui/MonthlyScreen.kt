@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.sp
 import com.kalai73.lifemapp.widgets.R
 import com.kalai73.lifemapp.widgets.core.data.repository.ItemText
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
-import com.kalai73.lifemapp.widgets.core.model.DashboardTab
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.presentation.IntegrityUi
 import com.kalai73.lifemapp.widgets.core.presentation.MonthlyUi
@@ -92,9 +91,9 @@ fun MonthlyScreen(
     /** A section key ("integrity", "trayectory", or domain key) to scroll to; null for none */
     openSection: String? = null,
     onSectionOpened: () -> Unit = {},
-    showBottomBar: Boolean = true,
-    activeTab: DashboardTab? = null,
-    onSelectTab: ((DashboardTab) -> Unit)? = null,
+    /** The navigation overlay is open (toggled by the dashboard's floating Nav button) */
+    navOpen: Boolean = false,
+    onNavOpenChange: (Boolean) -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
 ) {
     val t = rememberTokens()
@@ -125,8 +124,7 @@ fun MonthlyScreen(
     }
 
     val scrollTo = { key: String -> scope.launch { listState.animateScrollToItem(keys.indexOf(key).coerceAtLeast(0)) }; Unit }
-    var navOpen by remember { mutableStateOf(false) }
-    BackHandler(enabled = navOpen) { navOpen = false }
+    BackHandler(enabled = navOpen) { onNavOpenChange(false) }
 
     var pendingScroll by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(pendingScroll, keys) {
@@ -142,7 +140,7 @@ fun MonthlyScreen(
         val section = openSection ?: return@LaunchedEffect
         when {
             section in keys -> {
-                navOpen = false
+                onNavOpenChange(false)
                 scrollTo(section)
                 onSectionOpened()
             }
@@ -162,7 +160,7 @@ fun MonthlyScreen(
         val item = domain?.topics?.firstNotNullOfOrNull { topic -> topic.items.firstOrNull { it.id == id } }
         when {
             item != null -> {
-                navOpen = false
+                onNavOpenChange(false)
                 widgetItem = item
                 onItemOpened()
                 when (domain.domainId) {
@@ -219,26 +217,12 @@ fun MonthlyScreen(
                             "locked" -> LockedBanner(onUnlock)
                             "integrity" -> DomainCard(ui.integrity!!, onOpenWeb, itemHandlers, onToggleTopic)
                             "trayectory" -> TrayectoryDomainCard(ui.trayectory!!, onOpenWeb, itemHandlers, onToggleTopic)
-                            "end" -> Spacer(Modifier.height(28.dp))
+                            "end" -> Spacer(Modifier.height(FLOATING_BARS_CLEARANCE))
                             else -> shownDomains.firstOrNull { domainKey(it) == key }?.let {
                                 DomainCard(it, onOpenWeb, itemHandlers, onToggleTopic)
                             }
                         }
                     }
-                }
-                if (showBottomBar) {
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(t.line))
-                    TopBar(
-                        ui = null,
-                        error = ui.error,
-                        syncing = ui.syncing,
-                        onOpenSettings = onOpenSettings,
-                        onReload = onReload,
-                        navOpen = navOpen,
-                        onToggleNav = { navOpen = !navOpen },
-                        activeTab = activeTab,
-                        onSelectTab = onSelectTab,
-                    )
                 }
             }
             if (navOpen) {
@@ -246,10 +230,10 @@ fun MonthlyScreen(
                     ui = ui,
                     domains = allDomains,
                     hiddenIds = hiddenIds,
-                    onDismiss = { navOpen = false },
-                    onTop = { navOpen = false; scope.launch { listState.animateScrollToItem(0) } },
-                    onSection = { key -> navOpen = false; scrollTo(key) },
-                    onDomain = { domain -> navOpen = false; openDomain(domain) },
+                    onDismiss = { onNavOpenChange(false) },
+                    onTop = { onNavOpenChange(false); scope.launch { listState.animateScrollToItem(0) } },
+                    onSection = { key -> onNavOpenChange(false); scrollTo(key) },
+                    onDomain = { domain -> onNavOpenChange(false); openDomain(domain) },
                 )
             }
         }
@@ -272,7 +256,7 @@ private fun BoxScope.MonthlyNavOverlay(
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
     )
     Column(
-        Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp).width(200.dp)
+        Modifier.align(Alignment.BottomCenter).padding(bottom = FLOATING_BARS_CLEARANCE).width(200.dp)
             .framed(t, t.card, edge = t.line, cut = 8.dp)
             .verticalScroll(rememberScrollState())
             .padding(vertical = 4.dp),

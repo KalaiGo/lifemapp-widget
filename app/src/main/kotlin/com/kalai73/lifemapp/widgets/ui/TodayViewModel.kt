@@ -62,6 +62,10 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    /** The user is an admin: the dashboard's COMPANY tab shows for admins only */
+    private val _isAdmin = MutableStateFlow(false)
+    val isAdmin: StateFlow<Boolean> = _isAdmin.asStateFlow()
+
     init {
         // Sign-in, unlock and lock change the secrets, which aren't observable: they bump the widgets' invalidation
         viewModelScope.launch {
@@ -70,6 +74,9 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             }.collect { (t, m) ->
                 _today.value = t
                 _monthly.value = m
+                // Read once per user (cached); a failed read keeps what was known
+                if (t.authState != AuthState.SIGNED_IN) _isAdmin.value = false
+                else launch { graph.items.isAdmin()?.let { _isAdmin.value = it } }
             }
         }
     }

@@ -98,6 +98,22 @@ class ItemRepository(
         }
     }
 
+    /** The signed-in user's admin flag, read once per user */
+    private var cachedAdmin: Pair<String, Boolean>? = null
+
+    /** Whether the signed-in user is an admin: false when signed out, null when it can't be read */
+    suspend fun isAdmin(): Boolean? {
+        val user = userId() ?: return false
+        cachedAdmin?.takeIf { it.first == user }?.let { return it.second }
+        return try {
+            api.isAdmin(user).also { cachedAdmin = user to it }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private var cachedCharLimit: Int? = null
 
     /** The plan's cap on an item's text, null when it can't be read (the editor then shows no counter) */

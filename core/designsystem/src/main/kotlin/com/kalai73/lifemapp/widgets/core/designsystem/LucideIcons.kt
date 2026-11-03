@@ -213,6 +213,13 @@ object LucideIcons {
     val NAVIGATION = R.drawable.lm_ic_navigation
     val ARROW_UP = R.drawable.lm_ic_arrow_up
     val CLOSE = R.drawable.lm_ic_x
+
+    // The web's floating bottom bars (main-layout.tsx, floating-action-buttons.tsx)
+    val SEARCH = R.drawable.lm_ic_search
+    val SETTINGS = R.drawable.lm_ic_settings
+    val STICKY_NOTE = R.drawable.lm_ic_sticky_note
+    val CALENDAR_DAYS = R.drawable.lm_ic_calendar_days
+    val BUILDING = R.drawable.lm_ic_building_2
     /** An item (subsubdomain) with text */
     val CONTENT = R.drawable.lm_ic_file_text
     /** An image item, or an item whose text embeds a picture */

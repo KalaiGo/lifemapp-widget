@@ -99,6 +99,18 @@ class ItemsApi internal constructor(client: ApiClient) : ApiArea(client) {
         return response.readRawBytes()
     }
 
+    /** The profile's admin flag (lm_users_profile.is_admin): admins get the web's COMPANY page */
+    suspend fun isAdmin(userId: String): Boolean {
+        val profile = authorized { token ->
+            http.get("${config.supabaseUrl}/rest/v1/lm_users_profile") {
+                supabase(token)
+                parameter("select", "is_admin")
+                parameter("id", "eq.$userId")
+            }
+        }.body<JsonArray>().firstOrNull() as? JsonObject
+        return (profile?.get("is_admin") as? JsonPrimitive)?.contentOrNull == "true"
+    }
+
     /**
      * The plan's cap on an item's text, as the web's editor enforces it (limits.max_subdomain_chars): the tier from
      * the profile (admins are "admin"), its limit from the lm_app_config subscription_tier_limits row, else the web's

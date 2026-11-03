@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import com.kalai73.lifemapp.widgets.core.model.DashboardTab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -109,9 +108,9 @@ fun TodayScreen(
     openEntry: TodayEntry? = null,
     /** The [openEntry] request was handled (shown, or not on Today) */
     onEntryOpened: () -> Unit = {},
-    showBottomBar: Boolean = true,
-    activeTab: DashboardTab? = null,
-    onSelectTab: ((DashboardTab) -> Unit)? = null,
+    /** The navigation overlay is open (toggled by the dashboard's floating Nav button) */
+    navOpen: Boolean = false,
+    onNavOpenChange: (Boolean) -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
 ) {
     val t = rememberTokens()
@@ -145,8 +144,7 @@ fun TodayScreen(
         add("end")
     }
     val scrollTo = { key: String -> scope.launch { listState.animateScrollToItem(keys.indexOf(key).coerceAtLeast(0)) }; Unit }
-    var navOpen by remember { mutableStateOf(false) }
-    BackHandler(enabled = navOpen) { navOpen = false }
+    BackHandler(enabled = navOpen) { onNavOpenChange(false) }
 
     // A revealed card joins the list on the next composition: scroll to it once its key is there
     var pendingScroll by remember { mutableStateOf<String?>(null) }
@@ -164,7 +162,7 @@ fun TodayScreen(
         val section = openSection ?: return@LaunchedEffect
         when {
             section in keys -> {
-                navOpen = false
+                onNavOpenChange(false)
                 // In the screen's scope: clearing the request restarts (cancels) this effect
                 scrollTo(section)
                 onSectionOpened()
@@ -182,7 +180,7 @@ fun TodayScreen(
         val item = domain?.topics?.firstNotNullOfOrNull { topic -> topic.items.firstOrNull { it.id == id } }
         when {
             item != null -> {
-                navOpen = false
+                onNavOpenChange(false)
                 widgetItem = item
                 onItemOpened()
                 // An item of a hidden domain reveals its card, as the navigation overlay does
@@ -223,7 +221,7 @@ fun TodayScreen(
         }
         when {
             found -> {
-                navOpen = false
+                onNavOpenChange(false)
                 shownEntry = entry
                 onEntryOpened()
                 scrollTo(if (entry is TodayEntry.Event) "events" else "tasks")
@@ -274,36 +272,21 @@ fun TodayScreen(
                         "events" -> EventsSection(ui, showEvent, onOpenWeb)
                         "tasks" -> TasksSection(ui, onCompleteTask, showTask, onOpenWeb)
                         "shortcuts" -> ShortcutsSection(ui, openLink, onOpenWeb, onUnlock)
-                        "end" -> Spacer(Modifier.height(28.dp))
+                        "end" -> Spacer(Modifier.height(FLOATING_BARS_CLEARANCE))
                         else -> shownDomains.firstOrNull { domainKey(it) == key }?.let {
                             DomainCard(it, onOpenWeb, itemHandlers, onToggleTopic)
                         }
                     }
                 }
             }
-
-            if (showBottomBar) {
-                Box(Modifier.fillMaxWidth().height(1.dp).background(t.line))
-                TopBar(
-                    ui = ui,
-                    error = ui.error,
-                    syncing = ui.syncing,
-                    onOpenSettings = onOpenSettings,
-                    onReload = onReload,
-                    navOpen = navOpen,
-                    onToggleNav = { navOpen = !navOpen },
-                    activeTab = activeTab,
-                    onSelectTab = onSelectTab,
-                )
-            }
         }
         if (navOpen) {
             NavOverlay(
                 ui, allDomains, hiddenIds,
-                onDismiss = { navOpen = false },
-                onTop = { navOpen = false; scope.launch { listState.animateScrollToItem(0) } },
-                onSection = { key -> navOpen = false; scrollTo(key) },
-                onDomain = { domain -> navOpen = false; openDomain(domain) },
+                onDismiss = { onNavOpenChange(false) },
+                onTop = { onNavOpenChange(false); scope.launch { listState.animateScrollToItem(0) } },
+                onSection = { key -> onNavOpenChange(false); scrollTo(key) },
+                onDomain = { domain -> onNavOpenChange(false); openDomain(domain) },
             )
         }
       }
@@ -340,7 +323,7 @@ private fun BoxScope.NavOverlay(
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
     )
     Column(
-        Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp).width(200.dp)
+        Modifier.align(Alignment.BottomCenter).padding(bottom = FLOATING_BARS_CLEARANCE).width(200.dp)
             .framed(t, t.card, edge = t.line, cut = 8.dp)
             .verticalScroll(rememberScrollState())
             .padding(vertical = 4.dp),

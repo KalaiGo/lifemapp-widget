@@ -228,6 +228,10 @@
     <string name="rating_question_19">¿Tus pertenencias y herramientas han cubierto bien tus necesidades, sin desorden, desde la última evaluación?</string>
     <string name="tab_today">Hoy</string>
     <string name="tab_monthly">Mensual</string>
+    <string name="tab_company">Empresa</string>
+    <string name="search_open">Buscar</string>
+    <string name="search_hint">Buscar elementos, eventos y tareas</string>
+    <string name="search_empty">Sin resultados</string>
     <string name="rating_desc_1">Fondo</string>
     <string name="rating_desc_2">En apuros</string>
     <string name="rating_desc_3">Sobreviviendo</string>
