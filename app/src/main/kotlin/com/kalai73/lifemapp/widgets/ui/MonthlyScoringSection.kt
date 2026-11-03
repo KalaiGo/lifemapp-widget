@@ -142,10 +142,13 @@ private fun PredatorMonthlyGrid(
     val row1 = domains.take(5)
     val row2 = domains.drop(5).take(5)
 
-    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        listOf(row1, row2).forEach { row ->
+    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+        listOf(row1, row2).forEachIndexed { rowIndex, row ->
             Row(
-                Modifier.fillMaxWidth().height(118.dp),
+                // Top row is shorter than its zigzagged content (offset spills past it, unclipped),
+                // pulling the bottom row's hexagons up to ~13dp below the top row's; the bottom
+                // row keeps its full height so its below-labels don't run into the footer.
+                Modifier.fillMaxWidth().height(if (rowIndex == 0) 100.dp else 118.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.Top,
             ) {
@@ -166,16 +169,18 @@ private fun PredatorMonthlyGrid(
                             .weight(1f)
                             .offset(y = if (isOdd) 28.dp else 0.dp)
                             .semantics { contentDescription = desc }
+                            // Tap hides / shows the domain card; long press rates it
                             .combinedClickable(
-                                onClick = { onRateDomain(d) },
+                                onClick = { if (!d.unhidable) onToggleHidden(d.id) },
                                 onLongClick = {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    if (!d.unhidable) onToggleHidden(d.id)
+                                    onRateDomain(d)
                                 },
                             ),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        PredatorHex(d, score, name, align)
+                        // Second row: name labels sit below the hexagons
+                        PredatorHex(d, score, name, align, labelBelow = rowIndex == 1)
                     }
                 }
             }
@@ -220,11 +225,12 @@ private fun ClassicMonthlyGrid(
                         Box(
                             modifier = Modifier
                                 .semantics { contentDescription = desc }
+                                // Tap hides / shows the domain card; long press rates it
                                 .combinedClickable(
-                                    onClick = { onRateDomain(d) },
+                                    onClick = { if (!d.unhidable) onToggleHidden(d.id) },
                                     onLongClick = {
                                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        if (!d.unhidable) onToggleHidden(d.id)
+                                        onRateDomain(d)
                                     },
                                 ),
                             contentAlignment = Alignment.Center,

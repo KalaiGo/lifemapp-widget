@@ -200,19 +200,29 @@ private fun DomainScore(
  * neighbouring columns): the hexagon fills from the bottom in the domain's hue.
  */
 @Composable
-internal fun PredatorHex(d: ScoreDomainUi, score: Int, name: String, labelAlign: Alignment.Horizontal) {
+internal fun PredatorHex(
+    d: ScoreDomainUi,
+    score: Int,
+    name: String,
+    labelAlign: Alignment.Horizontal,
+    labelBelow: Boolean = false,
+) {
     val t = LocalTok.current
     val (tagHue, _) = domainHue(d.colorName)
-    Text(
-        t.s(name),
-        style = t.label(10.sp, if (d.hidden) t.dim else t.text).copy(letterSpacing = 0.08.em),
-        maxLines = 1, overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.fillMaxWidth().wrapContentWidth(labelAlign, unbounded = true)
-            .padding(bottom = 4.dp).alpha(if (d.name == null) 0.6f else 1f)
-            .framed(t, t.pd.panel, edge = t.line, cut = 0.dp)
-            .bracketCorners(if (d.hidden) t.line else tagHue, arm = 5.dp, stroke = 1.dp, tick = 0.dp)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-    )
+    val label = @Composable {
+        Text(
+            t.s(name),
+            style = t.label(10.sp, if (d.hidden) t.dim else t.text).copy(letterSpacing = 0.08.em),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().wrapContentWidth(labelAlign, unbounded = true)
+                .padding(top = if (labelBelow) 4.dp else 0.dp, bottom = if (labelBelow) 0.dp else 4.dp)
+                .alpha(if (d.name == null) 0.6f else 1f)
+                .framed(t, t.pd.panel, edge = t.line, cut = 0.dp)
+                .bracketCorners(if (d.hidden) t.line else tagHue, arm = 5.dp, stroke = 1.dp, tick = 0.dp)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+        )
+    }
+    if (!labelBelow) label()
     val (hue, onHue) = domainHue(d.colorName)
     // Hidden: half opacity and 35% grayscale, as the web
     val fill = if (d.hidden) hue.desaturate(0.35f) else hue
@@ -249,6 +259,7 @@ internal fun PredatorHex(d: ScoreDomainUi, score: Int, name: String, labelAlign:
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp),
         )
     }
+    if (labelBelow) label()
 }
 
 /** hexFillPercent (pd-hex-score.tsx): score/10 with a 15% minimum, full only at 10 */
