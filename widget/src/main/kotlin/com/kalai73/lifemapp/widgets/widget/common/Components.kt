@@ -37,7 +37,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
+import com.kalai73.lifemapp.widgets.core.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdDrawables
@@ -48,6 +48,7 @@ import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.SyncError
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebLauncher
+import com.kalai73.lifemapp.widgets.widget.DeepLink
 import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
 import com.kalai73.lifemapp.widgets.widget.R
@@ -160,7 +161,7 @@ fun color(value: Color): ColorProvider = ColorProvider(value)
  * (webmail, Drive, quick links) leave the app.
  */
 fun openSection(context: Context, section: String, topicId: String? = null): Action =
-    actionStartActivity(LifeMappWidgets.sectionIntent(context, section, topicId))
+    actionStartActivity(DeepLink.Section(section, topicId).intent(context))
 
 /** Opens an external link with whatever app handles it. */
 fun openExternal(url: String): Action = actionStartActivity(WebLauncher.externalIntent(url))
@@ -168,14 +169,14 @@ fun openExternal(url: String): Action = actionStartActivity(WebLauncher.external
 fun openApp(context: Context): Action = actionStartActivity(LifeMappWidgets.appIntent(context))
 
 /** Opens the app with the item's (subsubdomain's) content in its item modal. */
-fun openItem(context: Context, itemId: String): Action = actionStartActivity(LifeMappWidgets.itemIntent(context, itemId))
+fun openItem(context: Context, itemId: String): Action = actionStartActivity(DeepLink.Item(itemId).intent(context))
 
 /** Opens the app with the event's details in its event modal, as the web's events card does. */
 fun openEvent(context: Context, eventId: String, start: String): Action =
-    actionStartActivity(LifeMappWidgets.eventIntent(context, eventId, start))
+    actionStartActivity(DeepLink.Event(eventId, start).intent(context))
 
 /** Opens the app with the task's details in its task modal, as the web's task list does. */
-fun openTask(context: Context, taskId: String): Action = actionStartActivity(LifeMappWidgets.taskIntent(context, taskId))
+fun openTask(context: Context, taskId: String): Action = actionStartActivity(DeepLink.Task(taskId).intent(context))
 
 /** Widget header: title (tapping opens [onTitle]), optional trailing content, reload button with spinner. */
 @Composable

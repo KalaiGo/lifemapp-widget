@@ -21,6 +21,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 object WebRoutes {
     const val TODAY = "/today"
+    const val MONTHLY = "/monthly"
     /** Pre-sign-in pages the sign-in screen links to */
     const val SIGN_UP = "/signup"
     const val FORGOT_PASSWORD = "/forgot-password"
@@ -96,7 +97,7 @@ object WebLauncher {
         if (secrets.session == null) return plain
         if (now - secrets.lastWebHandoffAt < HANDOFF_REUSE_MS) return plain
         val handoff = withTimeoutOrNull(HANDOFF_TIMEOUT_MS) {
-            runCatching { graph.api.sessionHandoff(path) }.getOrNull()
+            runCatching { graph.api.account.sessionHandoff(path) }.getOrNull()
         } ?: return plain
         graph.secrets.update { it.copy(lastWebHandoffAt = now) }
         return Uri.parse(handoff)

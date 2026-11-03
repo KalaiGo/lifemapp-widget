@@ -39,9 +39,9 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.unit.ColorProvider
-import com.kalai73.lifemapp.widgets.core.data.presentation.IntegrityUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.TopicItemUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.TopicUi
+import com.kalai73.lifemapp.widgets.core.presentation.IntegrityUi
+import com.kalai73.lifemapp.widgets.core.presentation.TopicItemUi
+import com.kalai73.lifemapp.widgets.core.presentation.TopicUi
 import com.kalai73.lifemapp.widgets.core.designsystem.ColorContrast
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdDrawables

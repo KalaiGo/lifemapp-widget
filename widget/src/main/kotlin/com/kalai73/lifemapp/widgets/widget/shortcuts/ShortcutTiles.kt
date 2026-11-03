@@ -19,8 +19,8 @@ import androidx.glance.layout.Spacer
 import androidx.glance.layout.width
 import androidx.glance.action.Action
 import androidx.glance.LocalContext
-import com.kalai73.lifemapp.widgets.core.data.presentation.MailTagUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
+import com.kalai73.lifemapp.widgets.core.presentation.MailTagUi
+import com.kalai73.lifemapp.widgets.core.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
 import com.kalai73.lifemapp.widgets.widget.R
 import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
@@ -38,7 +38,7 @@ import androidx.glance.layout.size
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
-import com.kalai73.lifemapp.widgets.core.data.presentation.ShortcutUi
+import com.kalai73.lifemapp.widgets.core.presentation.ShortcutUi
 import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.widget.common.Icon

@@ -1,20 +1,12 @@
 package com.kalai73.lifemapp.widgets.ui
 
 import android.app.Application
-import android.util.LruCache
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kalai73.lifemapp.widgets.R
 import com.kalai73.lifemapp.widgets.core.data.LifeMappGraph
 import com.kalai73.lifemapp.widgets.core.data.auth.AuthException
-import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetPresenter
-import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
-import com.kalai73.lifemapp.widgets.core.data.repository.ItemImageRef
-import com.kalai73.lifemapp.widgets.core.data.repository.ItemText
-import com.kalai73.lifemapp.widgets.core.data.repository.TaskText
 import com.kalai73.lifemapp.widgets.core.data.repository.UnlockResult
-import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.CachedState
 import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
 import com.kalai73.lifemapp.widgets.core.model.ThemeMode
@@ -29,10 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.IOException
-import kotlinx.coroutines.CancellationException
 
 enum class Screen { LOADING, SIGN_IN, UNLOCK, HOME }
 
@@ -49,41 +38,17 @@ data class AppUiState(
 )
 
 /** Opening the app syncs when the cached snapshot is older than this */
-private const val OPEN_SYNC_AFTER_MS = 5 * 60 * 1000L
+internal const val OPEN_SYNC_AFTER_MS = 5 * 60 * 1000L
 
+/**
+ * The account side of the app: which screen shows (sign-in, unlock, home), sign-in and sign-out, the encryption
+ * unlock, sync and this device's settings. The Today screen itself is [TodayViewModel]'s.
+ */
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val graph = LifeMappGraph.get(app)
     private val _state = MutableStateFlow(AppUiState())
     val state: StateFlow<AppUiState> = _state.asStateFlow()
     val cache: StateFlow<CachedState> = graph.cache.state.stateIn(viewModelScope, SharingStarted.Eagerly, CachedState())
-
-    /** What the Today screen draws: decrypted and formatted like the widgets (shared presenter). */
-    private val _today = MutableStateFlow(WidgetUi.SignedOut)
-    val today: StateFlow<WidgetUi> = _today.asStateFlow()
-
-    /** The item (subsubdomain) a widget tap asked to open in the Today screen's item modal, until it's shown */
-    private val _openItem = MutableStateFlow<String?>(null)
-    val openItem: StateFlow<String?> = _openItem.asStateFlow()
-
-    fun openItem(itemId: String) { _openItem.value = itemId }
-
-    fun itemOpened() { _openItem.value = null }
-
-    /** The event or task a widget tap asked to show in the Today screen's details modal, until it's shown */
-    private val _openEntry = MutableStateFlow<TodayEntry?>(null)
-    val openEntry: StateFlow<TodayEntry?> = _openEntry.asStateFlow()
-
-    fun openEntry(entry: TodayEntry) { _openEntry.value = entry }
-
-    fun entryOpened() { _openEntry.value = null }
-
-    /** The Today section (a LifeMappWidgets.SECTION_ value) a widget tap asked to scroll to, until it's shown */
-    private val _openSection = MutableStateFlow<String?>(null)
-    val openSection: StateFlow<String?> = _openSection.asStateFlow()
-
-    fun openSection(section: String) { _openSection.value = section }
-
-    fun sectionOpened() { _openSection.value = null }
 
     val colorScheme: ColorSchemeName get() = cache.value.colorScheme
     val uiStyle: UiStyle get() = UiStyle.from(cache.value.snapshot?.settings?.uiStyle)
@@ -103,18 +68,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val session = secrets?.session
         val encryptionEnabled = graph.cache.current().snapshot?.settings?.encryptionEnabled == true
         val unlocked = secrets?.dataKey != null
-        _today.value = WidgetPresenter.present(
-            graph.cache.current(),
-            if (session != null) AuthState.SIGNED_IN else AuthState.SIGNED_OUT,
-            secrets?.dataKey,
-        )
         _state.update { s ->
             s.copy(
-                screen = when {
-                    session == null -> Screen.SIGN_IN
-                    encryptionEnabled && !unlocked && !s.unlockSkipped -> Screen.UNLOCK
-                    else -> Screen.HOME
-                },
+                screen = screenFor(signedIn = session != null, encryptionEnabled, unlocked, s.unlockSkipped),
                 email = session?.email,
                 encryptionEnabled = encryptionEnabled,
                 unlocked = unlocked,
@@ -137,10 +93,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(error = e.message ?: e.javaClass.simpleName) }
             } finally {
                 _state.update { it.copy(busy = false) }
+                // Widgets (and the Today screen, through the same invalidation) follow every action, failed ones too
+                refreshWidgets()
                 refreshScreen()
             }
         }
     }
+
+    /** Re-renders every placed widget (installed by the widget module; no Glance knowledge needed here). */
+    private suspend fun refreshWidgets() = graph.refreshWidgets()
 
     private fun fail(res: Int) = _state.update { it.copy(error = getApplication<Application>().getString(res)) }
 
@@ -155,8 +116,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun tryUnlockWith(password: String) {
         val encrypted = graph.cache.current().snapshot?.settings?.encryptionEnabled == true
         if (!encrypted || graph.encryption.dataKey() != null) return
-        val result = runCatching { graph.encryption.unlock(password) }.getOrNull()
-        if (result == UnlockResult.Unlocked) LifeMappWidgets.updateAll(getApplication())
+        runCatching { graph.encryption.unlock(password) }
     }
 
     suspend fun googleSignInUrl(): String = graph.auth.startGoogleSignIn()
@@ -172,12 +132,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // First snapshot tells whether the account is end-to-end encrypted
         graph.snapshots.refresh()
         SyncScheduler.schedulePeriodic(getApplication())
-        LifeMappWidgets.updateAll(getApplication())
     }
 
     fun unlock(password: String) = run {
         when (graph.encryption.unlock(password)) {
-            UnlockResult.Unlocked -> LifeMappWidgets.updateAll(getApplication())
+            UnlockResult.Unlocked -> Unit
             UnlockResult.WrongPassword -> fail(R.string.error_wrong_password)
             UnlockResult.NotConfigured -> fail(R.string.error_not_configured)
         }
@@ -196,7 +155,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun lock() = run {
         graph.encryption.lock()
         _state.update { it.copy(unlockSkipped = true) }
-        LifeMappWidgets.updateAll(getApplication())
     }
 
     fun syncNow() {
@@ -211,169 +169,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun syncIfStale(now: Long = System.currentTimeMillis()) {
         viewModelScope.launch {
             if (runCatching { graph.secrets.read() }.getOrNull()?.session == null) return@launch
-            val state = graph.cache.current()
-            if (state.isSyncing(now) || now - state.lastSuccessAt < OPEN_SYNC_AFTER_MS) return@launch
-            SyncScheduler.syncNow(getApplication())
+            if (shouldSyncOnOpen(graph.cache.current(), now)) SyncScheduler.syncNow(getApplication())
         }
-    }
-
-    /** Reload button / pull-to-refresh on the Today screen (debounced like the widgets' reload). */
-    fun reload() {
-        if (!SyncScheduler.canSyncManually()) return
-        viewModelScope.launch {
-            graph.snapshots.markSyncing()
-            SyncScheduler.syncNow(getApplication(), manual = true)
-        }
-    }
-
-    /** Hides the task at once, then a worker confirms it with the server (the widgets' path). */
-    fun completeTask(taskId: String) {
-        viewModelScope.launch {
-            graph.tasks.markCompletedLocally(taskId)
-            LifeMappWidgets.updateAll(getApplication())
-            SyncScheduler.completeTask(getApplication(), taskId)
-        }
-    }
-
-    /** A LIFE MAPP task's whole title and description for the task dialog's editor. Throws on network errors. */
-    suspend fun loadTaskText(taskId: String): TaskText = graph.tasks.loadText(taskId)
-
-    /**
-     * Saves a task's new [title] and/or [html] description (null keeps it) on the server and in the cached
-     * snapshot, encrypted when the account is.
-     */
-    fun saveTask(taskId: String, title: String?, html: String?) {
-        if (title != null && title.isBlank()) return
-        if (title == null && html == null) return
-        run {
-            val encrypted = cache.value.snapshot?.settings?.encryptionEnabled == true
-            if (!graph.tasks.saveText(taskId, title, html, encrypted)) fail(R.string.error_task_locked)
-            LifeMappWidgets.updateAll(getApplication())
-        }
-    }
-
-    /** An item's whole text for the edit dialog, fresh from the server. Throws on network errors. */
-    suspend fun loadItemText(itemId: String): ItemText = graph.items.loadText(itemId)
-
-    /** Decoded pictures by URI (uploads get unique names, so a URI's picture doesn't change), sized in bytes */
-    private val imageCache = object : LruCache<String, ImageBitmap>(32 * 1024 * 1024) {
-        override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
-    }
-
-    /**
-     * An image item's picture for Today: where it is comes fresh from the row (it may have been replaced on the
-     * web), the picture itself from [imageCache] when already shown. Never throws: failures are [ItemImage.Failed].
-     */
-    suspend fun loadItemImage(itemId: String): ItemImage = try {
-        when (val ref = graph.items.imageUri(itemId)) {
-            ItemImageRef.Locked -> ItemImage.Locked
-            ItemImageRef.Missing -> ItemImage.Failed
-            is ItemImageRef.Found -> {
-                val bitmap = imageCache.get(ref.uri)
-                    ?: graph.items.imageBytes(ref.uri)
-                        ?.let { bytes -> withContext(Dispatchers.Default) { decodeItemImage(bytes) } }
-                        ?.also { imageCache.put(ref.uri, it) }
-                bitmap?.let { ItemImage.Loaded(it) } ?: ItemImage.Failed
-            }
-        }
-    } catch (e: CancellationException) {
-        throw e
-    } catch (_: Exception) {
-        ItemImage.Failed
-    }
-
-    /** Collapses or expands an item (an image item's header tap), like [setTopicCollapsed]. */
-    fun setItemCollapsed(itemId: String, collapsed: Boolean) =
-        toggle { graph.items.setItemCollapsed(itemId, collapsed) { LifeMappWidgets.updateAll(getApplication()) } }
-
-    /**
-     * Saves an item's new [name] and/or [html] text (null keeps it) on the server and in the cached snapshot,
-     * encrypted when the account is.
-     */
-    fun saveItem(itemId: String, name: String?, html: String?) {
-        if (name != null && name.isBlank()) return
-        if (name == null && html == null) return
-        run {
-            val encrypted = cache.value.snapshot?.settings?.encryptionEnabled == true
-            if (!graph.items.save(itemId, name, html, encrypted)) fail(R.string.error_item_locked)
-            LifeMappWidgets.updateAll(getApplication())
-        }
-    }
-
-    /** Moves an item one place up or down in its topic (the item menu's Move up / Move down). */
-    fun moveItem(itemId: String, topicId: String, up: Boolean) = run {
-        graph.items.move(itemId, topicId, up)
-        LifeMappWidgets.updateAll(getApplication())
-    }
-
-    /** Adds or removes an item's warning icon. */
-    fun setItemWarning(itemId: String, warning: Boolean) = run {
-        graph.items.setWarning(itemId, warning)
-        LifeMappWidgets.updateAll(getApplication())
-    }
-
-    fun deleteItem(itemId: String) = run {
-        graph.items.delete(itemId)
-        LifeMappWidgets.updateAll(getApplication())
-    }
-
-    /**
-     * Collapses or expands an Integrity topic: the cached snapshot (app and widgets) at once, then the server.
-     * Not behind [run]'s busy gate, so quick taps on several headers all land; the repository undoes a refused change.
-     */
-    fun setTopicCollapsed(topicId: String, collapsed: Boolean) =
-        toggle { graph.items.setTopicCollapsed(topicId, collapsed) { LifeMappWidgets.updateAll(getApplication()) } }
-
-    /** A widget topic header's tap: the topic opens expanded (saved like a header tap in the app); no-op if it already is. */
-    fun expandTopic(topicId: String) {
-        viewModelScope.launch {
-            val snapshot = graph.cache.current().snapshot ?: return@launch
-            val topic = (listOfNotNull(snapshot.integrity) + snapshot.todayDomains)
-                .flatMap { it.topics }.firstOrNull { it.id == topicId } ?: return@launch
-            if (topic.collapsed) setTopicCollapsed(topicId, false)
-        }
-    }
-
-    /** Hides or shows a domain on Today (the scoring section's tap); Integrity and Tenacity always stay. */
-    fun toggleDomainHidden(domainId: String) {
-        val domain = _today.value.scoring?.domains?.firstOrNull { it.id == domainId } ?: return
-        if (domain.unhidable) return
-        toggle { graph.scoring.setHidden(mapOf(domainId to !domain.hidden)) }
-    }
-
-    /** Hides (true) or shows every domain that can be hidden (the scoring section's eye button). */
-    fun setAllDomainsHidden(hidden: Boolean) {
-        val domains = _today.value.scoring?.domains?.filterNot { it.unhidable } ?: return
-        toggle { graph.scoring.setHidden(domains.associate { it.id to hidden }) }
-    }
-
-    /**
-     * Saves new ratings (domain id → 1–10) with the web's bulk route, encrypted when the account is; the cached
-     * snapshot takes them at once, so the cards and the widgets' average follow without a sync.
-     */
-    fun rateDomains(ratings: Map<String, Int>) = run {
-        val encrypted = cache.value.snapshot?.settings?.encryptionEnabled == true
-        if (!graph.scoring.rate(ratings, encrypted)) fail(R.string.error_rating_locked)
-        LifeMappWidgets.updateAll(getApplication())
-    }
-
-    private fun toggle(block: suspend () -> Unit) {
-        viewModelScope.launch {
-            try {
-                block()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: IOException) {
-                fail(R.string.error_network)
-            } catch (e: Exception) {
-                _state.update { it.copy(error = e.message ?: e.javaClass.simpleName) }
-            }
-            LifeMappWidgets.updateAll(getApplication())
-        }
-    }
-
-    fun dismissCompletionFailure() {
-        viewModelScope.launch { graph.tasks.dismissFailure() }
     }
 
     fun relinkWeb() = run { WebLauncher.resetHandoff(getApplication()) }
@@ -390,7 +187,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             graph.cache.update { it.copy(themeMode = mode) }
-            LifeMappWidgets.updateAll(getApplication())
+            refreshWidgets()
         }
     }
 
@@ -398,7 +195,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setColorScheme(scheme: ColorSchemeName?) {
         viewModelScope.launch {
             graph.cache.update { it.copy(colorSchemeOverride = scheme?.id) }
-            LifeMappWidgets.updateAll(getApplication())
+            refreshWidgets()
         }
     }
 }
+
+/** Which screen the app shows: sign-in, the encryption unlock (until skipped this session), or home. */
+internal fun screenFor(signedIn: Boolean, encryptionEnabled: Boolean, unlocked: Boolean, unlockSkipped: Boolean): Screen = when {
+    !signedIn -> Screen.SIGN_IN
+    encryptionEnabled && !unlocked && !unlockSkipped -> Screen.UNLOCK
+    else -> Screen.HOME
+}
+
+/** Opening the app syncs unless a sync is running or the last success is under [OPEN_SYNC_AFTER_MS] old. */
+internal fun shouldSyncOnOpen(state: CachedState, now: Long): Boolean =
+    !state.isSyncing(now) && now - state.lastSuccessAt >= OPEN_SYNC_AFTER_MS

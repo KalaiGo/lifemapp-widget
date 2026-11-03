@@ -1,7 +1,7 @@
 package com.kalai73.lifemapp.widgets.core.data.repository
 
 import com.kalai73.lifemapp.widgets.core.crypto.EncryptedField
-import com.kalai73.lifemapp.widgets.core.data.api.LifeMappApi
+import com.kalai73.lifemapp.widgets.core.data.api.VoiceApi
 import com.kalai73.lifemapp.widgets.core.data.api.ServerException
 import com.kalai73.lifemapp.widgets.core.data.api.VoiceIntent
 import com.kalai73.lifemapp.widgets.core.data.api.VoiceItem
@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
  * Network trouble ([java.io.IOException]) and signed-out sessions propagate to the caller.
  */
 class VoiceRepository(
-    private val api: LifeMappApi,
+    private val api: VoiceApi,
     private val dataKey: suspend () -> String?,
 ) {
     sealed interface Understood {

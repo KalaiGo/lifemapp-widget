@@ -85,7 +85,7 @@ class AuthAndApiTest {
             }
         }
         val auth = AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, clock = { 0 })
-        val snapshot = LifeMappApi(http, TestConfig, auth).snapshot("Europe/Madrid")
+        val snapshot = LifeMappApi(http, TestConfig, auth).snapshots.snapshot("Europe/Madrid")
         assertEquals(listOf("Bearer stale", "Bearer fresh"), requests)
         assertEquals("Hi", snapshot.tasks.single().title)
     }

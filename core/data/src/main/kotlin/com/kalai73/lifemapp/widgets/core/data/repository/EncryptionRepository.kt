@@ -2,7 +2,7 @@ package com.kalai73.lifemapp.widgets.core.data.repository
 
 import com.kalai73.lifemapp.widgets.core.crypto.EncryptedField
 import com.kalai73.lifemapp.widgets.core.crypto.KeyEnvelope
-import com.kalai73.lifemapp.widgets.core.data.api.LifeMappApi
+import com.kalai73.lifemapp.widgets.core.data.api.AccountApi
 import com.kalai73.lifemapp.widgets.core.data.auth.NotSignedInException
 import com.kalai73.lifemapp.widgets.core.data.secure.SecretStore
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +21,7 @@ sealed interface UnlockResult {
  * widget renders can decrypt titles without asking again.
  */
 class EncryptionRepository(
-    private val api: LifeMappApi,
+    private val api: AccountApi,
     private val secrets: SecretStore,
 ) {
     suspend fun dataKey(): String? = runCatching { secrets.read().dataKey }.getOrNull()

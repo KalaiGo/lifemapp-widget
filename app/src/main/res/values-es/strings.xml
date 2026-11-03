@@ -216,6 +216,18 @@
     <string name="rating_question_3">¿Qué tan activo, enérgico y físicamente bien te has sentido desde la última evaluación?</string>
     <string name="rating_question_4">¿Te han mantenido centrado y encaminado tus rutinas y hábitos diarios desde la última evaluación?</string>
     <string name="rating_question_5">¿Has superado la resistencia y cumplido con tus prioridades desde la última evaluación?</string>
+    <string name="rating_question_10">¿Has avanzado de forma significativa en tu camino y propósito de vida desde la última evaluación?</string>
+    <string name="rating_question_11">¿Qué tan fuerte, resistente y físicamente protegido te has sentido desde la última evaluación?</string>
+    <string name="rating_question_12">¿Qué tan conectado, apoyado e involucrado te has sentido con las personas de tu vida desde la última evaluación?</string>
+    <string name="rating_question_13">¿Has invertido activamente en aprendizaje, habilidades o crecimiento personal desde la última evaluación?</string>
+    <string name="rating_question_14">¿Has hecho espacio para el juego, el ocio y las actividades que te dan verdadera alegría desde la última evaluación?</string>
+    <string name="rating_question_15">¿Qué tan bien has gestionado tu presupuesto, tus ahorros y tus metas financieras desde la última evaluación?</string>
+    <string name="rating_question_16">¿Tu hogar se ha sentido ordenado, cómodo y tranquilo desde la última evaluación?</string>
+    <string name="rating_question_17">¿Tus opciones de transporte y viaje te han dado comodidad y libertad de movimiento desde la última evaluación?</string>
+    <string name="rating_question_18">¿Qué tan satisfecho estás con tu enfoque, tu trabajo concentrado y tus logros significativos desde la última evaluación?</string>
+    <string name="rating_question_19">¿Tus pertenencias y herramientas han cubierto bien tus necesidades, sin desorden, desde la última evaluación?</string>
+    <string name="tab_today">Hoy</string>
+    <string name="tab_monthly">Mensual</string>
     <string name="rating_desc_1">Fondo</string>
     <string name="rating_desc_2">En apuros</string>
     <string name="rating_desc_3">Sobreviviendo</string>
@@ -241,7 +253,6 @@
     <string name="details_repeats">Se repite</string>
     <string name="details_overdue">Vencida</string>
     <string name="details_open_event">Abrir evento</string>
-    <string name="details_open_tasks">Abrir en LIFE MAPP</string>
     <string name="details_description_locked">Desbloquea para ver la descripción</string>
     <string name="details_edit">Editar tarea</string>
     <string name="details_cancel">Cancelar</string>

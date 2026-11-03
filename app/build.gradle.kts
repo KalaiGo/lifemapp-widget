@@ -68,6 +68,7 @@ kotlin {
 
 dependencies {
     implementation(project(":core:data"))
+    implementation(project(":core:presentation"))
     implementation(project(":core:designsystem"))
     implementation(project(":core:weblauncher"))
     implementation(project(":widget"))
@@ -83,4 +84,6 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.glance.appwidget)
     debugImplementation(libs.compose.ui.tooling)
+
+    testImplementation(libs.junit4)
 }

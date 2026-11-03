@@ -1,5 +1,6 @@
 package com.kalai73.lifemapp.widgets.core.data
 
+import com.kalai73.lifemapp.widgets.core.model.LifeMappJson
 import com.kalai73.lifemapp.widgets.core.data.secure.SecretCipher
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine

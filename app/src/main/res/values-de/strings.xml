@@ -214,6 +214,18 @@
     <string name="rating_question_3">Wie aktiv, energiegeladen und körperlich wohl hast du dich gefühlt seit der letzten Bewertung?</string>
     <string name="rating_question_4">Haben dich deine täglichen Routinen und Anker geerdet und auf Kurs gehalten seit der letzten Bewertung?</string>
     <string name="rating_question_5">Hast du Widerstände überwunden und deine wichtigsten Prioritäten durchgezogen seit der letzten Bewertung?</string>
+    <string name="rating_question_10">Bist du auf deinem Lebensweg und bei deiner Bestimmung spürbar vorangekommen seit der letzten Bewertung?</string>
+    <string name="rating_question_11">Wie stark, widerstandsfähig und körperlich geschützt hast du dich gefühlt seit der letzten Bewertung?</string>
+    <string name="rating_question_12">Wie verbunden, unterstützt und eingebunden hast du dich mit den Menschen in deinem Leben gefühlt seit der letzten Bewertung?</string>
+    <string name="rating_question_13">Hast du aktiv in Lernen, Fähigkeiten oder persönliches Wachstum investiert seit der letzten Bewertung?</string>
+    <string name="rating_question_14">Hast du Raum für Spiel, Freizeit und Dinge geschaffen, die dir echte Freude bereiten, seit der letzten Bewertung?</string>
+    <string name="rating_question_15">Wie gut hast du dein Budget, deine Ersparnisse und deine finanziellen Ziele im Griff gehabt seit der letzten Bewertung?</string>
+    <string name="rating_question_16">Hat sich dein Zuhause ordentlich, gemütlich und friedlich angefühlt seit der letzten Bewertung?</string>
+    <string name="rating_question_17">Haben dir deine Verkehrs- und Reisemöglichkeiten Leichtigkeit und Bewegungsfreiheit gegeben seit der letzten Bewertung?</string>
+    <string name="rating_question_18">Wie zufrieden bist du mit deinem Fokus, deiner konzentrierten Arbeit und deinen bedeutsamen Erfolgen seit der letzten Bewertung?</string>
+    <string name="rating_question_19">Haben dir deine Sachen und Werkzeuge gut gedient, ohne Unordnung, seit der letzten Bewertung?</string>
+    <string name="tab_today">Heute</string>
+    <string name="tab_monthly">Monatlich</string>
     <string name="rating_desc_1">Tiefpunkt</string>
     <string name="rating_desc_2">Kämpfend</string>
     <string name="rating_desc_3">Überlebend</string>
@@ -239,7 +251,6 @@
     <string name="details_repeats">Wiederholt sich</string>
     <string name="details_overdue">Überfällig</string>
     <string name="details_open_event">Termin öffnen</string>
-    <string name="details_open_tasks">In LIFE MAPP öffnen</string>
     <string name="details_description_locked">Entsperren, um die Beschreibung zu sehen</string>
     <string name="details_edit">Aufgabe bearbeiten</string>
     <string name="details_cancel">Abbrechen</string>

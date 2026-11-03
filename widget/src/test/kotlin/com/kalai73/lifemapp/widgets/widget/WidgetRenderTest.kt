@@ -11,18 +11,18 @@ import androidx.glance.testing.unit.hasText
 import androidx.glance.testing.unit.hasContentDescriptionEqualTo
 import androidx.glance.testing.unit.hasTextEqualTo
 import androidx.test.core.app.ApplicationProvider
-import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
-import com.kalai73.lifemapp.widgets.core.data.presentation.EventDayUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.EventUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.IntegrityUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.TopicItemUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.TopicUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.ScoreDomainUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.ScoringUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.ShortcutUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.TaskUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.WeatherUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
+import com.kalai73.lifemapp.widgets.core.presentation.DayKind
+import com.kalai73.lifemapp.widgets.core.presentation.EventDayUi
+import com.kalai73.lifemapp.widgets.core.presentation.EventUi
+import com.kalai73.lifemapp.widgets.core.presentation.IntegrityUi
+import com.kalai73.lifemapp.widgets.core.presentation.TopicItemUi
+import com.kalai73.lifemapp.widgets.core.presentation.TopicUi
+import com.kalai73.lifemapp.widgets.core.presentation.ScoreDomainUi
+import com.kalai73.lifemapp.widgets.core.presentation.ScoringUi
+import com.kalai73.lifemapp.widgets.core.presentation.ShortcutUi
+import com.kalai73.lifemapp.widgets.core.presentation.TaskUi
+import com.kalai73.lifemapp.widgets.core.presentation.WeatherUi
+import com.kalai73.lifemapp.widgets.core.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.model.SyncError
@@ -32,6 +32,7 @@ import com.kalai73.lifemapp.widgets.widget.common.WidgetRoot
 import com.kalai73.lifemapp.widgets.widget.dashboard.DashboardContent
 import com.kalai73.lifemapp.widgets.widget.events.EventsConfig
 import org.junit.Test
+import kotlin.time.Duration.Companion.seconds
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
@@ -315,7 +316,8 @@ class WidgetRenderTest {
     }
 
     @Test
-    fun `mail shows the connect prompt until mail is connected, then the inbox count`() = runGlanceAppWidgetUnitTest {
+    // Renders the dashboard twice: past the default 2s on a loaded machine (full parallel builds)
+    fun `mail shows the connect prompt until mail is connected, then the inbox count`() = runGlanceAppWidgetUnitTest(10.seconds) {
         dashboard(populated.copy(mailConnected = false))
         onNode(hasTextEqualTo("Mail not connected")).assertExists()
         onNode(hasTextEqualTo("Connect mail")).assertExists()

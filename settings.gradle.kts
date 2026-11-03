@@ -21,6 +21,7 @@ include(
     ":core:model",
     ":core:crypto",
     ":core:data",
+    ":core:presentation",
     ":core:designsystem",
     ":core:weblauncher",
     ":widget",

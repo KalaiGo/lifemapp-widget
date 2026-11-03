@@ -1,5 +1,6 @@
 package com.kalai73.lifemapp.widgets.core.data
 
+import com.kalai73.lifemapp.widgets.core.model.LifeMappJson
 import androidx.test.core.app.ApplicationProvider
 import com.kalai73.lifemapp.widgets.core.crypto.EncryptedField
 import com.kalai73.lifemapp.widgets.core.data.api.LifeMappApi
@@ -49,7 +50,7 @@ class VoiceRepositoryTest {
             handler(req)
         }
         val auth = AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, clock = { 0 })
-        return VoiceRepository(LifeMappApi(http, TestConfig, auth), dataKey = { dataKey })
+        return VoiceRepository(LifeMappApi(http, TestConfig, auth).voice, dataKey = { dataKey })
     }
 
     @Test

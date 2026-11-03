@@ -47,8 +47,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.DialogProperties
 import com.kalai73.lifemapp.widgets.R
-import com.kalai73.lifemapp.widgets.core.data.presentation.ItemHtml
-import com.kalai73.lifemapp.widgets.core.data.presentation.TopicItemUi
+import com.kalai73.lifemapp.widgets.core.data.content.ItemHtml
+import com.kalai73.lifemapp.widgets.core.presentation.TopicItemUi
 import com.kalai73.lifemapp.widgets.core.data.repository.ItemText
 import com.kalai73.lifemapp.widgets.core.designsystem.CondensedFontFamily
 import com.kalai73.lifemapp.widgets.core.designsystem.LocalPdPalette

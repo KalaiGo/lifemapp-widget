@@ -20,9 +20,9 @@ import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
-import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
-import com.kalai73.lifemapp.widgets.core.data.presentation.EventDayUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.EventUi
+import com.kalai73.lifemapp.widgets.core.presentation.DayKind
+import com.kalai73.lifemapp.widgets.core.presentation.EventDayUi
+import com.kalai73.lifemapp.widgets.core.presentation.EventUi
 import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors
 import com.kalai73.lifemapp.widgets.core.designsystem.PdShape
 import com.kalai73.lifemapp.widgets.widget.common.LocalPd

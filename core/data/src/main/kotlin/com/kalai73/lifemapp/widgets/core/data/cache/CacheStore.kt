@@ -6,7 +6,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
-import com.kalai73.lifemapp.widgets.core.data.LifeMappJson
+import com.kalai73.lifemapp.widgets.core.model.LifeMappJson
 import com.kalai73.lifemapp.widgets.core.model.CachedState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first

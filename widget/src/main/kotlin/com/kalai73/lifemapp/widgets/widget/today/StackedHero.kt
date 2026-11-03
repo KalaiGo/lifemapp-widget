@@ -32,8 +32,8 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
-import com.kalai73.lifemapp.widgets.core.data.presentation.ScoringUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
+import com.kalai73.lifemapp.widgets.core.presentation.ScoringUi
+import com.kalai73.lifemapp.widgets.core.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
 import com.kalai73.lifemapp.widgets.widget.common.PdHex
 import com.kalai73.lifemapp.widgets.widget.common.openSection

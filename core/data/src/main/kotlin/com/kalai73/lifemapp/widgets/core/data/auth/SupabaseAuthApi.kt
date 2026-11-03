@@ -112,7 +112,7 @@ class SupabaseAuthApi(private val http: HttpClient, private val config: LifeMapp
 
     private suspend fun HttpResponse.toAuthException(): Exception {
         val text = runCatching { bodyAsText() }.getOrDefault("")
-        val parsed = runCatching { com.kalai73.lifemapp.widgets.core.data.LifeMappJson.decodeFromString(ErrorResponse.serializer(), text) }.getOrNull()
+        val parsed = runCatching { com.kalai73.lifemapp.widgets.core.model.LifeMappJson.decodeFromString(ErrorResponse.serializer(), text) }.getOrNull()
         val message = parsed?.errorDescription ?: parsed?.msg ?: parsed?.message ?: parsed?.error ?: "HTTP ${status.value}"
         // 5xx is the server's problem, not the credentials'
         if (status.value >= 500) return java.io.IOException(message)

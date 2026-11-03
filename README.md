@@ -1,9 +1,24 @@
 # LIFE MAPP Widgets (Android)
 
 One home-screen widget for LIFE MAPP, the **Dashboard**: the hero (greeting, date, weather, counters, Journal /
-Budget) fixed at the top, then events, tasks and shortcuts in one scrolling list. The app itself only
-handles sign-in, encryption unlock and widget settings; everything else opens the LIFE MAPP web app in a Chrome
-Custom Tab, already signed in. Plan: [docs/androidWidgetsApp.md](docs/androidWidgetsApp.md).
+Budget) fixed at the top, then events, tasks and shortcuts in one scrolling list. The app handles sign-in,
+encryption unlock and settings, and has a native **Today** screen (hero, scoring, events, tasks, shortcuts and the
+Today domain cards, with task and item editing) that widget taps open. Everything else opens the LIFE MAPP web app
+in a Chrome Custom Tab, already signed in. Plan: [docs/androidWidgetsApp.md](docs/androidWidgetsApp.md).
+
+### How it fits together
+
+- **One source of truth.** Syncs (`SnapshotWorker`, the reload button) write the web snapshot into the DataStore
+  cache; the widget and the Today screen only ever render from it. Encrypted fields stay encrypted there.
+- **One presenter.** `WidgetPresenter.present(cache, auth, dataKey)` (`core:presentation`, plain Kotlin) decrypts and
+  formats the cache into `WidgetUi`, which both the Glance widget and the Compose Today screen draw.
+- **Manual DI.** `LifeMappGraph` (one per process) builds the repositories; the widget module installs
+  `graph.refreshWidgets`, so the app re-renders widgets without knowing Glance. Each repository gets only its area
+  of the web API (`api.tasks`, `api.items`, `api.scoring`, …).
+- **Widget → app.** Widget taps are typed `DeepLink`s (section, item, event, task) encoded into the launch intent.
+- **Two view models.** `AppViewModel` owns the account side (sign-in, unlock, settings, sync); `TodayViewModel` owns
+  the Today screen. Today re-renders on cache changes and on `graph.widgetInvalidations`, which every sign-in,
+  unlock and lock bumps.
 
 - Application ID `com.kalai73.lifemapp.widgets`, minSdk 26, compile/target SDK 36
 - Kotlin 2.2, Jetpack Glance 1.1, Compose Material 3, WorkManager, Ktor, DataStore
@@ -12,13 +27,14 @@ Custom Tab, already signed in. Plan: [docs/androidWidgetsApp.md](docs/androidWid
 
 | Module | Contents |
 |---|---|
-| `app` | `MainActivity` (sign-in → unlock → settings, Google OAuth redirect), `WidgetConfigActivity` (Dashboard events: days / calendars) |
-| `core:model` | Snapshot DTOs (mirror of `lifeMappWeb/frontend/src/lib/widget/types.ts`), cache state |
+| `app` | `MainActivity` (sign-in → unlock → Today / settings, Google OAuth redirect, widget deep links), `AppViewModel`, `TodayViewModel`, the Today screen (`ui/Today*.kt`, one file per section), `WidgetConfigActivity` (Dashboard events: days / calendars) |
+| `core:model` | Snapshot DTOs (mirror of `lifeMappWeb/frontend/src/lib/widget/types.ts`), cache state, `LifeMappJson`, task source rules |
 | `core:crypto` | AES-256-GCM, PBKDF2-SHA256 (100k), key envelope — port of the web's `lib/encryption` |
-| `core:data` | Supabase auth (password, Google PKCE, refresh), web API client, Keystore secret store, DataStore cache, repositories, `WidgetPresenter` |
+| `core:data` | Supabase auth (password, Google PKCE, refresh), web API client (one class per area: snapshot, tasks, items, scoring, account, voice), Keystore secret store, DataStore cache, repositories, item HTML / image content helpers |
+| `core:presentation` | `WidgetPresenter` and the `*Ui` models, date labels — plain Kotlin/JVM, no Android |
 | `core:designsystem` | The 7 web color schemes, Classic / Predator styles, Lucide icons as vector drawables |
 | `core:weblauncher` | Custom Tabs launcher with the one-time web sign-in handoff |
-| `widget` | Glance Dashboard widget, actions, `SnapshotWorker`, `CompleteTaskWorker`, scheduling |
+| `widget` | Glance Dashboard widget, actions, `DeepLink`, `SnapshotWorker`, `CompleteTaskWorker`, scheduling, voice input |
 
 ## Setup
 

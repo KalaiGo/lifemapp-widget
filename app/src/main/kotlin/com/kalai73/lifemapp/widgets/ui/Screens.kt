@@ -110,13 +110,20 @@ import java.text.DateFormat
 import java.util.Date
 
 @Composable
-fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOpenWeb: (String) -> Unit) {
+fun LifeMappAppContent(
+    viewModel: AppViewModel,
+    todayViewModel: TodayViewModel,
+    onGoogleSignIn: () -> Unit,
+    onOpenWeb: (String) -> Unit,
+) {
     val state by viewModel.state.collectAsState()
     val cache by viewModel.cache.collectAsState()
-    val today by viewModel.today.collectAsState()
-    val openItem by viewModel.openItem.collectAsState()
-    val openSection by viewModel.openSection.collectAsState()
-    val openEntry by viewModel.openEntry.collectAsState()
+    val today by todayViewModel.today.collectAsState()
+    val monthly by todayViewModel.monthly.collectAsState()
+    val todayError by todayViewModel.error.collectAsState()
+    val openItem by todayViewModel.openItem.collectAsState()
+    val openSection by todayViewModel.openSection.collectAsState()
+    val openEntry by todayViewModel.openEntry.collectAsState()
     if (state.screen == Screen.HOME) {
         // Main page = Today; the former main page (sync, widgets, encryption, battery, account) is the side panel
         val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -130,39 +137,23 @@ fun LifeMappAppContent(viewModel: AppViewModel, onGoogleSignIn: () -> Unit, onOp
                         Spacer(Modifier.height(8.dp))
                         Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(16.dp))
-                        SettingsPanel(state, cache, viewModel, onOpenWeb)
+                        SettingsPanel(state, cache, viewModel, onOpenWeb, todayError)
                     }
                 }
             },
         ) {
             Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-                    TodayScreen(
-                        ui = today,
+                    MainDashboard(
+                        todayUi = today,
+                        monthlyUi = monthly,
+                        todayViewModel = todayViewModel,
+                        appViewModel = viewModel,
                         onOpenSettings = { scope.launch { drawerState.open() } },
-                        onReload = viewModel::reload,
-                        onCompleteTask = viewModel::completeTask,
-                        onLoadTaskText = viewModel::loadTaskText,
-                        onSaveTask = viewModel::saveTask,
-                        onLoadItemText = viewModel::loadItemText,
-                        onSaveItem = viewModel::saveItem,
-                        onDeleteItem = viewModel::deleteItem,
-                        onMoveItem = viewModel::moveItem,
-                        onSetItemWarning = viewModel::setItemWarning,
-                        onLoadItemImage = viewModel::loadItemImage,
-                        onToggleItem = viewModel::setItemCollapsed,
-                        onToggleTopic = viewModel::setTopicCollapsed,
-                        onToggleDomainHidden = viewModel::toggleDomainHidden,
-                        onSetAllDomainsHidden = viewModel::setAllDomainsHidden,
-                        onRateDomains = viewModel::rateDomains,
-                        onUnlock = viewModel::showUnlock,
                         onOpenWeb = onOpenWeb,
                         openItemId = openItem,
-                        onItemOpened = viewModel::itemOpened,
                         openSection = openSection,
-                        onSectionOpened = viewModel::sectionOpened,
                         openEntry = openEntry,
-                        onEntryOpened = viewModel::entryOpened,
                     )
                 }
             }
@@ -570,7 +561,14 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun SettingsPanel(state: AppUiState, cache: CachedState, viewModel: AppViewModel, onOpenWeb: (String) -> Unit) {
+private fun SettingsPanel(
+    state: AppUiState,
+    cache: CachedState,
+    viewModel: AppViewModel,
+    onOpenWeb: (String) -> Unit,
+    /** The Today screen's last failed edit, shown here as before the view models were split */
+    todayError: String? = null,
+) {
     val context = LocalContext.current
     val style = LocalUiStyle.current
     val pd = LocalPdPalette.current
@@ -744,7 +742,7 @@ private fun SettingsPanel(state: AppUiState, cache: CachedState, viewModel: AppV
             }
         }
     }
-    ErrorText(state.error)
+    ErrorText(state.error ?: todayError)
 }
 
 private fun isIgnoringBatteryOptimizations(context: Context): Boolean =

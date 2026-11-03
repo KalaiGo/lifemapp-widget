@@ -1,6 +1,6 @@
 package com.kalai73.lifemapp.widgets.core.data
 
-import com.kalai73.lifemapp.widgets.core.data.presentation.ImageContent
+import com.kalai73.lifemapp.widgets.core.data.content.ImageContent
 import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

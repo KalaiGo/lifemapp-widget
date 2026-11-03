@@ -17,19 +17,19 @@ import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappAppTheme
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebLauncher
 import com.kalai73.lifemapp.widgets.ui.AppViewModel
 import com.kalai73.lifemapp.widgets.ui.LifeMappAppContent
-import com.kalai73.lifemapp.widgets.ui.TodayEntry
-import com.kalai73.lifemapp.widgets.widget.LifeMappWidgets
+import com.kalai73.lifemapp.widgets.ui.TodayViewModel
+import com.kalai73.lifemapp.widgets.widget.DeepLink
 import kotlinx.coroutines.launch
 
 /**
- * The app's only screen host: sign-in, encryption unlock and settings. Everything else happens in the
- * widgets and the web app. Also receives the Google sign-in redirect (lifemappwidgets://auth/callback) and the
- * widget's taps: an item ([LifeMappWidgets.EXTRA_ITEM_ID]) opens in the Today screen's item modal, an event
- * ([LifeMappWidgets.EXTRA_EVENT_ID]) or task ([LifeMappWidgets.EXTRA_TASK_ID]) in its details modal, a section
- * ([LifeMappWidgets.EXTRA_SECTION]) scrolls Today to it. Widget taps never open the web app.
+ * The app's only screen host: sign-in, encryption unlock, the native Today screen and settings. Also receives the
+ * Google sign-in redirect (lifemappwidgets://auth/callback) and the widget's taps ([DeepLink]): an item opens in
+ * the Today screen's item modal, an event or task in its details modal, a section scrolls Today to it. Widget taps
+ * never open the web app.
  */
 class MainActivity : ComponentActivity() {
     private val viewModel: AppViewModel by viewModels()
+    private val todayViewModel: TodayViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
             LifeMappAppTheme(scheme = scheme, style = style, dark = dark) {
                 LifeMappAppContent(
                     viewModel = viewModel,
+                    todayViewModel = todayViewModel,
                     onGoogleSignIn = ::startGoogleSignIn,
                     onOpenWeb = { path -> startActivity(WebLauncher.routeIntent(this, path)) },
                 )
@@ -89,28 +90,10 @@ class MainActivity : ComponentActivity() {
         setIntent(Intent(intent).setData(null))
     }
 
-    /** A widget tap: an item to show in the item modal, or a Today section to scroll to */
+    /** A widget tap ([DeepLink]): shown on Today, then dropped from the intent so it isn't handled twice */
     private fun handleWidgetTap(intent: Intent?) {
-        intent ?: return
-        val itemId = intent.getStringExtra(LifeMappWidgets.EXTRA_ITEM_ID)?.takeIf { it.isNotBlank() }
-        val section = intent.getStringExtra(LifeMappWidgets.EXTRA_SECTION)?.takeIf { it.isNotBlank() }
-        val topicId = intent.getStringExtra(LifeMappWidgets.EXTRA_TOPIC_ID)?.takeIf { it.isNotBlank() }
-        val eventId = intent.getStringExtra(LifeMappWidgets.EXTRA_EVENT_ID)?.takeIf { it.isNotBlank() }
-        val taskId = intent.getStringExtra(LifeMappWidgets.EXTRA_TASK_ID)?.takeIf { it.isNotBlank() }
-        if (itemId == null && section == null && topicId == null && eventId == null && taskId == null) return
-        itemId?.let(viewModel::openItem)
-        eventId?.let { viewModel.openEntry(TodayEntry.Event(it, intent.getStringExtra(LifeMappWidgets.EXTRA_EVENT_START))) }
-        taskId?.let { viewModel.openEntry(TodayEntry.Task(it)) }
-        topicId?.let(viewModel::expandTopic)
-        section?.let(viewModel::openSection)
-        setIntent(Intent(intent).apply {
-            removeExtra(LifeMappWidgets.EXTRA_ITEM_ID)
-            removeExtra(LifeMappWidgets.EXTRA_SECTION)
-            removeExtra(LifeMappWidgets.EXTRA_TOPIC_ID)
-            removeExtra(LifeMappWidgets.EXTRA_EVENT_ID)
-            removeExtra(LifeMappWidgets.EXTRA_EVENT_START)
-            removeExtra(LifeMappWidgets.EXTRA_TASK_ID)
-            data = null
-        })
+        val link = DeepLink.from(intent) ?: return
+        todayViewModel.open(link)
+        setIntent(DeepLink.consumed(intent!!))
     }
 }

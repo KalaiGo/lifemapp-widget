@@ -32,6 +32,10 @@ data class Snapshot(
      * card, in position order. The app's Today screen shows them; the widgets don't. Empty from an older server.
      */
     val todayDomains: List<Integrity> = emptyList(),
+    /**
+     * The web Monthly page's domains (positions 10–19, plus 5 for embedding in Trayectory).
+     */
+    val monthlyDomains: List<Integrity> = emptyList(),
     /** Sections the server couldn't load this time; the app keeps its cached copy of those */
     val failedSections: List<String> = emptyList(),
 )
@@ -95,7 +99,7 @@ data class Task(
     val listColor: String? = null,
     val recurring: Boolean = false,
     val source: String = "local",
-    /** HTML, capped by the server; null when blank, encrypted or not sent */
+    /** HTML for LIFE MAPP tasks, a task manager's notes as stored (plain text, Markdown or HTML); capped by the server, null when blank, encrypted or not sent */
     val description: String? = null,
     /** The end-to-end encrypted description (EncryptedField JSON) */
     val encryptedDescription: String? = null,
@@ -218,6 +222,7 @@ data class Integrity(
     /** 0–10 (a Double so an unexpected fraction can't fail the whole snapshot) */
     val rating: Double? = null,
     val encryptedRating: String? = null,
+    val color: String? = null,
     val topics: List<Topic> = emptyList(),
     /** Items flagged with a warning in any domain */
     val warnings: Int = 0,
@@ -262,4 +267,7 @@ object Sections {
     const val SHORTCUTS = "shortcuts"
     const val INTEGRITY = "integrity"
     const val TODAY_DOMAINS = "todayDomains"
+    const val MONTHLY_DOMAINS = "monthlyDomains"
 }
+
+enum class DashboardTab { TODAY, MONTHLY }

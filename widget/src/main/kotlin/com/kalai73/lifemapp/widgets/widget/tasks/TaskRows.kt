@@ -29,9 +29,9 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.graphics.Color
-import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
-import com.kalai73.lifemapp.widgets.core.data.presentation.EventDayUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.TaskUi
+import com.kalai73.lifemapp.widgets.core.presentation.DayKind
+import com.kalai73.lifemapp.widgets.core.presentation.EventDayUi
+import com.kalai73.lifemapp.widgets.core.presentation.TaskUi
 import com.kalai73.lifemapp.widgets.widget.events.DayHeader
 import com.kalai73.lifemapp.widgets.widget.events.TitleWithTag
 import java.time.LocalDate

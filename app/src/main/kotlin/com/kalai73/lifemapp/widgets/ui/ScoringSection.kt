@@ -66,8 +66,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.kalai73.lifemapp.widgets.core.designsystem.MonoFontFamily
 import com.kalai73.lifemapp.widgets.R
-import com.kalai73.lifemapp.widgets.core.data.presentation.ScoreDomainUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.ScoringUi
+import com.kalai73.lifemapp.widgets.core.presentation.ScoreDomainUi
+import com.kalai73.lifemapp.widgets.core.presentation.ScoringUi
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdHexagonShape
 import com.kalai73.lifemapp.widgets.core.designsystem.PredatorColors
@@ -200,7 +200,7 @@ private fun DomainScore(
  * neighbouring columns): the hexagon fills from the bottom in the domain's hue.
  */
 @Composable
-private fun PredatorHex(d: ScoreDomainUi, score: Int, name: String, labelAlign: Alignment.Horizontal) {
+internal fun PredatorHex(d: ScoreDomainUi, score: Int, name: String, labelAlign: Alignment.Horizontal) {
     val t = LocalTok.current
     val (tagHue, _) = domainHue(d.colorName)
     Text(
@@ -260,7 +260,7 @@ private fun hexFillPercent(score: Int): Int = when {
 
 /** Classic: the glass circle whose liquid rises with the score, sized by it, the name chip across its foot. */
 @Composable
-private fun ClassicCircle(d: ScoreDomainUi, score: Int, name: String) {
+internal fun ClassicCircle(d: ScoreDomainUi, score: Int, name: String) {
     val t = LocalTok.current
     val scale = 0.6f + (score.coerceIn(1, 10) - 1) * (0.4f / 9f)
     val dim = (64 * scale).dp
@@ -350,7 +350,7 @@ private fun averageText(average: Double): String =
  * a faint liquid fill in the average's score color.
  */
 @Composable
-private fun AverageBadge(average: Double, locked: Boolean, onClick: () -> Unit) {
+internal fun AverageBadge(average: Double, locked: Boolean, onClick: () -> Unit) {
     val t = LocalTok.current
     val text = averageText(average)
     val label = if (locked) stringResource(R.string.scoring_score_all) else stringResource(R.string.scoring_average, text)
@@ -462,7 +462,7 @@ private fun hexPath(cx: Float, cy: Float, r: Float) = Path().apply {
 
 /** The dashed eye button: shows every hidable domain when all are hidden, else hides them all. */
 @Composable
-private fun HideAllToggle(allHidden: Boolean, onClick: () -> Unit) {
+internal fun HideAllToggle(allHidden: Boolean, onClick: () -> Unit) {
     val t = LocalTok.current
     val label = stringResource(if (allHidden) R.string.scoring_show_all else R.string.scoring_hide_all)
     val ring = t.dim.copy(alpha = 0.3f)
@@ -484,18 +484,22 @@ private fun HideAllToggle(allHidden: Boolean, onClick: () -> Unit) {
  * history button. Predator frames it with target brackets, in the warning color when a scoring is due.
  */
 @Composable
-private fun ScoringCapsule(scoring: ScoringUi, onScore: () -> Unit, onHistory: () -> Unit) {
+private fun ScoringCapsule(scoring: ScoringUi, onScore: () -> Unit, onHistory: () -> Unit) =
+    ScoringCapsule(scoring.daysSinceScored, scoring.urgency, scoring.scoringDue, onScore, onHistory)
+
+@Composable
+internal fun ScoringCapsule(daysSinceScored: Int?, urgency: Int, scoringDue: Boolean, onScore: () -> Unit, onHistory: () -> Unit) {
     val t = LocalTok.current
-    val days = scoring.daysSinceScored
-    val urgency = scoring.urgency
+    val days = daysSinceScored
+
     val emerald = if (t.dark) Color(0xFF34D399) else Color(0xFF059669)
     val amber = if (t.predator) (if (t.dark) Color(0xFFFBBF4D) else Color(0xFFA04D05)) else if (t.dark) Color(0xFFFBBF24) else Color(0xFFD97706)
     val shape = if (t.predator) RectangleShape else RoundedCornerShape(16.dp)
     Row(
         Modifier.height(IntrinsicSize.Min).defaultMinSize(minHeight = 40.dp)
             .clip(shape).background(t.card, shape)
-            .border(1.dp, if (t.predator) t.pd.edge else t.accent.copy(alpha = if (scoring.scoringDue) 0.45f else 0.3f), shape)
-            .let { if (t.predator) it.bracketCorners(if (scoring.scoringDue) Warn else t.accent, arm = 6.dp, stroke = 2.dp, tick = 0.dp) else it },
+            .border(1.dp, if (t.predator) t.pd.edge else t.accent.copy(alpha = if (scoringDue) 0.45f else 0.3f), shape)
+            .let { if (t.predator) it.bracketCorners(if (scoringDue) Warn else t.accent, arm = 6.dp, stroke = 2.dp, tick = 0.dp) else it },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(
@@ -557,7 +561,7 @@ private fun PulsingDot(color: Color) {
  * and the domain's question.
  */
 @Composable
-private fun RatingDialog(domains: List<ScoreDomainUi>, onDismiss: () -> Unit, onSave: (Map<String, Int>) -> Unit) {
+internal fun RatingDialog(domains: List<ScoreDomainUi>, onDismiss: () -> Unit, onSave: (Map<String, Int>) -> Unit) {
     val t = LocalTok.current
     val single = domains.size == 1
     var step by remember { mutableIntStateOf(0) }
@@ -664,23 +668,43 @@ private val SCORE_DESCRIPTIONS = listOf(
 )
 
 /** The domain's rating question by position (domains.json info.question.*) */
-private fun question(position: Int): Int? = when (position) {
+internal fun question(position: Int): Int? = when (position) {
     1 -> R.string.rating_question_1
     2 -> R.string.rating_question_2
     3 -> R.string.rating_question_3
     4 -> R.string.rating_question_4
     5 -> R.string.rating_question_5
+    10 -> R.string.rating_question_10
+    11 -> R.string.rating_question_11
+    12 -> R.string.rating_question_12
+    13 -> R.string.rating_question_13
+    14 -> R.string.rating_question_14
+    15 -> R.string.rating_question_15
+    16 -> R.string.rating_question_16
+    17 -> R.string.rating_question_17
+    18 -> R.string.rating_question_18
+    19 -> R.string.rating_question_19
     else -> null
 }
 
 /** The domain's own name; its default by position when it has none or is encrypted and locked. */
 @Composable
-private fun scoreDomainName(d: ScoreDomainUi): String = d.name?.takeIf { it.isNotBlank() } ?: when (d.position) {
+internal fun scoreDomainName(d: ScoreDomainUi): String = d.name?.takeIf { it.isNotBlank() } ?: when (d.position) {
     1 -> stringResource(R.string.today_integrity)
     2 -> "Serenity"
     3 -> "Vitality"
     4 -> "Stability"
     5 -> "Tenacity"
+    10 -> "Trayectory"
+    11 -> "Immunity"
+    12 -> "Community"
+    13 -> "Mastery"
+    14 -> "Felicity"
+    15 -> "Prosperity"
+    16 -> "Residency"
+    17 -> "Mobility"
+    18 -> "Productivity"
+    19 -> "Property"
     else -> stringResource(R.string.today_locked)
 }
 

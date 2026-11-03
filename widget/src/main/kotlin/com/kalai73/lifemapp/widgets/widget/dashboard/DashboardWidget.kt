@@ -37,8 +37,8 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import com.kalai73.lifemapp.widgets.core.data.LifeMappGraph
-import com.kalai73.lifemapp.widgets.core.data.presentation.EventDayUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
+import com.kalai73.lifemapp.widgets.core.presentation.EventDayUi
+import com.kalai73.lifemapp.widgets.core.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.widget.R
@@ -57,6 +57,7 @@ import com.kalai73.lifemapp.widgets.widget.common.VoiceButton
 import com.kalai73.lifemapp.widgets.widget.common.WidgetRoot
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
 import com.kalai73.lifemapp.widgets.widget.common.liveWidgetUi
+import com.kalai73.lifemapp.widgets.widget.common.widgetUi
 import com.kalai73.lifemapp.widgets.widget.common.openApp
 import com.kalai73.lifemapp.widgets.widget.common.openSection
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
@@ -71,7 +72,7 @@ import com.kalai73.lifemapp.widgets.widget.shortcuts.LINK_COLUMNS
 import com.kalai73.lifemapp.widgets.widget.shortcuts.ShortcutsSubHeader
 import com.kalai73.lifemapp.widgets.widget.shortcuts.SUB_HEADER_GAP
 import com.kalai73.lifemapp.widgets.widget.common.openExternal
-import com.kalai73.lifemapp.widgets.core.data.presentation.DayKind
+import com.kalai73.lifemapp.widgets.core.presentation.DayKind
 import com.kalai73.lifemapp.widgets.widget.shortcuts.TILE_WIDTH
 import com.kalai73.lifemapp.widgets.widget.sync.SyncScheduler
 import com.kalai73.lifemapp.widgets.widget.tasks.TaskActions

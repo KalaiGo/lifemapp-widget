@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kalai73.lifemapp.widgets.R
-import com.kalai73.lifemapp.widgets.core.data.presentation.TopicItemUi
+import com.kalai73.lifemapp.widgets.core.presentation.TopicItemUi
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 
 /** An image item's picture, ready to draw, or why there is none. */

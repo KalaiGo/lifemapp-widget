@@ -1,5 +1,6 @@
 package com.kalai73.lifemapp.widgets.core.data
 
+import com.kalai73.lifemapp.widgets.core.model.LifeMappJson
 import android.graphics.Typeface
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -12,7 +13,7 @@ import com.kalai73.lifemapp.widgets.core.data.auth.AuthRepository
 import com.kalai73.lifemapp.widgets.core.data.auth.SupabaseAuthApi
 import com.kalai73.lifemapp.widgets.core.data.cache.CacheStore
 import com.kalai73.lifemapp.widgets.core.data.cache.CachedStateSerializer
-import com.kalai73.lifemapp.widgets.core.data.presentation.ItemHtml
+import com.kalai73.lifemapp.widgets.core.data.content.ItemHtml
 import com.kalai73.lifemapp.widgets.core.data.repository.ItemRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.ItemText
 import com.kalai73.lifemapp.widgets.core.data.secure.SecretStore
@@ -62,7 +63,7 @@ class ItemContentTest {
             }
         }
         val api = LifeMappApi(http, TestConfig, AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, clock = { 0 }))
-        return ItemRepository(api, cache, dataKey = { key })
+        return ItemRepository(api.items, cache, dataKey = { key })
     }
 
     private fun body(req: HttpRequestData): JsonObject =
@@ -101,7 +102,7 @@ class ItemContentTest {
                 }
             }
             val api = LifeMappApi(http, TestConfig, AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, clock = { 0 }))
-            return ItemRepository(api, cache, dataKey = { null }, userId = { "u1" })
+            return ItemRepository(api.items, cache, dataKey = { null }, userId = { "u1" })
         }
 
         val pro = repoFor("""[{"subscription_type":"pro"}]""", "[]").loadText("i1") as ItemText.Loaded
@@ -130,7 +131,7 @@ class ItemContentTest {
             }
         }
         val api = LifeMappApi(http, TestConfig, AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, clock = { 0 }))
-        val items = ItemRepository(api, cache, dataKey = { null })
+        val items = ItemRepository(api.items, cache, dataKey = { null })
 
         assertTrue(items.move("b", "s1", up = true))
         assertEquals(

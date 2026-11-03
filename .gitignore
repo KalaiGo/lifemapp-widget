@@ -11,3 +11,5 @@ build/
 *.keystore
 *.jks
 keystore.properties
+# IDE (VS Code / Eclipse) build output
+bin/

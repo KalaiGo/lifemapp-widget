@@ -1,7 +1,7 @@
 package com.kalai73.lifemapp.widgets.core.data.repository
 
 import com.kalai73.lifemapp.widgets.core.crypto.EncryptedField
-import com.kalai73.lifemapp.widgets.core.data.api.LifeMappApi
+import com.kalai73.lifemapp.widgets.core.data.api.ScoringApi
 import com.kalai73.lifemapp.widgets.core.data.api.StoredRating
 import com.kalai73.lifemapp.widgets.core.data.auth.NotSignedInException
 import com.kalai73.lifemapp.widgets.core.data.cache.CacheStore
@@ -16,14 +16,14 @@ import kotlin.math.roundToInt
  * them. Changes land in the cache first, so the screen redraws at once.
  */
 class ScoringRepository(
-    private val api: LifeMappApi,
+    private val api: ScoringApi,
     private val cache: CacheStore,
     private val userId: suspend () -> String?,
     private val dataKey: suspend () -> String?,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     /** The section's state from the server; the snapshot sync calls this. */
-    suspend fun load(): Scoring? = userId()?.let { api.scoring(it) }
+    suspend fun load(): Scoring? = userId()?.let { api.read(it) }
 
     /**
      * Hides ([changes] value true) or shows domains on the Today page, as the web's toggleDomainHidden and its
@@ -59,8 +59,8 @@ class ScoringRepository(
         val kept = mutableListOf<StoredRating>()
         val entries = stored.mapNotNull { d ->
             val value = ratings[d.id]?.coerceIn(1, 10) ?: readable(d, key) ?: run { kept += d; return@mapNotNull null }
-            if (key != null) LifeMappApi.RatingEntry(d.id, 0, EncryptedField.encrypt(value.toString(), key))
-            else LifeMappApi.RatingEntry(d.id, value)
+            if (key != null) ScoringApi.RatingEntry(d.id, 0, EncryptedField.encrypt(value.toString(), key))
+            else ScoringApi.RatingEntry(d.id, value)
         }
         if (entries.none { it.domainId in ratings }) return true
         api.saveRatings(entries)

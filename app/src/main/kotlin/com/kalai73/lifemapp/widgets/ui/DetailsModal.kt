@@ -66,9 +66,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kalai73.lifemapp.widgets.R
-import com.kalai73.lifemapp.widgets.core.data.presentation.EventUi
-import com.kalai73.lifemapp.widgets.core.data.presentation.ItemHtml
-import com.kalai73.lifemapp.widgets.core.data.presentation.TaskUi
+import com.kalai73.lifemapp.widgets.core.presentation.EventUi
+import com.kalai73.lifemapp.widgets.core.data.content.ItemHtml
+import com.kalai73.lifemapp.widgets.core.presentation.TaskUi
 import com.kalai73.lifemapp.widgets.core.designsystem.CondensedFontFamily
 import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
@@ -128,7 +128,7 @@ private sealed interface TaskEditState {
 
 /**
  * The web's task details modal (tasks/task-details-modal.tsx): title with the provider tag, due date, priority,
- * list, repeat and description, then Complete (tasks the app can complete) and the web's task list. LIFE MAPP
+ * list, repeat and description, then Complete (tasks the app can complete). LIFE MAPP
  * tasks also get Edit in the header: the title becomes a field and the description the item editor's rich text
  * editor, loaded whole from the server; Save sends what changed, closing with changes asks to discard them.
  */
@@ -136,7 +136,6 @@ private sealed interface TaskEditState {
 internal fun TaskDetailsDialog(
     task: TaskUi,
     onComplete: (String) -> Unit,
-    onOpenWeb: (String) -> Unit,
     loadText: suspend (String) -> TaskText,
     /** New title and new HTML description, null keeping either */
     onSave: (title: String?, html: String?) -> Unit,
@@ -146,12 +145,12 @@ internal fun TaskDetailsDialog(
     if (editing && task.editable) {
         TaskEditPanel(task, loadText, onSave = { title, html -> onSave(title, html); editing = false }, onCancel = { editing = false }, onDismiss = onDismiss)
     } else {
-        TaskReadPanel(task, onComplete, onOpenWeb, onEdit = if (task.editable) ({ editing = true }) else null, onDismiss)
+        TaskReadPanel(task, onComplete, onEdit = if (task.editable) ({ editing = true }) else null, onDismiss)
     }
 }
 
 @Composable
-private fun TaskReadPanel(task: TaskUi, onComplete: (String) -> Unit, onOpenWeb: (String) -> Unit, onEdit: (() -> Unit)?, onDismiss: () -> Unit) {
+private fun TaskReadPanel(task: TaskUi, onComplete: (String) -> Unit, onEdit: (() -> Unit)?, onDismiss: () -> Unit) {
     val t = LocalTok.current
     val tagColor = LifeMappColors.parseHex(task.tagColor) ?: Color(0xFF10B981)
     DetailsPanel(
@@ -162,11 +161,7 @@ private fun TaskReadPanel(task: TaskUi, onComplete: (String) -> Unit, onOpenWeb:
         onDismiss = onDismiss,
         onEdit = onEdit,
         footer = {
-            SecondaryButton(LucideIcons.EXTERNAL_LINK, stringResource(R.string.details_open_tasks)) {
-                onOpenWeb(com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes.TASKS)
-            }
             if (task.completable) {
-                Spacer(Modifier.width(8.dp))
                 PrimaryButton(LucideIcons.CHECK, stringResource(R.string.today_complete_task)) { onComplete(task.id); onDismiss() }
             }
         },

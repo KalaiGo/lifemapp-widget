@@ -6,21 +6,16 @@ import com.kalai73.lifemapp.widgets.core.data.api.createHttpClient
 import com.kalai73.lifemapp.widgets.core.data.auth.AuthRepository
 import com.kalai73.lifemapp.widgets.core.data.auth.SupabaseAuthApi
 import com.kalai73.lifemapp.widgets.core.data.cache.CacheStore
-import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetPresenter
-import com.kalai73.lifemapp.widgets.core.data.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.data.repository.EncryptionRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.ItemRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.ScoringRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.SnapshotRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.TaskRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.VoiceRepository
-import com.kalai73.lifemapp.widgets.core.data.secure.DeviceLockedException
 import com.kalai73.lifemapp.widgets.core.data.secure.SecretStore
-import com.kalai73.lifemapp.widgets.core.model.AuthState
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
@@ -37,54 +32,33 @@ class LifeMappGraph private constructor(context: Context) {
     val auth: AuthRepository = AuthRepository(authApi, secrets)
     val api = LifeMappApi(http, config, auth)
     val cache = CacheStore(appContext)
-    val scoring = ScoringRepository(
-        api,
+    val encryption = EncryptionRepository(api.account, secrets)
+
+    /** The signed-in user's id; null when signed out or before the first unlock after a reboot */
+    private suspend fun userId(): String? = runCatching { secrets.read().session?.userId }.getOrNull()
+    private suspend fun dataKey(): String? = encryption.dataKey()
+
+    val scoring = ScoringRepository(api.scoring, cache, userId = ::userId, dataKey = ::dataKey)
+    val snapshots = SnapshotRepository(
+        api.snapshots,
         cache,
-        userId = { runCatching { secrets.read().session?.userId }.getOrNull() },
-        dataKey = { encryption.dataKey() },
+        scoring = { scoring.load() },
+        monthlyDomains = { userId()?.let { api.domains.fetchDomains(it) } },
     )
-    val snapshots = SnapshotRepository(api, cache, scoring = { scoring.load() })
-    val tasks = TaskRepository(
-        api,
-        cache,
-        userId = { runCatching { secrets.read().session?.userId }.getOrNull() },
-        dataKey = { encryption.dataKey() },
-    )
-    val encryption = EncryptionRepository(api, secrets)
-    val items = ItemRepository(
-        api,
-        cache,
-        dataKey = { encryption.dataKey() },
-        userId = { runCatching { secrets.read().session?.userId }.getOrNull() },
-    )
-    val voice = VoiceRepository(api, dataKey = { encryption.dataKey() })
+    val tasks = TaskRepository(api.tasks, cache, userId = ::userId, dataKey = ::dataKey)
+    val items = ItemRepository(api.items, cache, dataKey = ::dataKey, userId = ::userId)
+    val voice = VoiceRepository(api.voice, dataKey = ::dataKey)
 
     /** Set by the widget module: re-renders every placed widget from the cache. */
     @Volatile var refreshWidgets: suspend () -> Unit = {}
 
-    /** Widget state from the cache; signed out (or the device not unlocked since boot) renders the sign-in prompt. */
-    suspend fun widgetUi(): WidgetUi {
-        val secretValues = try {
-            secrets.read()
-        } catch (e: DeviceLockedException) {
-            return WidgetUi.SignedOut
-        }
-        val authState = if (secretValues.session != null) AuthState.SIGNED_IN else AuthState.SIGNED_OUT
-        return WidgetPresenter.present(cache.current(), authState, secretValues.dataKey)
-    }
+    private val _widgetInvalidations = MutableStateFlow(0)
 
-    private val widgetInvalidations = MutableStateFlow(0)
+    /** Bumped by [invalidateWidgets]: running widget sessions re-read the secrets when it changes */
+    val widgetInvalidations: StateFlow<Int> = _widgetInvalidations.asStateFlow()
 
-    /** Makes running widget sessions re-read [widgetUi]: secrets (sign-in, unlock) aren't observable on their own. */
-    fun invalidateWidgets() = widgetInvalidations.update { it + 1 }
-
-    /**
-     * [widgetUi], re-emitted whenever the cache changes or [invalidateWidgets] is called. Widgets must collect
-     * this inside `provideContent`: Glance keeps a session alive and `updateAll()` only recomposes it, so a
-     * value read once in `provideGlance` goes stale (e.g. stuck on "Loading…" after a failed sync).
-     */
-    fun widgetUiFlow(): Flow<WidgetUi> =
-        combine(cache.state, widgetInvalidations) { _, _ -> widgetUi() }.distinctUntilChanged()
+    /** Makes running widget sessions re-render: secrets (sign-in, unlock) aren't observable on their own. */
+    fun invalidateWidgets() = _widgetInvalidations.update { it + 1 }
 
     /** Signs out, wipes the cache and the data key, and re-renders the widgets as signed out. */
     suspend fun signOut() {

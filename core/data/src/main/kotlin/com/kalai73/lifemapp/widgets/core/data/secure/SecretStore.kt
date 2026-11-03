@@ -4,7 +4,7 @@ import android.content.Context
 import android.os.UserManager
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
-import com.kalai73.lifemapp.widgets.core.data.LifeMappJson
+import com.kalai73.lifemapp.widgets.core.model.LifeMappJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
