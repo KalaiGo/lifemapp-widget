@@ -185,6 +185,26 @@ class WidgetPresenterTest {
     }
 
     @Test
+    fun `quick links are sorted by label ignoring case and accents, not by position`() {
+        val state = CachedState(
+            lastSuccessAt = now - 60_000,
+            snapshot = Snapshot(
+                today = "2026-10-31",
+                settings = SnapshotSettings(language = "es"),
+                shortcuts = Shortcuts(plain = listOf(
+                    Shortcut("z", "Zeta", "https://z", position = 1),
+                    Shortcut("c", "cereza", "https://c", position = 2),
+                    Shortcut("a", "Ábaco", "https://a", position = 3),
+                    Shortcut("b", "banana", "https://b", position = 4),
+                )),
+            ),
+        )
+
+        val ui = WidgetPresenter.present(state, AuthState.SIGNED_IN, null, now, madrid)
+        assertEquals(listOf("Ábaco", "banana", "cereza", "Zeta"), ui.shortcuts.map { it.label })
+    }
+
+    @Test
     fun `events are grouped by day and yesterday's drop out after midnight`() {
         val state = CachedState(
             lastSuccessAt = now - 3 * 60 * 60 * 1000L,

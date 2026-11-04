@@ -17,9 +17,11 @@ import com.kalai73.lifemapp.widgets.core.model.TaskSources
 import com.kalai73.lifemapp.widgets.core.model.ThemeMode
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
 import kotlinx.serialization.builtins.ListSerializer
+import java.text.Collator
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /** Everything a widget draws, decrypted and formatted. Built fresh for every render; never stored. */
@@ -419,7 +421,7 @@ object WidgetPresenter {
                 )
             }
 
-        val (shortcuts, shortcutsLocked) = shortcuts(snapshot.shortcuts.plain, snapshot.shortcuts.encrypted, key, encryption)
+        val (shortcuts, shortcutsLocked) = shortcuts(snapshot.shortcuts.plain, snapshot.shortcuts.encrypted, key, encryption, language)
 
         val ratings = snapshot.domains.ratings + (key?.let { k ->
             snapshot.domains.encryptedRatings.mapNotNull { EncryptedField.decrypt(it, k)?.toIntOrNull() }
@@ -509,15 +511,18 @@ object WidgetPresenter {
         encrypted: String?,
         key: String?,
         encryption: EncryptionState,
+        language: String,
     ): Pair<List<ShortcutUi>, Boolean> {
+        // Alphabetical in the user's language: ignores case, and accented letters sort beside their base letter
+        val byLabel = compareBy<Shortcut, String>(Collator.getInstance(Locale.forLanguageTag(language))) { it.label }
         val entries = when {
             encrypted == null -> plain
             key != null -> EncryptedField.decrypt(encrypted, key)
                 ?.let { runCatching { LifeMappJson.decodeFromString(ListSerializer(Shortcut.serializer()), it) }.getOrNull() }
                 ?: plain
-            else -> return plain.map(::toUi) to (encryption == EncryptionState.LOCKED)
+            else -> return plain.sortedWith(byLabel).map(::toUi) to (encryption == EncryptionState.LOCKED)
         }
-        return entries.filter { it.url.isNotBlank() }.sortedBy { it.position }.map(::toUi) to false
+        return entries.filter { it.url.isNotBlank() }.sortedWith(byLabel).map(::toUi) to false
     }
 
     /**
