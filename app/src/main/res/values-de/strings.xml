@@ -25,6 +25,13 @@
     <string name="error_wrong_password">Mit diesem Passwort lassen sich deine Daten nicht entschlüsseln.</string>
     <string name="error_not_configured">Für dieses Konto ist noch keine Verschlüsselung eingerichtet.</string>
 
+    <string name="second_step_title">Zwei-Faktor-Anmeldung</string>
+    <string name="second_step_body">Gib den 6-stelligen Code aus deiner Authenticator-App ein.</string>
+    <string name="second_step_code">Authentifizierungscode</string>
+    <string name="second_step_verify">Bestätigen</string>
+    <string name="second_step_lost">Authenticator verloren? Wiederherstellungscode im Web verwenden</string>
+    <string name="error_invalid_code">Dieser Code hat nicht funktioniert. Prüfe deine Authenticator-App und versuche es mit dem neuen Code.</string>
+
     <string name="signed_in_as">Angemeldet als %1$s</string>
     <string name="sync_title">Synchronisierung</string>
     <string name="last_sync">Zuletzt aktualisiert um %1$s</string>

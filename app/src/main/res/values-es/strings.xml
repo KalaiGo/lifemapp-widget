@@ -25,6 +25,13 @@
     <string name="error_wrong_password">Esa contraseña no abre tus datos cifrados.</string>
     <string name="error_not_configured">El cifrado aún no está configurado en esta cuenta.</string>
 
+    <string name="second_step_title">Inicio de sesión en dos pasos</string>
+    <string name="second_step_body">Ingresa el código de 6 dígitos de tu aplicación de autenticación.</string>
+    <string name="second_step_code">Código de autenticación</string>
+    <string name="second_step_verify">Verificar</string>
+    <string name="second_step_lost">¿Perdiste tu autenticador? Usa un código de recuperación en la web</string>
+    <string name="error_invalid_code">Ese código no funcionó. Revisa tu aplicación de autenticación y prueba con el código nuevo.</string>
+
     <string name="signed_in_as">Sesión iniciada como %1$s</string>
     <string name="sync_title">Sincronización</string>
     <string name="last_sync">Última actualización a las %1$s</string>

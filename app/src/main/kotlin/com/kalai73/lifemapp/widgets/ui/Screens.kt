@@ -59,6 +59,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -175,6 +176,7 @@ fun LifeMappAppContent(
             when (state.screen) {
                 Screen.LOADING -> Unit // handled above
                 Screen.SIGN_IN -> SignInScreen(state, viewModel::signIn, onOpenWeb)
+                Screen.SECOND_STEP -> SecondStepScreen(state, viewModel::verifySecondStep, viewModel::signOut, onOpenWeb)
                 Screen.UNLOCK -> UnlockScreen(state, viewModel::unlock, viewModel::skipUnlock)
                 Screen.HOME -> Unit // handled above
             }
@@ -430,6 +432,97 @@ private fun SignInScreen(state: AppUiState, onSignIn: (String, String) -> Unit, 
     }
 }
 
+/** The authenticator code after the password or Google sign-in, for an account with two-factor login on. */
+@Composable
+private fun SecondStepScreen(state: AppUiState, onVerify: (String) -> Unit, onSignOut: () -> Unit, onOpenWeb: (String) -> Unit) {
+    val style = LocalUiStyle.current
+    val pd = LocalPdPalette.current
+    val predator = style == UiStyle.PREDATOR
+    var code by remember { mutableStateOf("") }
+    val canSubmit = !state.busy && code.length == 6
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (predator) {
+            PdHexIconWell(iconRes = LucideIcons.LOCK, contentDescription = null, size = 32.dp, palette = pd)
+            Spacer(Modifier.size(10.dp))
+            PdSectionHeader(title = stringResource(R.string.second_step_title), palette = pd)
+        } else {
+            Icon(painterResource(LucideIcons.LOCK), null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.size(8.dp))
+            Text(stringResource(R.string.second_step_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        stringResource(R.string.second_step_body),
+        style = MaterialTheme.typography.bodyMedium.copy(color = if (predator) pd.dim else MaterialTheme.colorScheme.onSurfaceVariant),
+    )
+    Spacer(Modifier.height(16.dp))
+    OutlinedTextField(
+        value = code,
+        onValueChange = { typed -> code = typed.filter(Char::isDigit).take(6) },
+        label = {
+            Text(
+                if (predator) stringResource(R.string.second_step_code).uppercase() else stringResource(R.string.second_step_code),
+                style = if (predator) pdCaptionStyle(size = 11.sp) else TextStyle.Default,
+            )
+        },
+        shape = if (predator) RectangleShape else OutlinedTextFieldDefaults.shape,
+        colors = lockFieldColors(),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+    )
+    ErrorText(state.error)
+    Spacer(Modifier.height(16.dp))
+
+    if (predator) {
+        PdButton(
+            onClick = { onVerify(code) },
+            enabled = canSubmit,
+            busy = state.busy,
+            modifier = Modifier.fillMaxWidth(),
+            palette = pd,
+        ) {
+            Text(stringResource(R.string.second_step_verify).uppercase())
+        }
+        Spacer(Modifier.height(8.dp))
+        PdTextButton(onClick = { onOpenWeb(WebRoutes.TODAY) }, modifier = Modifier.fillMaxWidth(), palette = pd) {
+            Text(stringResource(R.string.second_step_lost).uppercase())
+        }
+        PdTextButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth(), palette = pd) {
+            Text(stringResource(R.string.sign_out).uppercase())
+        }
+    } else {
+        Button(onClick = { onVerify(code) }, enabled = canSubmit, modifier = Modifier.fillMaxWidth()) {
+            if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.second_step_verify))
+        }
+        TextButton(onClick = { onOpenWeb(WebRoutes.TODAY) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.second_step_lost)) }
+        TextButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out)) }
+    }
+}
+
+/** Text field colors of the screens between the sign-in and home: the second login step and the encryption unlock. */
+@Composable
+private fun lockFieldColors(): TextFieldColors {
+    val pd = LocalPdPalette.current
+    return if (LocalUiStyle.current == UiStyle.PREDATOR) {
+        OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = pd.ink,
+            unfocusedBorderColor = pd.edge,
+            focusedLabelColor = pd.ink,
+            unfocusedLabelColor = pd.dim,
+            focusedContainerColor = pd.raised,
+            unfocusedContainerColor = pd.raised,
+            cursorColor = pd.ink,
+            focusedTextColor = pd.text,
+            unfocusedTextColor = pd.text,
+        )
+    } else {
+        OutlinedTextFieldDefaults.colors()
+    }
+}
+
 @Composable
 private fun UnlockScreen(state: AppUiState, onUnlock: (String) -> Unit, onSkip: () -> Unit) {
     val style = LocalUiStyle.current
@@ -455,22 +548,6 @@ private fun UnlockScreen(state: AppUiState, onUnlock: (String) -> Unit, onSkip: 
     )
     Spacer(Modifier.height(16.dp))
 
-    val textFieldColors = if (style == UiStyle.PREDATOR) {
-        OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = pd.ink,
-            unfocusedBorderColor = pd.edge,
-            focusedLabelColor = pd.ink,
-            unfocusedLabelColor = pd.dim,
-            focusedContainerColor = pd.raised,
-            unfocusedContainerColor = pd.raised,
-            cursorColor = pd.ink,
-            focusedTextColor = pd.text,
-            unfocusedTextColor = pd.text,
-        )
-    } else {
-        OutlinedTextFieldDefaults.colors()
-    }
-
     OutlinedTextField(
         value = password,
         onValueChange = { password = it },
@@ -481,7 +558,7 @@ private fun UnlockScreen(state: AppUiState, onUnlock: (String) -> Unit, onSkip: 
             )
         },
         shape = if (style == UiStyle.PREDATOR) RectangleShape else OutlinedTextFieldDefaults.shape,
-        colors = textFieldColors,
+        colors = lockFieldColors(),
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
         modifier = Modifier.fillMaxWidth(),

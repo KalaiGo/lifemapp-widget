@@ -61,7 +61,44 @@ class AuthRepository(
      */
     suspend fun validAccessToken(forceRefresh: Boolean = false): String = refreshMutex.withLock {
         val session = secrets.read().session ?: throw NotSignedInException()
+        // Every route refuses this session until the second login step, so don't ask
+        if (session.secondStepFactorId != null) throw NotSignedInException()
         if (!forceRefresh && session.expiresAt - clock() > 60) return session.accessToken
+        refresh(session).accessToken
+    }
+
+    /**
+     * Whether a 403 means this session owes the second login step: two-factor login turned on elsewhere after this
+     * device signed in. A refresh tells, and flags the session for the app's second-step screen.
+     */
+    suspend fun owesSecondStep(): Boolean = refreshMutex.withLock {
+        val session = secrets.read().session ?: return false
+        if (session.secondStepFactorId != null) return true
+        if (api.passedSecondStep(session.accessToken)) return false
+        refresh(session).secondStepFactorId != null
+    }
+
+    /**
+     * Asks the server again for a session waiting on the second step: two-factor login may have been turned off on
+     * the web, with a recovery code for one.
+     * @return whether it's still waiting
+     */
+    suspend fun recheckSecondStep(): Boolean = refreshMutex.withLock {
+        val session = secrets.read().session ?: return false
+        if (session.secondStepFactorId == null) return false
+        refresh(session).secondStepFactorId != null
+    }
+
+    /** Passes the second login step with a code from the authenticator app. */
+    suspend fun verifySecondStep(code: String): Unit = refreshMutex.withLock {
+        val stored = secrets.read().session ?: throw NotSignedInException()
+        val session = if (stored.expiresAt - clock() > 60) stored else refresh(stored)
+        val factorId = session.secondStepFactorId ?: return
+        val verified = api.verifyTotp(session.accessToken, factorId, code)
+        secrets.update { it.copy(session = verified) }
+    }
+
+    private suspend fun refresh(session: Session): Session {
         val refreshed = try {
             api.refresh(session.refreshToken)
         } catch (e: AuthException) {
@@ -71,7 +108,7 @@ class AuthRepository(
             throw NotSignedInException()
         }
         secrets.update { it.copy(session = refreshed) }
-        refreshed.accessToken
+        return refreshed
     }
 
     /** Signs out and forgets the data key; the caller clears the widget cache. */

@@ -73,6 +73,7 @@ abstract class ApiArea internal constructor(private val client: ApiClient) {
             response = request(auth.validAccessToken(forceRefresh = true))
             if (response.status == HttpStatusCode.Unauthorized) throw NotSignedInException()
         }
+        if (response.status == HttpStatusCode.Forbidden && auth.owesSecondStep()) throw NotSignedInException()
         if (!accept(response.status)) throw ServerException(response.status.value)
         return response
     }

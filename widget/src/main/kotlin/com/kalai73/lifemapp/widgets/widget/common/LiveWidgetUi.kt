@@ -20,7 +20,9 @@ suspend fun LifeMappGraph.widgetUi(): WidgetUi {
     } catch (e: DeviceLockedException) {
         return WidgetUi.SignedOut
     }
-    val authState = if (secretValues.session != null) AuthState.SIGNED_IN else AuthState.SIGNED_OUT
+    // A session still owing the second login step can't sync: the prompt opens the app, which asks for the code
+    val session = secretValues.session
+    val authState = if (session != null && session.secondStepFactorId == null) AuthState.SIGNED_IN else AuthState.SIGNED_OUT
     return WidgetPresenter.present(cache.current(), authState, secretValues.dataKey)
 }
 

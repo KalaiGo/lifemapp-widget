@@ -26,6 +26,13 @@
     <string name="error_wrong_password">That password doesn\'t open your encrypted data.</string>
     <string name="error_not_configured">Encryption isn\'t set up for this account yet.</string>
 
+    <string name="second_step_title">Two-factor login</string>
+    <string name="second_step_body">Enter the 6-digit code from your authenticator app.</string>
+    <string name="second_step_code">Authentication code</string>
+    <string name="second_step_verify">Verify</string>
+    <string name="second_step_lost">Lost your authenticator? Use a recovery code on the web</string>
+    <string name="error_invalid_code">That code didn\'t work. Check your authenticator app and try the new code.</string>
+
     <string name="signed_in_as">Signed in as %1$s</string>
     <string name="sync_title">Sync</string>
     <string name="last_sync">Last updated at %1$s</string>

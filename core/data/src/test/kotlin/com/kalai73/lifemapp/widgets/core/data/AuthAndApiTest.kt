@@ -2,6 +2,8 @@ package com.kalai73.lifemapp.widgets.core.data
 
 import androidx.test.core.app.ApplicationProvider
 import com.kalai73.lifemapp.widgets.core.data.api.LifeMappApi
+import com.kalai73.lifemapp.widgets.core.data.api.ServerException
+import com.kalai73.lifemapp.widgets.core.data.auth.AuthException
 import com.kalai73.lifemapp.widgets.core.data.auth.AuthRepository
 import com.kalai73.lifemapp.widgets.core.data.auth.NotSignedInException
 import com.kalai73.lifemapp.widgets.core.data.auth.SupabaseAuthApi
@@ -10,6 +12,8 @@ import com.kalai73.lifemapp.widgets.core.data.secure.Session
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -112,5 +116,133 @@ class AuthAndApiTest {
         val auth = AuthRepository(SupabaseAuthApi(mockClient { json(tokenJson("a")) }, TestConfig), secrets)
         auth.signIn("ana@example.com", "pw")
         assertNull(secrets.read().dataKey)
+    }
+
+    /** A token with the given assurance level, and the user's verified authenticator if [factor]. */
+    private fun mfaTokenJson(aal: String, factor: Boolean = true, refresh: String = "r-$aal"): String {
+        val payload = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString("""{"aal":"$aal"}""".toByteArray())
+        val factors = if (factor) """[{"id":"f1","status":"verified","factor_type":"totp"}]""" else "[]"
+        return """{"access_token":"h.$payload.s","refresh_token":"$refresh","expires_in":3600,"user":{"id":"u1","factors":$factors}}"""
+    }
+
+    @Test
+    fun `sign-in with an authenticator owes the second step, then the verified session replaces it`() = runTest {
+        val http = mockClient { req ->
+            requests += req.url.encodedPath
+            when (req.url.encodedPath) {
+                "/auth/v1/token" -> json(mfaTokenJson("aal1"))
+                "/auth/v1/factors/f1/challenge" -> json("""{"id":"c1","type":"totp","expires_at":99}""")
+                "/auth/v1/factors/f1/verify" -> {
+                    assertTrue((req.body as io.ktor.http.content.TextContent).text.contains("\"challenge_id\":\"c1\""))
+                    json(mfaTokenJson("aal2"))
+                }
+                else -> error("unexpected ${req.url}")
+            }
+        }
+        val auth = AuthRepository(SupabaseAuthApi(http, TestConfig), secrets)
+        auth.signIn("ana@example.com", "pw")
+        assertEquals("f1", secrets.read().session?.secondStepFactorId)
+        try {
+            auth.validAccessToken()
+            fail("expected NotSignedInException")
+        } catch (_: NotSignedInException) {
+        }
+
+        auth.verifySecondStep(" 123456 ")
+        assertNull(secrets.read().session?.secondStepFactorId)
+        assertEquals("r-aal2", secrets.read().session?.refreshToken)
+        assertEquals(secrets.read().session?.accessToken, auth.validAccessToken())
+    }
+
+    @Test
+    fun `a wrong code keeps the session waiting`() = runTest {
+        val http = mockClient { req ->
+            when (req.url.encodedPath) {
+                "/auth/v1/token" -> json(mfaTokenJson("aal1"))
+                "/auth/v1/factors/f1/challenge" -> json("""{"id":"c1"}""")
+                else -> json("""{"code":422,"error_code":"mfa_verification_failed","msg":"Invalid TOTP code entered"}""", HttpStatusCode.UnprocessableEntity)
+            }
+        }
+        val auth = AuthRepository(SupabaseAuthApi(http, TestConfig), secrets)
+        auth.signIn("ana@example.com", "pw")
+        try {
+            auth.verifySecondStep("000000")
+            fail("expected AuthException")
+        } catch (e: AuthException) {
+            assertTrue(e.isRejectedCode)
+        }
+        assertEquals("f1", secrets.read().session?.secondStepFactorId)
+    }
+
+    @Test
+    fun `two-factor turned on after signing in stops the session and asks for the second step`() = runTest {
+        secrets.update { it.copy(session = Session("old", "r-old", expiresAt = 99_999, userId = "u1"), dataKey = "k") }
+        val http = mockClient { req ->
+            when (req.url.encodedPath) {
+                "/auth/v1/token" -> json(mfaTokenJson("aal1"))
+                "/api/widget/snapshot" -> {
+                    requests += req.url.encodedPath
+                    json("""{"error":"Two-factor verification required","code":"mfa_required"}""", HttpStatusCode.Forbidden)
+                }
+                else -> error("unexpected ${req.url}")
+            }
+        }
+        val auth = AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, clock = { 0 })
+        val api = LifeMappApi(http, TestConfig, auth)
+        repeat(2) {
+            try {
+                api.snapshots.snapshot("Europe/Madrid")
+                fail("expected NotSignedInException")
+            } catch (_: NotSignedInException) {
+            }
+        }
+        assertEquals("the second try never reaches the server", 1, requests.size)
+        assertEquals("f1", secrets.read().session?.secondStepFactorId)
+        assertEquals("the session and data key are kept for after the code", "k", secrets.read().dataKey)
+    }
+
+    @Test
+    fun `a 403 for another reason stays a server error`() = runTest {
+        secrets.update { it.copy(session = Session("old", "r-old", expiresAt = 99_999, userId = "u1")) }
+        val http = mockClient { req ->
+            when (req.url.encodedPath) {
+                "/auth/v1/token" -> json(mfaTokenJson("aal1", factor = false))
+                else -> json("{}", HttpStatusCode.Forbidden)
+            }
+        }
+        val auth = AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, clock = { 0 })
+        try {
+            LifeMappApi(http, TestConfig, auth).snapshots.snapshot("Europe/Madrid")
+            fail("expected ServerException")
+        } catch (e: ServerException) {
+            assertEquals(403, e.status)
+        }
+        assertNull(secrets.read().session?.secondStepFactorId)
+    }
+
+    @Test
+    fun `a 403 on a session past the second step doesn't refresh it`() = runTest {
+        val aal2 = kotlinx.serialization.json.Json.parseToJsonElement(mfaTokenJson("aal2")).jsonObject["access_token"]!!.jsonPrimitive.content
+        secrets.update { it.copy(session = Session(aal2, "r", expiresAt = 99_999, userId = "u1")) }
+        val http = mockClient { req ->
+            if (req.url.encodedPath == "/auth/v1/token") error("no refresh expected")
+            json("{}", HttpStatusCode.Forbidden)
+        }
+        val auth = AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, clock = { 0 })
+        try {
+            LifeMappApi(http, TestConfig, auth).snapshots.snapshot("Europe/Madrid")
+            fail("expected ServerException")
+        } catch (e: ServerException) {
+            assertEquals(403, e.status)
+        }
+    }
+
+    @Test
+    fun `two-factor removed on the web releases a waiting session`() = runTest {
+        secrets.update { it.copy(session = Session("old", "r-old", expiresAt = 99_999, userId = "u1", secondStepFactorId = "f1")) }
+        val http = mockClient { json(mfaTokenJson("aal1", factor = false)) }
+        val auth = AuthRepository(SupabaseAuthApi(http, TestConfig), secrets, clock = { 0 })
+        assertFalse(auth.recheckSecondStep())
+        assertNull(secrets.read().session?.secondStepFactorId)
     }
 }

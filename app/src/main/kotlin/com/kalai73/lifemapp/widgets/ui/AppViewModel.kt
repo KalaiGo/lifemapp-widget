@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.IOException
 
-enum class Screen { LOADING, SIGN_IN, UNLOCK, HOME }
+enum class Screen { LOADING, SIGN_IN, SECOND_STEP, UNLOCK, HOME }
 
 data class AppUiState(
     val screen: Screen = Screen.LOADING,
@@ -70,7 +70,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val unlocked = secrets?.dataKey != null
         _state.update { s ->
             s.copy(
-                screen = screenFor(signedIn = session != null, encryptionEnabled, unlocked, s.unlockSkipped),
+                screen = screenFor(
+                    signedIn = session != null,
+                    encryptionEnabled,
+                    unlocked,
+                    s.unlockSkipped,
+                    awaitingSecondStep = session?.secondStepFactorId != null,
+                ),
                 email = session?.email,
                 encryptionEnabled = encryptionEnabled,
                 unlocked = unlocked,
@@ -105,14 +111,40 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun fail(res: Int) = _state.update { it.copy(error = getApplication<Application>().getString(res)) }
 
+    /** Kept in memory from the password sign-in to the second login step, for [tryUnlockWith]. */
+    private var passwordAwaitingSecondStep: String? = null
+
     fun signIn(email: String, password: String) = run {
         graph.auth.signIn(email, password)
-        afterSignIn()
-        // The encryption password is usually the account password: try it so the unlock screen isn't shown
-        // right after typing it. Silent on failure — the unlock screen then asks as before.
-        tryUnlockWith(password)
+        if (awaitingSecondStep()) {
+            passwordAwaitingSecondStep = password
+        } else {
+            afterSignIn()
+            tryUnlockWith(password)
+        }
     }
 
+    private suspend fun awaitingSecondStep() = graph.auth.currentSession()?.secondStepFactorId != null
+
+    fun verifySecondStep(code: String) = run {
+        try {
+            graph.auth.verifySecondStep(code)
+        } catch (e: AuthException) {
+            if (e.isRejectedCode) {
+                fail(R.string.error_invalid_code)
+                return@run
+            }
+            throw e
+        }
+        afterSignIn()
+        passwordAwaitingSecondStep?.let { tryUnlockWith(it) }
+        passwordAwaitingSecondStep = null
+    }
+
+    /**
+     * The encryption password is usually the account password: try it so the unlock screen isn't shown right after
+     * typing it. Silent on failure — the unlock screen then asks as before.
+     */
     private suspend fun tryUnlockWith(password: String) {
         val encrypted = graph.cache.current().snapshot?.settings?.encryptionEnabled == true
         if (!encrypted || graph.encryption.dataKey() != null) return
@@ -123,7 +155,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun completeGoogleSignIn(code: String) = run {
         graph.auth.completeGoogleSignIn(code)
-        afterSignIn()
+        if (!awaitingSecondStep()) afterSignIn()
     }
 
     fun reportError(message: String) = _state.update { it.copy(error = message) }
@@ -168,7 +200,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun syncIfStale(now: Long = System.currentTimeMillis()) {
         viewModelScope.launch {
-            if (runCatching { graph.secrets.read() }.getOrNull()?.session == null) return@launch
+            val session = runCatching { graph.secrets.read() }.getOrNull()?.session ?: return@launch
+            if (session.secondStepFactorId != null) {
+                // Back from the web, perhaps with two-factor login turned off by a recovery code
+                val waiting = runCatching { graph.auth.recheckSecondStep() }.getOrDefault(true)
+                refreshScreen()
+                if (waiting) return@launch
+                SyncScheduler.schedulePeriodic(getApplication())
+                refreshWidgets()
+            }
             if (shouldSyncOnOpen(graph.cache.current(), now)) SyncScheduler.syncNow(getApplication())
         }
     }
@@ -178,6 +218,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun signOut() = run {
         SyncScheduler.cancelAll(getApplication())
         graph.signOut()
+        passwordAwaitingSecondStep = null
         _state.update { it.copy(unlockSkipped = false) }
     }
 
@@ -200,9 +241,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
-/** Which screen the app shows: sign-in, the encryption unlock (until skipped this session), or home. */
-internal fun screenFor(signedIn: Boolean, encryptionEnabled: Boolean, unlocked: Boolean, unlockSkipped: Boolean): Screen = when {
+/** Which screen the app shows: sign-in, the second login step, the encryption unlock (until skipped this session), or home. */
+internal fun screenFor(
+    signedIn: Boolean,
+    encryptionEnabled: Boolean,
+    unlocked: Boolean,
+    unlockSkipped: Boolean,
+    awaitingSecondStep: Boolean = false,
+): Screen = when {
     !signedIn -> Screen.SIGN_IN
+    awaitingSecondStep -> Screen.SECOND_STEP
     encryptionEnabled && !unlocked && !unlockSkipped -> Screen.UNLOCK
     else -> Screen.HOME
 }

@@ -8,6 +8,13 @@ import org.junit.Test
 
 class AppRulesTest {
     @Test
+    fun `the second login step comes before the unlock and home`() {
+        assertEquals(Screen.SECOND_STEP, screenFor(signedIn = true, encryptionEnabled = true, unlocked = false, unlockSkipped = false, awaitingSecondStep = true))
+        assertEquals(Screen.SECOND_STEP, screenFor(signedIn = true, encryptionEnabled = false, unlocked = true, unlockSkipped = true, awaitingSecondStep = true))
+        assertEquals(Screen.SIGN_IN, screenFor(signedIn = false, encryptionEnabled = false, unlocked = false, unlockSkipped = false, awaitingSecondStep = true))
+    }
+
+    @Test
     fun `signed out always shows sign-in`() {
         assertEquals(Screen.SIGN_IN, screenFor(signedIn = false, encryptionEnabled = true, unlocked = false, unlockSkipped = false))
         assertEquals(Screen.SIGN_IN, screenFor(signedIn = false, encryptionEnabled = false, unlocked = true, unlockSkipped = true))

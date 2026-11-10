@@ -26,6 +26,8 @@ data class Session(
     val expiresAt: Long,
     val userId: String,
     val email: String? = null,
+    /** The authenticator this session still has to pass (two-factor login); until then the server refuses it */
+    val secondStepFactorId: String? = null,
 )
 
 /** Everything secret this app keeps. Never leaves the device; excluded from backups. */
