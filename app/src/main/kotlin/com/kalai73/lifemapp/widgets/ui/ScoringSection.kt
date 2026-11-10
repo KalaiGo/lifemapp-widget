@@ -714,7 +714,7 @@ internal fun scoreDomainName(d: ScoreDomainUi): String = d.name?.takeIf { it.isN
     15 -> "Prosperity"
     16 -> "Residency"
     17 -> "Mobility"
-    18 -> "Productivity"
+    18 -> "Efficacy"
     19 -> "Property"
     else -> stringResource(R.string.today_locked)
 }

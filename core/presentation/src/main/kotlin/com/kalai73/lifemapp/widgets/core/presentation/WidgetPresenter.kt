@@ -646,6 +646,19 @@ object WidgetPresenter {
         "blue", "indigo", "violet", "purple", "fuchsia", "pink", "rose", "stone", "slate", "zinc",
     )
 
+    /**
+     * Domain 18 "Productivity" became "Duty", then "Efficacy", on the web (domain-store.ts renames stored rows on load).
+     * An account the web hasn't loaded since still carries an old default name (EN/ES/DE), so it is shown as the new
+     * one here; custom names are kept.
+     */
+    private val RENAMED_DEFAULTS = mapOf(
+        "PRODUCTIVITY" to "EFFICACY", "PRODUCTIVIDAD" to "EFICACIA", "PRODUKTIVITÄT" to "WIRKSAMKEIT",
+        "DUTY" to "EFFICACY", "DEBER" to "EFICACIA", "PFLICHT" to "WIRKSAMKEIT",
+    )
+
+    internal fun renamedDefault(position: Int, name: String?): String? =
+        if (position == 18 && name != null) RENAMED_DEFAULTS[name.trim().uppercase()] ?: name else name
+
     internal fun integrity(i: Integrity, key: String?): IntegrityUi {
         fun text(plain: String?, encrypted: String?): String? =
             if (encrypted != null) key?.let { EncryptedField.decrypt(encrypted, it) } else plain
@@ -654,7 +667,7 @@ object WidgetPresenter {
         return IntegrityUi(
             domainId = i.domainId,
             position = i.position,
-            name = text(i.name, i.encryptedName),
+            name = renamedDefault(i.position, text(i.name, i.encryptedName)),
             infoBox = text(i.infoBox, i.encryptedInfoBox)?.takeIf { it.isNotBlank() },
             rating = rating?.roundToInt()?.coerceIn(0, 10),
             topics = i.topics.mapIndexed { index, t ->

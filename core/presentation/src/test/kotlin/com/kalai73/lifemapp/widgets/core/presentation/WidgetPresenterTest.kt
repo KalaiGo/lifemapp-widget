@@ -441,4 +441,19 @@ class WidgetPresenterTest {
         assertEquals(listOf("t1"), ui.tasks.map { it.id })
         assertTrue(ui.completionFailed)
     }
+
+    @Test
+    fun `domain 18 still stored as Productivity or Duty is shown as Efficacy, custom names are kept`() {
+        fun name(position: Int, n: String?) = WidgetPresenter.integrity(Integrity("d", position = position, name = n), null).name
+        assertEquals("EFFICACY", name(18, "PRODUCTIVITY"))
+        assertEquals("EFICACIA", name(18, "Productividad"))
+        assertEquals("WIRKSAMKEIT", name(18, "PRODUKTIVITÄT"))
+        assertEquals("EFFICACY", name(18, "DUTY"))
+        assertEquals("EFICACIA", name(18, "DEBER"))
+        assertEquals("WIRKSAMKEIT", name(18, "Pflicht"))
+        assertEquals("EFFICACY", name(18, "EFFICACY"))
+        assertEquals("My work", name(18, "My work"))
+        assertEquals("PRODUCTIVITY", name(17, "PRODUCTIVITY"))
+        assertNull(name(18, null))
+    }
 }
