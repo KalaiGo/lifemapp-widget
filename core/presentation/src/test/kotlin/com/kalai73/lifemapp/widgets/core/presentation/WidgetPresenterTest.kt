@@ -456,4 +456,15 @@ class WidgetPresenterTest {
         assertEquals("PRODUCTIVITY", name(17, "PRODUCTIVITY"))
         assertNull(name(18, null))
     }
+
+    @Test
+    fun `domain 11 still stored as Immunity is shown as Resiliency, custom names are kept`() {
+        fun name(position: Int, n: String?) = WidgetPresenter.integrity(Integrity("d", position = position, name = n), null).name
+        assertEquals("RESILIENCY", name(11, "IMMUNITY"))
+        assertEquals("RESILIENCIA", name(11, "Inmunidad"))
+        assertEquals("RESILIENZ", name(11, "IMMUNITÄT"))
+        assertEquals("RESILIENCY", name(11, "RESILIENCY"))
+        assertEquals("My health", name(11, "My health"))
+        assertEquals("IMMUNITY", name(12, "IMMUNITY"))
+    }
 }

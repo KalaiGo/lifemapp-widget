@@ -647,17 +647,20 @@ object WidgetPresenter {
     )
 
     /**
-     * Domain 18 "Productivity" became "Duty", then "Efficacy", on the web (domain-store.ts renames stored rows on load).
-     * An account the web hasn't loaded since still carries an old default name (EN/ES/DE), so it is shown as the new
-     * one here; custom names are kept.
+     * Default domain names the web has renamed, by position: 11 "Immunity" became "Resiliency", and 18
+     * "Productivity" became "Duty", then "Efficacy" (domain-store.ts renames stored rows on load). An account still
+     * carrying an old default name (EN/ES/DE) is shown with the new one here; custom names are kept.
      */
     private val RENAMED_DEFAULTS = mapOf(
-        "PRODUCTIVITY" to "EFFICACY", "PRODUCTIVIDAD" to "EFICACIA", "PRODUKTIVITÄT" to "WIRKSAMKEIT",
-        "DUTY" to "EFFICACY", "DEBER" to "EFICACIA", "PFLICHT" to "WIRKSAMKEIT",
+        11 to mapOf("IMMUNITY" to "RESILIENCY", "INMUNIDAD" to "RESILIENCIA", "IMMUNITÄT" to "RESILIENZ"),
+        18 to mapOf(
+            "PRODUCTIVITY" to "EFFICACY", "PRODUCTIVIDAD" to "EFICACIA", "PRODUKTIVITÄT" to "WIRKSAMKEIT",
+            "DUTY" to "EFFICACY", "DEBER" to "EFICACIA", "PFLICHT" to "WIRKSAMKEIT",
+        ),
     )
 
     internal fun renamedDefault(position: Int, name: String?): String? =
-        if (position == 18 && name != null) RENAMED_DEFAULTS[name.trim().uppercase()] ?: name else name
+        name?.let { RENAMED_DEFAULTS[position]?.get(it.trim().uppercase()) ?: it }
 
     internal fun integrity(i: Integrity, key: String?): IntegrityUi {
         fun text(plain: String?, encrypted: String?): String? =

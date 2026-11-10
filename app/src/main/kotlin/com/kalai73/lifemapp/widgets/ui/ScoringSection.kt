@@ -707,7 +707,7 @@ internal fun scoreDomainName(d: ScoreDomainUi): String = d.name?.takeIf { it.isN
     4 -> "Stability"
     5 -> "Tenacity"
     10 -> "Trayectory"
-    11 -> "Immunity"
+    11 -> "Resiliency"
     12 -> "Community"
     13 -> "Mastery"
     14 -> "Felicity"
