@@ -41,6 +41,7 @@ import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.pdParallelogramShape
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
+import com.kalai73.lifemapp.widgets.ui.sidepanel.LocalPanel
 
 // ── Shortcuts ───────────────────────────────────────────────────────────────
 
@@ -54,27 +55,39 @@ internal fun ShortcutsSection(ui: WidgetUi, openLink: (String) -> Unit, onOpenWe
             SubHeader(LucideIcons.FOLDER, stringResource(R.string.today_drive), count = null, top = SUB_HEADER_GAP) { openLink(ui.driveLinks.first().url) }
             DriveBody(ui, openLink)
         }
+        // The Links header opens the side panel's quick links (quick-links-section.tsx "Manage"); adding stays on the web
+        val panel = LocalPanel.current
+        val manage = { panel?.openQuickLinks() ?: onOpenWeb(WebRoutes.QUICK_LINKS) }
         SubHeader(
             LucideIcons.LINK, stringResource(R.string.today_links),
             count = ui.shortcuts.size.takeUnless { ui.shortcutsLocked },
             onAdd = { onOpenWeb(WebRoutes.QUICK_LINKS) }.takeUnless { ui.shortcutsLocked },
             top = SUB_HEADER_GAP,
-        ) { onOpenWeb(WebRoutes.QUICK_LINKS) }
+        ) { manage() }
         when {
             ui.shortcutsLocked -> EmptyLine(stringResource(R.string.today_locked_banner), onUnlock)
             ui.shortcuts.isEmpty() -> EmptyLine(stringResource(R.string.today_no_links)) { onOpenWeb(WebRoutes.QUICK_LINKS) }
-            // Predator: numbered rows, two per line; Classic: icon tiles, four per line
-            t.predator -> ui.shortcuts.chunked(2).forEachIndexed { r, pair ->
-                Row(Modifier.fillMaxWidth()) {
-                    pair.forEachIndexed { i, s -> ShortcutRow(s, r * 2 + i + 1, Modifier.weight(1f), openLink) }
-                    if (pair.size == 1) Spacer(Modifier.weight(1f))
-                }
+            else -> ShortcutGrid(ui.shortcuts, openLink)
+        }
+    }
+}
+
+/** The quick links: Predator's numbered rows, two per line; Classic's icon tiles, four per line. */
+@Composable
+internal fun ShortcutGrid(shortcuts: List<ShortcutUi>, openLink: (String) -> Unit) {
+    val t = LocalTok.current
+    if (t.predator) {
+        shortcuts.chunked(2).forEachIndexed { r, pair ->
+            Row(Modifier.fillMaxWidth()) {
+                pair.forEachIndexed { i, s -> ShortcutRow(s, r * 2 + i + 1, Modifier.weight(1f), openLink) }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
-            else -> ui.shortcuts.chunked(4).forEach { rowItems ->
-                Row(Modifier.fillMaxWidth()) {
-                    rowItems.forEach { s -> ShortcutTile(s, Modifier.weight(1f), openLink) }
-                    repeat(4 - rowItems.size) { Spacer(Modifier.weight(1f)) }
-                }
+        }
+    } else {
+        shortcuts.chunked(4).forEach { rowItems ->
+            Row(Modifier.fillMaxWidth()) {
+                rowItems.forEach { s -> ShortcutTile(s, Modifier.weight(1f), openLink) }
+                repeat(4 - rowItems.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }

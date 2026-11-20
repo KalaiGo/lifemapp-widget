@@ -93,4 +93,6 @@ class LifeMappApi(http: HttpClient, config: LifeMappConfig, auth: AuthRepository
     val account = AccountApi(client)
     val voice = VoiceApi(client)
     val domains = DomainsApi(client)
+    val feeds = FeedsApi(client)
+    val links = LinksApi(client)
 }

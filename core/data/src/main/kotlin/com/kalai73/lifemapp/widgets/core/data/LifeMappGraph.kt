@@ -7,6 +7,7 @@ import com.kalai73.lifemapp.widgets.core.data.auth.AuthRepository
 import com.kalai73.lifemapp.widgets.core.data.auth.SupabaseAuthApi
 import com.kalai73.lifemapp.widgets.core.data.cache.CacheStore
 import com.kalai73.lifemapp.widgets.core.data.repository.EncryptionRepository
+import com.kalai73.lifemapp.widgets.core.data.repository.FeedRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.ItemRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.ScoringRepository
 import com.kalai73.lifemapp.widgets.core.data.repository.SnapshotRepository
@@ -48,6 +49,7 @@ class LifeMappGraph private constructor(context: Context) {
     val tasks = TaskRepository(api.tasks, cache, userId = ::userId, dataKey = ::dataKey)
     val items = ItemRepository(api.items, cache, dataKey = ::dataKey, userId = ::userId)
     val voice = VoiceRepository(api.voice, dataKey = ::dataKey)
+    val feeds = FeedRepository(api.feeds)
 
     /** Set by the widget module: re-renders every placed widget from the cache. */
     @Volatile var refreshWidgets: suspend () -> Unit = {}
@@ -64,6 +66,7 @@ class LifeMappGraph private constructor(context: Context) {
     suspend fun signOut() {
         auth.signOut()
         cache.clear()
+        feeds.clear()
         refreshWidgets()
     }
 

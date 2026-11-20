@@ -24,7 +24,15 @@ class DeepLinkTest {
             DeepLink.Event("event-1", "2026-11-03T09:00:00Z"),
             DeepLink.Event("event-2", null),
             DeepLink.Task("task-1"),
+            DeepLink.Panel(DeepLink.Panel.ALERTS),
+            DeepLink.Panel(DeepLink.Panel.EDITOR, domainId = "d-13"),
         ).forEach { link -> assertEquals(link, DeepLink.from(link.intent(context))) }
+    }
+
+    @Test
+    fun `panel links to different tabs stay apart`() {
+        assertNotEquals(DeepLink.Panel(DeepLink.Panel.LINKS).intent(context).data, DeepLink.Panel(DeepLink.Panel.FEEDS).intent(context).data)
+        assertNull(DeepLink.from(DeepLink.consumed(DeepLink.Panel(DeepLink.Panel.FEEDS).intent(context))))
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.kalai73.lifemapp.widgets.core.data.api
 
 import com.kalai73.lifemapp.widgets.core.crypto.EncryptedField
 import com.kalai73.lifemapp.widgets.core.model.LifeMappJson
+import com.kalai73.lifemapp.widgets.core.model.PlanLimits
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
@@ -109,6 +110,81 @@ class ItemsApi internal constructor(client: ApiClient) : ApiArea(client) {
             }
         }.body<JsonArray>().firstOrNull() as? JsonObject
         return (profile?.get("is_admin") as? JsonPrimitive)?.contentOrNull == "true"
+    }
+
+    /** Updates fields of a topic (subdomain), e.g. its name (PUT /api/subdomains/{id}). */
+    suspend fun updateTopic(topicId: String, fields: JsonObject) {
+        authorized { token ->
+            http.put("${config.webUrl}/api/subdomains/$topicId") {
+                bearerAuth(token)
+                contentType(ContentType.Application.Json)
+                setBody(fields)
+            }
+        }
+    }
+
+    /** Updates fields of a life domain, e.g. its info box (PUT /api/domains/{id}). */
+    suspend fun updateDomain(domainId: String, fields: JsonObject) {
+        authorized { token ->
+            http.put("${config.webUrl}/api/domains/$domainId") {
+                bearerAuth(token)
+                contentType(ContentType.Application.Json)
+                setBody(fields)
+            }
+        }
+    }
+
+    /** The user's own tags (lm_user_settings.preferences.custom_tags) as id → name, for the panel's tag chips. */
+    suspend fun customTags(userId: String): Map<String, String> {
+        val row = authorized { token ->
+            http.get("${config.supabaseUrl}/rest/v1/lm_user_settings") {
+                supabase(token)
+                parameter("select", "preferences")
+                parameter("user_id", "eq.$userId")
+            }
+        }.body<JsonArray>().firstOrNull() as? JsonObject
+        val tags = blob(row?.get("preferences"))?.get("custom_tags") as? JsonArray ?: return emptyMap()
+        return tags.mapNotNull { tag ->
+            val o = tag as? JsonObject ?: return@mapNotNull null
+            val id = text(o["id"]) ?: return@mapNotNull null
+            val name = text(o["name"]) ?: return@mapNotNull null
+            id to name
+        }.toMap()
+    }
+
+    /**
+     * The plan's limits the side panel applies (lib/links/domain-limits.ts, the editor's char cap): the tier from
+     * the profile (admins are "admin"), each limit from the lm_app_config subscription_tier_limits row, else the
+     * web's built-in table (lib/stripe/subscription-features.ts, lib/domains/reminder-limits.ts).
+     */
+    suspend fun planLimits(userId: String): PlanLimits {
+        val profile = authorized { token ->
+            http.get("${config.supabaseUrl}/rest/v1/lm_users_profile") {
+                supabase(token)
+                parameter("select", "subscription_type,subscription_tier,is_admin")
+                parameter("id", "eq.$userId")
+            }
+        }.body<JsonArray>().firstOrNull() as? JsonObject
+        fun field(name: String) = (profile?.get(name) as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+        val tier = if (field("is_admin") == "true") "admin" else field("subscription_type") ?: field("subscription_tier") ?: "basic"
+        val configured = runCatching {
+            val row = authorized { token ->
+                http.get("${config.supabaseUrl}/rest/v1/lm_app_config") {
+                    supabase(token)
+                    parameter("select", "json_value")
+                    parameter("constraint_key", "eq.subscription_tier_limits")
+                    parameter("is_active", "eq.true")
+                }
+            }.body<JsonArray>().firstOrNull() as? JsonObject
+            blob(row?.get("json_value"))?.get(tier) as? JsonObject
+        }.getOrNull()
+        fun limit(name: String) = (configured?.get(name) as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull()?.toInt()
+        val defaults = PlanLimits.forTier(tier)
+        return defaults.copy(
+            maxItemChars = limit("max_subdomain_chars") ?: defaults.maxItemChars,
+            maxTopicsPerDomain = limit("max_subdomains_per_domain") ?: defaults.maxTopicsPerDomain,
+            maxItemsPerTopic = limit("max_subsubdomains_per_subdomain") ?: defaults.maxItemsPerTopic,
+        )
     }
 
     /**

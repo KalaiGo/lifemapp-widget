@@ -259,6 +259,13 @@ object LucideIcons {
     val HISTORY = R.drawable.lm_ic_history
     val CIRCLE_ALERT = R.drawable.lm_ic_circle_alert
 
+    // The side panel (LinksStreamModeToggle, FeedSidebar, FeedStream)
+    val RSS = R.drawable.lm_ic_rss
+    val ALERTS = R.drawable.lm_ic_calendar_clock
+    val BACK = R.drawable.lm_ic_arrow_left
+    val MARK_ALL_READ = R.drawable.lm_ic_check_check
+    val SORT_ALPHA = R.drawable.lm_ic_arrow_down_a_z
+
     /** The web's icon for a Today life domain by position (domain-icons.ts): Integrity … Tenacity. */
     fun domain(position: Int): Int = when (position) {
         2 -> R.drawable.lm_ic_flower

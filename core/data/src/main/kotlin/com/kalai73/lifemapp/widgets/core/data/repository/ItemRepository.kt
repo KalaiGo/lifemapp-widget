@@ -7,6 +7,7 @@ import com.kalai73.lifemapp.widgets.core.data.cache.CacheStore
 import com.kalai73.lifemapp.widgets.core.data.content.ImageContent
 import com.kalai73.lifemapp.widgets.core.data.content.ItemHtml
 import com.kalai73.lifemapp.widgets.core.model.Integrity
+import com.kalai73.lifemapp.widgets.core.model.PlanLimits
 import com.kalai73.lifemapp.widgets.core.model.Topic
 import com.kalai73.lifemapp.widgets.core.model.TopicItem
 import kotlinx.coroutines.CancellationException
@@ -174,6 +175,98 @@ class ItemRepository(
         return true
     }
 
+    /**
+     * Sets or clears an item's reminder (the side panel's ReminderPicker). As the web's subsubdomain store does, a new
+     * date or repeat rule re-arms the reminder (reminder_task_created_at cleared) so its task is created again.
+     */
+    suspend fun saveReminder(itemId: String, date: String?, rule: String?, leadDays: Int) {
+        val current = findItem(itemId)
+        val rearm = current == null || current.reminderDate != date || current.reminderRule != rule
+        api.updateItem(itemId, buildJsonObject {
+            put("reminder_date", date?.let(::JsonPrimitive) ?: JsonNull)
+            put("reminder_recurrence_rule", rule?.let(::JsonPrimitive) ?: JsonNull)
+            put("reminder_lead_days", leadDays)
+            if (rearm) put("reminder_task_created_at", JsonNull)
+        })
+        mapItem(itemId) {
+            it.copy(
+                reminderDate = date, reminderRule = rule, reminderLeadDays = leadDays,
+                reminderTaskCreated = it.reminderTaskCreated && !rearm,
+            )
+        }
+    }
+
+    /**
+     * Renames a topic (subdomain), encrypted like an item name when the account is (subdomain-store.ts).
+     * @return false when the account is encrypted and this device isn't unlocked
+     */
+    suspend fun renameTopic(topicId: String, name: String, encrypted: Boolean): Boolean {
+        val newName = name.trim().takeIf { it.isNotEmpty() } ?: return true
+        val key = if (encrypted) dataKey() ?: return false else null
+        val encryptedName = key?.let { EncryptedField.encrypt(newName, it) }
+        api.updateTopic(topicId, buildJsonObject {
+            put("name", if (encryptedName != null) ENCRYPTED_NAME else newName)
+            put("encrypted_name", encryptedName?.let(::JsonPrimitive) ?: JsonNull)
+        })
+        mapTopic(topicId) {
+            if (encryptedName != null) it.copy(name = null, encryptedName = encryptedName) else it.copy(name = newName, encryptedName = null)
+        }
+        return true
+    }
+
+    /**
+     * Changes a domain's info box, encrypted when the account is; blank clears it (domain-store.ts updateDomain).
+     * @return false when the account is encrypted and this device isn't unlocked
+     */
+    suspend fun saveInfoBox(domainId: String, text: String, encrypted: Boolean): Boolean {
+        val value = text.trim().takeIf { it.isNotEmpty() }
+        val key = if (encrypted && value != null) dataKey() ?: return false else null
+        val encryptedValue = if (key != null && value != null) EncryptedField.encrypt(value, key) else null
+        api.updateDomain(domainId, buildJsonObject {
+            put("info_box", if (encryptedValue != null) JsonPrimitive(ENCRYPTED_NAME) else value?.let(::JsonPrimitive) ?: JsonNull)
+            put("encrypted_info_box", encryptedValue?.let(::JsonPrimitive) ?: JsonNull)
+        })
+        mapCards { card ->
+            if (card.domainId != domainId) card
+            else if (encryptedValue != null) card.copy(infoBox = null, encryptedInfoBox = encryptedValue)
+            else card.copy(infoBox = value, encryptedInfoBox = null)
+        }
+        return true
+    }
+
+    private var cachedLimits: Pair<String, PlanLimits>? = null
+
+    /** The plan's limits for the signed-in user (read once per user); the basic plan's when they can't be read. */
+    suspend fun planLimits(): PlanLimits {
+        val user = userId() ?: return PlanLimits.forTier("basic")
+        cachedLimits?.takeIf { it.first == user }?.let { return it.second }
+        return try {
+            api.planLimits(user).also { cachedLimits = user to it }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            PlanLimits.forTier("basic")
+        }
+    }
+
+    /** The user's own tags as id → name; empty when they can't be read (chips then show the built-in tags only). */
+    suspend fun customTags(): Map<String, String> {
+        val user = userId() ?: return emptyMap()
+        return try {
+            api.customTags(user)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+
+    private suspend fun findItem(itemId: String): TopicItem? {
+        val snapshot = cache.current().snapshot ?: return null
+        return (listOfNotNull(snapshot.integrity) + snapshot.todayDomains + snapshot.monthlyDomains)
+            .asSequence().flatMap { it.topics }.flatMap { it.items }.firstOrNull { it.id == itemId }
+    }
+
     suspend fun delete(itemId: String) {
         try {
             api.deleteItem(itemId)
@@ -228,7 +321,10 @@ class ItemRepository(
         }
     }
 
-    /** Applies [transform] to every domain card in the cached snapshot: Integrity and the other Today domains. */
+    /**
+     * Applies [transform] to every domain card in the cached snapshot: Integrity, the other Today domains, and the
+     * full domain list (monthlyDomains, which the Monthly screen and the side panel read).
+     */
     private suspend fun mapCards(transform: (Integrity) -> Integrity) {
         cache.update { state ->
             val snapshot = state.snapshot ?: return@update state
@@ -236,6 +332,7 @@ class ItemRepository(
                 snapshot = snapshot.copy(
                     integrity = snapshot.integrity?.let(transform),
                     todayDomains = snapshot.todayDomains.map(transform),
+                    monthlyDomains = snapshot.monthlyDomains.map(transform),
                 ),
             )
         }

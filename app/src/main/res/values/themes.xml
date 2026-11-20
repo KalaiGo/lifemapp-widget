@@ -7,4 +7,5 @@
     </style>
     <color name="lm_background">#F9F5EB</color>
     <color name="lm_brand">#5B9DF5</color>
+    <color name="lm_launcher_background">#171513</color>
 </resources>

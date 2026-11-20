@@ -150,6 +150,8 @@ fun LifeMappAppContent(
                         monthlyUi = monthly,
                         todayViewModel = todayViewModel,
                         appViewModel = viewModel,
+                        // The activity's instance, which widget taps (DeepLink.Panel) also reach
+                        panelViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
                         onOpenSettings = { scope.launch { drawerState.open() } },
                         onOpenWeb = onOpenWeb,
                         openItemId = openItem,

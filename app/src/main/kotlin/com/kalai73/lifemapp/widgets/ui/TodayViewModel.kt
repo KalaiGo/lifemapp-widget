@@ -123,6 +123,8 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                 link.topicId?.let(::expandTopic)
                 _openSection.value = link.section
             }
+            // The side panel's (MainActivity hands these to SidePanelViewModel)
+            is DeepLink.Panel -> Unit
         }
     }
 

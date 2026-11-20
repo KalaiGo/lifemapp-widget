@@ -241,6 +241,8 @@ data class Topic(
     /** Every item, also those beyond the list cap */
     val count: Int = 0,
     val items: List<TopicItem> = emptyList(),
+    /** The subdomain's tags (lm_life_subdomains.tags); empty when unknown, which counts as "me" (tags.ts) */
+    val tags: List<String> = emptyList(),
 )
 
 @Serializable
@@ -255,6 +257,17 @@ data class TopicItem(
     val encryptedContent: String? = null,
     /** Collapsed on the web card (subsubdomain is_collapsed): only the header shows */
     val collapsed: Boolean = false,
+    /** The item's own tags, on top of its topic's (lm_life_subsubdomains.tags) */
+    val tags: List<String> = emptyList(),
+    /** ISO timestamp of the reminder ("alert"), null when none is set */
+    val reminderDate: String? = null,
+    /** RRULE without the "RRULE:" prefix, e.g. "FREQ=WEEKLY;INTERVAL=1" */
+    val reminderRule: String? = null,
+    /** Days before [reminderDate] the reminder's task is created */
+    val reminderLeadDays: Int = 0,
+    /** The reminder's task has been created (reminder_task_created_at set) */
+    val reminderTaskCreated: Boolean = false,
+    val updatedAt: String? = null,
 )
 
 /** Section names used in [Snapshot.failedSections]. */

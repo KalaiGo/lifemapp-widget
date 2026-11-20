@@ -30,6 +30,11 @@ import com.kalai73.lifemapp.widgets.core.model.SyncError
 import com.kalai73.lifemapp.widgets.core.presentation.MonthlyUi
 import com.kalai73.lifemapp.widgets.core.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
+import com.kalai73.lifemapp.widgets.ui.sidepanel.LocalPanel
+import com.kalai73.lifemapp.widgets.ui.sidepanel.SidePanelHost
+import com.kalai73.lifemapp.widgets.ui.sidepanel.SidePanelViewModel
+import com.kalai73.lifemapp.widgets.ui.sidepanel.opener
+import androidx.compose.ui.platform.LocalUriHandler
 import kotlinx.coroutines.launch
 
 /**
@@ -43,6 +48,7 @@ fun MainDashboard(
     monthlyUi: MonthlyUi,
     todayViewModel: TodayViewModel,
     appViewModel: AppViewModel,
+    panelViewModel: SidePanelViewModel,
     onOpenSettings: () -> Unit,
     onOpenWeb: (String) -> Unit,
     openItemId: String? = null,
@@ -100,6 +106,14 @@ fun MainDashboard(
     val currentError = if (pagerState.currentPage == 0) todayUi.error else monthlyUi.error
     val syncing = if (pagerState.currentPage == 0) todayUi.syncing else monthlyUi.syncing
 
+    val uriHandler = LocalUriHandler.current
+    val openLink: (String) -> Unit = { url ->
+        if (url.startsWith("http", ignoreCase = true)) runCatching { uriHandler.openUri(url) } else onOpenWeb(url)
+    }
+    val panelOpener = remember(panelViewModel) { panelViewModel.opener() }
+
+    CompositionLocalProvider(LocalPanel provides panelOpener) {
+    Box(Modifier.fillMaxSize()) {
     // No header: the pages run to the top, reload sits in the floating actions pill
     Column(Modifier.fillMaxSize().background(t.page)) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -204,5 +218,17 @@ fun MainDashboard(
             }
         }
         }
+    }
+    // The side panel (Editor | Links | Alerts | Feeds) over both pages and the floating bars
+    CompositionLocalProvider(LocalTok provides t) {
+        SidePanelHost(
+            vm = panelViewModel,
+            shortcuts = todayUi.shortcuts,
+            openLink = openLink,
+            onOpenWeb = onOpenWeb,
+            onUnlock = appViewModel::showUnlock,
+        )
+    }
+    }
     }
 }

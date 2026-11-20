@@ -21,8 +21,9 @@ class DomainsApi internal constructor(client: ApiClient) : ApiArea(client) {
      */
     suspend fun fetchDomains(userId: String): List<Integrity> {
         val select = "id,position,name,encrypted_name,info_box,encrypted_info_box,rating,encrypted_rating,color,encryption_metadata," +
-            "subdomains:lm_life_subdomains(id,domain_id,name,encrypted_name,encryption_metadata,position,is_collapsed," +
-            "subsubdomains:lm_life_subsubdomains(id,subdomain_id,name,encrypted_name,encryption_metadata,position,status,is_image,content,encrypted_content,is_collapsed))"
+            "subdomains:lm_life_subdomains(id,domain_id,name,encrypted_name,encryption_metadata,position,is_collapsed,tags," +
+            "subsubdomains:lm_life_subsubdomains(id,subdomain_id,name,encrypted_name,encryption_metadata,position,status,is_image,content,encrypted_content,is_collapsed," +
+            "tags,reminder_date,reminder_recurrence_rule,reminder_lead_days,reminder_task_created_at,updated_at,created_at))"
 
         val response = authorized { token ->
             http.get("${config.supabaseUrl}/rest/v1/lm_life_domains") {
@@ -72,6 +73,12 @@ class DomainsApi internal constructor(client: ApiClient) : ApiArea(client) {
                     content = text(i["content"]),
                     encryptedContent = selfContained(text(i["encrypted_content"]), itemMeta),
                     collapsed = itemCollapsed,
+                    tags = strings(i["tags"]),
+                    reminderDate = text(i["reminder_date"]),
+                    reminderRule = text(i["reminder_recurrence_rule"]),
+                    reminderLeadDays = (i["reminder_lead_days"] as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull()?.toInt() ?: 0,
+                    reminderTaskCreated = text(i["reminder_task_created_at"]) != null,
+                    updatedAt = text(i["updated_at"]) ?: text(i["created_at"]),
                 )
             }.sortedBy { it.first }.map { it.second }
 
@@ -83,6 +90,7 @@ class DomainsApi internal constructor(client: ApiClient) : ApiArea(client) {
                 collapsed = isCollapsed,
                 count = items.size,
                 items = items,
+                tags = strings(s["tags"]),
             )
         }.sortedBy { it.first }.map { it.second }
 
@@ -102,6 +110,10 @@ class DomainsApi internal constructor(client: ApiClient) : ApiArea(client) {
             warnings = warnings,
         )
     }
+
+    /** A text[] column: its strings, empty when missing */
+    private fun strings(element: kotlinx.serialization.json.JsonElement?): List<String> =
+        (element as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank) }.orEmpty()
 
     private fun selfContained(value: String?, metadata: JsonObject?): String? {
         if (value == null) return null

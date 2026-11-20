@@ -42,6 +42,8 @@ import com.kalai73.lifemapp.widgets.core.presentation.MonthlyUi
 import com.kalai73.lifemapp.widgets.core.presentation.WeatherUi
 import com.kalai73.lifemapp.widgets.core.presentation.WidgetUi
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
+import com.kalai73.lifemapp.widgets.ui.sidepanel.LocalPanel
+import com.kalai73.lifemapp.widgets.ui.sidepanel.PanelMode
 
 // ── Top bar and hero ────────────────────────────────────────────────────────
 
@@ -235,28 +237,39 @@ internal fun WeatherCard(ui: WidgetUi, onClick: () -> Unit) =
 internal fun WeatherCard(ui: MonthlyUi, onClick: () -> Unit) =
     WeatherCard(ui.weather, ui.averageRating, hasScoring = ui.scoring != null, onClick = onClick)
 
-/** Journal and Budget: low-key outlined buttons (parallelograms in Predator, pills in Classic) in the muted text color. */
+/**
+ * Feeds, Links, Journal and Budget (hero-section.tsx): low-key outlined buttons (parallelograms in Predator, pills in
+ * Classic) in the muted text color. Feeds and Links open the side panel.
+ */
 @Composable
 internal fun QuickActions(onOpenWeb: (String) -> Unit) {
+    val panel = LocalPanel.current
     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ActionButton(Modifier.weight(1f), LucideIcons.JOURNAL, stringResource(R.string.today_journal)) { onOpenWeb(WebRoutes.JOURNAL) }
-        ActionButton(Modifier.weight(1f), LucideIcons.BUDGET, stringResource(R.string.today_budget)) { onOpenWeb(WebRoutes.BUDGET) }
+        // Icons only; the label stays as the button's description for screen readers
+        if (panel != null) {
+            ActionButton(Modifier.weight(1f), LucideIcons.RSS, stringResource(R.string.today_feeds), showLabel = false) { panel.open(PanelMode.FEEDS) }
+            ActionButton(Modifier.weight(1f), LucideIcons.LINK_2, stringResource(R.string.today_links), showLabel = false) { panel.open(PanelMode.LINKS) }
+        }
+        ActionButton(Modifier.weight(1f), LucideIcons.JOURNAL, stringResource(R.string.today_journal), showLabel = false) { onOpenWeb(WebRoutes.JOURNAL) }
+        ActionButton(Modifier.weight(1f), LucideIcons.BUDGET, stringResource(R.string.today_budget), showLabel = false) { onOpenWeb(WebRoutes.BUDGET) }
     }
 }
 
 @Composable
-internal fun ActionButton(modifier: Modifier, icon: Int, label: String, onClick: () -> Unit) {
+internal fun ActionButton(modifier: Modifier, icon: Int, label: String, showLabel: Boolean = true, onClick: () -> Unit) {
     val t = LocalTok.current
     val shape: Shape = if (t.predator) pdParallelogramShape(8.dp) else RoundedCornerShape(12.dp)
     Row(
         modifier.clip(shape).border(1.dp, t.line, shape)
-            .clickable(onClick = onClick).padding(vertical = 6.dp),
+            .clickable(onClickLabel = label, onClick = onClick).padding(vertical = if (showLabel) 6.dp else 7.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Ic(icon, 13.dp, t.dim)
-        Spacer(Modifier.width(6.dp))
-        Text(t.s(label), style = if (t.predator) t.label(11.sp, t.dim) else t.body(12.sp, t.dim, FontWeight.Medium), maxLines = 1)
+        Ic(icon, if (showLabel) 13.dp else 15.dp, t.dim, desc = label.takeUnless { showLabel })
+        if (showLabel) {
+            Spacer(Modifier.width(6.dp))
+            Text(t.s(label), style = if (t.predator) t.label(11.sp, t.dim) else t.body(12.sp, t.dim, FontWeight.Medium), maxLines = 1)
+        }
     }
 }
 

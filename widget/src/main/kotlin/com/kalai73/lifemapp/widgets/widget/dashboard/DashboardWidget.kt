@@ -60,6 +60,8 @@ import com.kalai73.lifemapp.widgets.widget.common.liveWidgetUi
 import com.kalai73.lifemapp.widgets.widget.common.widgetUi
 import com.kalai73.lifemapp.widgets.widget.common.openApp
 import com.kalai73.lifemapp.widgets.widget.common.openSection
+import com.kalai73.lifemapp.widgets.widget.common.openPanel
+import com.kalai73.lifemapp.widgets.widget.DeepLink
 import com.kalai73.lifemapp.widgets.widget.common.textStyle
 import com.kalai73.lifemapp.widgets.widget.events.DayHeader
 import com.kalai73.lifemapp.widgets.widget.events.EventRow
@@ -332,8 +334,9 @@ private fun LazyListScope.shortcutsSection(ui: WidgetUi, columns: Int) {
     }
     item(itemId = ID_LINKS) {
         val context = LocalContext.current
+        // The LINKS header opens the app's side panel on its quick links, as the app's Shortcuts card does
         ShortcutsSubHeader(
-            LucideIcons.LINK, context.getString(R.string.links), openSection(context, LifeMappWidgets.SECTION_SHORTCUTS),
+            LucideIcons.LINK, context.getString(R.string.links), openPanel(context, DeepLink.Panel.QUICK_LINKS),
             count = ui.shortcuts.size.takeUnless { ui.shortcutsLocked },
             onAdd = openSection(context, LifeMappWidgets.SECTION_SHORTCUTS).takeUnless { ui.shortcutsLocked },
             top = SUB_HEADER_GAP,

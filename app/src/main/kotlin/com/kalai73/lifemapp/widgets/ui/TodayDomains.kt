@@ -55,6 +55,9 @@ import com.kalai73.lifemapp.widgets.core.designsystem.ColorContrast
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.pdParallelogramShape
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
+import com.kalai73.lifemapp.widgets.ui.sidepanel.LocalPanel
+import com.kalai73.lifemapp.widgets.ui.sidepanel.PanelMode
+import com.kalai73.lifemapp.widgets.ui.sidepanel.PanelOpener
 import androidx.compose.ui.platform.LocalContext
 import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
 
@@ -72,7 +75,11 @@ internal fun domainKey(domain: IntegrityUi) = "domain-${domain.domainId}"
 
 /** The domain's own name; its default by position when it has none or is encrypted and locked. */
 @Composable
-internal fun domainName(domain: IntegrityUi): String = domain.name?.takeIf { it.isNotBlank() } ?: when (domain.position) {
+internal fun domainName(domain: IntegrityUi): String = domainName(domain.name, domain.position)
+
+/** A domain's [name]; its default by [position] when it has none or is encrypted and locked. */
+@Composable
+internal fun domainName(name: String?, position: Int): String = name?.takeIf { it.isNotBlank() } ?: when (position) {
     1 -> stringResource(R.string.today_integrity)
     2 -> "Serenity"
     3 -> "Vitality"
@@ -138,13 +145,18 @@ internal fun DomainCard(
         }
     }
     val name = domainName(integrity)
+    // The header opens the side panel's Editor on this domain (domain-card.tsx handleHeaderClick)
+    val panel = LocalPanel.current
+    val openHeader = {
+        if (panel != null && integrity.domainId.isNotBlank()) panel.openOnDomain(integrity.domainId) else onOpenWeb(route)
+    }
     // The web's domain card: one bordered, rounded (Predator: chamfered) surface around the whole domain
     Column(
         Modifier.fillMaxWidth().padding(top = 32.dp)
             .framed(t, t.card, edge = t.line, cut = if (t.predator) 8.dp else 24.dp)
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
-        Column(Modifier.fillMaxWidth().clickable { onOpenWeb(route) }) {
+        Column(Modifier.fillMaxWidth().clickable { openHeader() }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(integrity.position.toString().padStart(2, '0'), style = t.label(22.sp, t.faint))
                 Spacer(Modifier.width(8.dp))
@@ -174,6 +186,8 @@ internal fun DomainCard(
             Spacer(Modifier.height(10.dp))
             it()
         }
+        // Integrity's buttons that open the side panel (PanelButtonsSection), above its topics
+        if (isIntegrity && panel != null) PanelButtons(panel, onOpenWeb)
         integrity.topics.forEach { topic ->
             // The Reception sits right above the Reminders topic, as on the web
             if (topic.reminders) Reception()
@@ -202,6 +216,22 @@ internal fun DomainCard(
         }
         // The Warnings bar counts flagged items of every domain; the web shows it on the Integrity card only
         if (isIntegrity) WarningsBar(integrity.warnings) { onOpenWeb(WebRoutes.WARNINGS) }
+    }
+}
+
+/** Feeds, Links, Journal, Budget, then "Items with alerts" across the width (integrity-domain-with-widgets.tsx). */
+@Composable
+private fun PanelButtons(panel: PanelOpener, onOpenWeb: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ActionButton(Modifier.weight(1f), LucideIcons.RSS, stringResource(R.string.today_feeds)) { panel.open(PanelMode.FEEDS) }
+            ActionButton(Modifier.weight(1f), LucideIcons.LINK_2, stringResource(R.string.today_links)) { panel.open(PanelMode.LINKS) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ActionButton(Modifier.weight(1f), LucideIcons.JOURNAL, stringResource(R.string.today_journal)) { onOpenWeb(WebRoutes.JOURNAL) }
+            ActionButton(Modifier.weight(1f), LucideIcons.BUDGET, stringResource(R.string.today_budget)) { onOpenWeb(WebRoutes.BUDGET) }
+        }
+        ActionButton(Modifier.fillMaxWidth(), LucideIcons.ALERTS, stringResource(R.string.panel_items_with_alerts)) { panel.open(PanelMode.ALERTS) }
     }
 }
 

@@ -18,6 +18,9 @@ import com.kalai73.lifemapp.widgets.core.weblauncher.WebLauncher
 import com.kalai73.lifemapp.widgets.ui.AppViewModel
 import com.kalai73.lifemapp.widgets.ui.LifeMappAppContent
 import com.kalai73.lifemapp.widgets.ui.TodayViewModel
+import com.kalai73.lifemapp.widgets.ui.sidepanel.PanelMode
+import com.kalai73.lifemapp.widgets.ui.sidepanel.SidePanelViewModel
+import com.kalai73.lifemapp.widgets.ui.sidepanel.opener
 import com.kalai73.lifemapp.widgets.widget.DeepLink
 import kotlinx.coroutines.launch
 
@@ -30,6 +33,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val viewModel: AppViewModel by viewModels()
     private val todayViewModel: TodayViewModel by viewModels()
+    private val panelViewModel: SidePanelViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -90,10 +94,24 @@ class MainActivity : ComponentActivity() {
         setIntent(Intent(intent).setData(null))
     }
 
-    /** A widget tap ([DeepLink]): shown on Today, then dropped from the intent so it isn't handled twice */
+    /**
+     * A widget tap ([DeepLink]): shown on Today, or in the side panel for [DeepLink.Panel], then dropped from the
+     * intent so it isn't handled twice
+     */
     private fun handleWidgetTap(intent: Intent?) {
         val link = DeepLink.from(intent) ?: return
-        todayViewModel.open(link)
+        if (link is DeepLink.Panel) openPanel(link) else todayViewModel.open(link)
         setIntent(DeepLink.consumed(intent!!))
+    }
+
+    private fun openPanel(link: DeepLink.Panel) {
+        val domainId = link.domainId
+        when (link.tab) {
+            DeepLink.Panel.QUICK_LINKS -> panelViewModel.opener().openQuickLinks()
+            DeepLink.Panel.EDITOR -> if (domainId != null) panelViewModel.openOnDomain(domainId) else panelViewModel.open(PanelMode.EDITOR)
+            DeepLink.Panel.ALERTS -> panelViewModel.open(PanelMode.ALERTS)
+            DeepLink.Panel.FEEDS -> panelViewModel.open(PanelMode.FEEDS)
+            else -> panelViewModel.open(PanelMode.LINKS)
+        }
     }
 }

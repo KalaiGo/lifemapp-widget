@@ -163,6 +163,10 @@ fun color(value: Color): ColorProvider = ColorProvider(value)
 fun openSection(context: Context, section: String, topicId: String? = null): Action =
     actionStartActivity(DeepLink.Section(section, topicId).intent(context))
 
+/** Opens the app's side panel on [tab] (a [DeepLink.Panel] tab). */
+fun openPanel(context: Context, tab: String, domainId: String? = null): Action =
+    actionStartActivity(DeepLink.Panel(tab, domainId).intent(context))
+
 /** Opens an external link with whatever app handles it. */
 fun openExternal(url: String): Action = actionStartActivity(WebLauncher.externalIntent(url))
 

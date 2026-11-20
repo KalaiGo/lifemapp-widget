@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Single-colour version of the mark for Android 13+ themed icons (the launcher tints it). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:scaleX="0.72" android:scaleY="0.72" android:translateX="18" android:translateY="18">
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="4" android:pathData="M50,6L88.11,28L88.11,72L50,94L11.89,72L11.89,28Z" />
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="4.5" android:pathData="M50,28a22,22 0 1,0 0,44a22,22 0 1,0 0,-44z" />
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="2.5" android:pathData="M50,37a13,13 0 1,0 0,26a13,13 0 1,0 0,-26z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M50,45.5a4.5,4.5 0 1,0 0,9a4.5,4.5 0 1,0 0,-9z" />
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="3" android:pathData="M50,25L50,17M75,50L83,50M50,75L50,83M25,50L17,50" />
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="2" android:pathData="M50,34L50,41M66,50L59,50M50,66L50,59M34,50L41,50" />
+    </group>
+</vector>

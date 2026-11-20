@@ -5,7 +5,7 @@ import android.content.Intent
 import android.net.Uri
 
 /**
- * A widget tap that opens the app's Today screen at something. The widget encodes it into the launch intent with
+ * A widget tap that opens the app's Today screen at something (or its side panel, [Panel]). The widget encodes it into the launch intent with
  * [intent]; the app reads it back with [from]. Widget taps never open the web app.
  */
 sealed interface DeepLink {
@@ -20,6 +20,20 @@ sealed interface DeepLink {
 
     /** Show a task in the details modal */
     data class Task(val taskId: String) : DeepLink
+
+    /**
+     * Open the side panel on [tab] (the web's ?linkspanel= values: [EDITOR], [LINKS], [ALERTS], or [FEEDS]), scoped to
+     * [domainId] when given; [QUICK_LINKS] opens the Links tab on its quick links.
+     */
+    data class Panel(val tab: String, val domainId: String? = null) : DeepLink {
+        companion object {
+            const val EDITOR = "editor"
+            const val LINKS = "links"
+            const val ALERTS = "reminders"
+            const val FEEDS = "feeds"
+            const val QUICK_LINKS = "quick-links"
+        }
+    }
 
     /** Opens the app on the Today screen at this link. */
     fun intent(context: Context): Intent {
@@ -36,6 +50,9 @@ sealed interface DeepLink {
                 .setData(Uri.fromParts("lifemapp-event", eventId, start))
             is Task -> base.putExtra(EXTRA_TASK_ID, taskId)
                 .setData(Uri.fromParts("lifemapp-task", taskId, null))
+            is Panel -> base.putExtra(EXTRA_PANEL, tab)
+                .apply { domainId?.let { putExtra(EXTRA_PANEL_DOMAIN, it) } }
+                .setData(Uri.fromParts("lifemapp-panel", tab, domainId))
         }
     }
 
@@ -46,7 +63,11 @@ sealed interface DeepLink {
         private const val EXTRA_EVENT_ID = "com.kalai73.lifemapp.widgets.extra.EVENT_ID"
         private const val EXTRA_EVENT_START = "com.kalai73.lifemapp.widgets.extra.EVENT_START"
         private const val EXTRA_TASK_ID = "com.kalai73.lifemapp.widgets.extra.TASK_ID"
-        private val EXTRAS = listOf(EXTRA_SECTION, EXTRA_TOPIC_ID, EXTRA_ITEM_ID, EXTRA_EVENT_ID, EXTRA_EVENT_START, EXTRA_TASK_ID)
+        private const val EXTRA_PANEL = "com.kalai73.lifemapp.widgets.extra.PANEL"
+        private const val EXTRA_PANEL_DOMAIN = "com.kalai73.lifemapp.widgets.extra.PANEL_DOMAIN"
+        private val EXTRAS = listOf(
+            EXTRA_SECTION, EXTRA_TOPIC_ID, EXTRA_ITEM_ID, EXTRA_EVENT_ID, EXTRA_EVENT_START, EXTRA_TASK_ID, EXTRA_PANEL, EXTRA_PANEL_DOMAIN,
+        )
 
         /** The link a launch intent carries, if any. */
         fun from(intent: Intent?): DeepLink? {
@@ -55,6 +76,7 @@ sealed interface DeepLink {
             extra(EXTRA_ITEM_ID)?.let { return Item(it) }
             extra(EXTRA_EVENT_ID)?.let { return Event(it, extra(EXTRA_EVENT_START)) }
             extra(EXTRA_TASK_ID)?.let { return Task(it) }
+            extra(EXTRA_PANEL)?.let { return Panel(it, extra(EXTRA_PANEL_DOMAIN)) }
             extra(EXTRA_SECTION)?.let { return Section(it, extra(EXTRA_TOPIC_ID)) }
             return null
         }

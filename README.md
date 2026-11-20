@@ -3,7 +3,8 @@
 One home-screen widget for LIFE MAPP, the **Dashboard**: the hero (greeting, date, weather, counters, Journal /
 Budget) fixed at the top, then events, tasks and shortcuts in one scrolling list. The app handles sign-in,
 encryption unlock and settings, and has a native **Today** screen (hero, scoring, events, tasks, shortcuts and the
-Today domain cards, with task and item editing) that widget taps open. Everything else opens the LIFE MAPP web app
+Today domain cards, with task and item editing) that widget taps open, and the web's **side panel** (Editor, Links,
+Alerts, Feeds; `ui/sidepanel/`, plan in [docs/sidePanelPlan.md](docs/sidePanelPlan.md)). Everything else opens the LIFE MAPP web app
 in a Chrome Custom Tab, already signed in. Plan: [docs/androidWidgetsApp.md](docs/androidWidgetsApp.md).
 
 ### How it fits together
@@ -75,6 +76,9 @@ Web Crypto code; see `lifeMappWeb/frontend/src/lib/encryption/__tests__/android-
 | `GET /api/widget/snapshot?tz=…&daysAhead=…` | Everything the widgets show, one request; failed sections are listed and kept from cache |
 | `POST /api/widget/session-handoff` | One-time magic-link token → `/auth/exchange` signs the browser in |
 | `PUT /api/tasks/{id}` `{completed:true}` | Task checkbox; the server creates the next recurring instance |
+| `PUT /api/subsubdomains/{id}`, `/api/subdomains/{id}`, `/api/domains/{id}` | Item text, name and reminder; topic name; domain info box (side panel and item editor) |
+| `/api/feeds`, `/api/feeds/items`, `/api/feeds/folders`, `/api/feeds/opml`, `/api/feeds/{id}/refresh` | Side panel Feeds tab: feeds, items, read/star, folders, OPML, sync |
+| `POST /api/links/titles` | Real titles for untitled media links in the side panel |
 | `POST /api/auth/check-whitelist` | Beta access check (registration only; not used by this app) |
 | Supabase REST `lm_user_settings` | Passphrase salt and key envelope, for the encryption unlock |
 
