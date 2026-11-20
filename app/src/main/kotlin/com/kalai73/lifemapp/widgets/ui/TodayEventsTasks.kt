@@ -131,7 +131,10 @@ internal fun EventsSection(ui: WidgetUi, onOpenEvent: (EventUi) -> Unit, onOpenW
                 var offset = 0
                 for (day in days) {
                     DayHeader(dayName(day))
-                    if (day.events.isEmpty()) EmptyLine(stringResource(R.string.today_no_events)) { onOpenWeb(WebRoutes.EVENTS) }
+                    if (day.events.isEmpty()) {
+                        val empty = if (day.kind == DayKind.TOMORROW) R.string.today_no_events_tomorrow else R.string.today_no_events
+                        EmptyLine(stringResource(empty)) { onOpenWeb(WebRoutes.EVENTS) }
+                    }
                     day.events.forEachIndexed { i, e -> EventRow(e, offset + i + 1, day, onOpenEvent) }
                     offset += day.events.size
                 }
@@ -230,13 +233,26 @@ internal fun TasksSection(ui: WidgetUi, onComplete: (String) -> Unit, onOpenTask
                 DayHeader(taskDayName(DayKind.TODAY), emphasized = true)
                 EmptyLine(stringResource(R.string.today_no_tasks)) { onOpenWeb(WebRoutes.TASKS) }
             }
+            // Tomorrow too, after today's tasks. Unless the list may have been cut by the snapshot's cap before it.
+            val tomorrowEmpty = ui.tasks.none { it.day == DayKind.TOMORROW } &&
+                (ui.tasks.any { it.day == DayKind.OTHER } || ui.tasks.size < SNAPSHOT_MAX_TASKS)
+            val tomorrowSlot = ui.tasks.indexOfFirst { it.day != DayKind.TODAY }.let { if (it == -1) ui.tasks.size else it }
+            val noTasksTomorrow = @Composable {
+                DayHeader(taskDayName(DayKind.TOMORROW), emphasized = true)
+                EmptyLine(stringResource(R.string.today_no_tasks_tomorrow)) { onOpenWeb(WebRoutes.TASKS) }
+            }
             ui.tasks.forEachIndexed { i, task ->
+                if (tomorrowEmpty && i == tomorrowSlot) noTasksTomorrow()
                 if (i == 0 || ui.tasks[i - 1].day != task.day) DayHeader(taskDayName(task.day), emphasized = true)
                 TaskRow(task, i + 1, onComplete) { onOpenTask(task) }
             }
+            if (tomorrowEmpty && tomorrowSlot == ui.tasks.size) noTasksTomorrow()
         }
     }
 }
+
+/** The server's cap on the snapshot's tasks (WIDGET_MAX_TASKS on the web) */
+private const val SNAPSHOT_MAX_TASKS = 25
 
 @Composable
 private fun taskDayName(day: DayKind): String = when (day) {

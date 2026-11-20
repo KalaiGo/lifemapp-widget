@@ -135,7 +135,8 @@ object EventLimits {
 
     /**
      * The web's events card: the next [daysAhead] days (the snapshot holds 7 at most), only the latest
-     * [MAX_PAST_TODAY] of today's past events, then the first [maxEvents] in order. Today is always listed.
+     * [MAX_PAST_TODAY] of today's past events, then the first [maxEvents] in order. Today is always listed,
+     * and tomorrow too (empty) when it's in range without events.
      */
     fun apply(days: List<EventDayUi>, today: LocalDate, daysAhead: Int, maxEvents: Int): LimitedEvents {
         val last = today.plusDays((daysAhead.coerceAtLeast(1) - 1).toLong())
@@ -154,7 +155,11 @@ object EventLimits {
             .filter { it.events.isNotEmpty() || it.kind == DayKind.TODAY }
         val withToday = if (capped.firstOrNull()?.kind == DayKind.TODAY) capped
         else listOf(EventDayUi(today, DayKind.TODAY, days.firstOrNull { it.kind == DayKind.TODAY }?.label ?: "", emptyList())) + capped
-        return LimitedEvents(withToday, more = total - capped.sumOf { it.events.size })
+        // Tomorrow is listed, empty, when it's within range but has no events (not when the cap cut them)
+        val tomorrowEmpty = daysAhead >= 2 && inRange.none { it.kind == DayKind.TOMORROW && it.events.isNotEmpty() }
+        val listed = if (!tomorrowEmpty) withToday
+        else withToday.take(1) + EventDayUi(today.plusDays(1), DayKind.TOMORROW, "", emptyList()) + withToday.drop(1)
+        return LimitedEvents(listed, more = total - capped.sumOf { it.events.size })
     }
 }
 

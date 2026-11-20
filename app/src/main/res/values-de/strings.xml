@@ -130,6 +130,8 @@
     <string name="today_workspace">Arbeitsbereich</string>
     <string name="today_no_events">Keine anstehenden Termine</string>
     <string name="today_no_tasks">Nichts fällig. Gut gemacht!</string>
+    <string name="today_no_events_tomorrow">Morgen keine Termine</string>
+    <string name="today_no_tasks_tomorrow">Keine Aufgaben morgen</string>
     <string name="today_no_links">Noch keine Schnellzugriffe</string>
     <string name="today_not_connected">Nicht verbunden</string>
     <string name="today_locked">🔒 Gesperrt</string>

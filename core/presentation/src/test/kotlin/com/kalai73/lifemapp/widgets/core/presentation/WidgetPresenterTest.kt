@@ -365,6 +365,15 @@ class WidgetPresenterTest {
         // Today is always listed, even when empty
         val none = limits.apply(days.drop(1), today, daysAhead = 1, maxEvents = 7)
         assertEquals(listOf(DayKind.TODAY), none.days.map { it.kind })
+
+        // Tomorrow without events is listed, empty, between today and the later days
+        val noTomorrow = limits.apply(days.filter { it.kind != DayKind.TOMORROW }, today, daysAhead = 7, maxEvents = 20)
+        assertEquals(listOf(DayKind.TODAY, DayKind.TOMORROW, DayKind.OTHER), noTomorrow.days.map { it.kind })
+        assertEquals(emptyList<EventUi>(), noTomorrow.days[1].events)
+
+        // ...but not when its events were only cut by the cap
+        val cut = limits.apply(days, today, daysAhead = 3, maxEvents = 4)
+        assertEquals(listOf(DayKind.TODAY), cut.days.map { it.kind })
     }
 
     @Test

@@ -131,6 +131,8 @@
     <string name="today_workspace">Workspace</string>
     <string name="today_no_events">No upcoming events</string>
     <string name="today_no_tasks">Nothing due. Well done!</string>
+    <string name="today_no_events_tomorrow">No events tomorrow</string>
+    <string name="today_no_tasks_tomorrow">No tasks tomorrow</string>
     <string name="today_no_links">No quick links yet</string>
     <string name="today_not_connected">Not connected</string>
     <string name="today_locked">🔒 Locked</string>

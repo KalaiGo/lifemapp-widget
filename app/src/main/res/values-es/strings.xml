@@ -132,6 +132,8 @@
     <string name="today_workspace">Espacio de trabajo</string>
     <string name="today_no_events">Sin eventos próximos</string>
     <string name="today_no_tasks">Nada pendiente. ¡Bien hecho!</string>
+    <string name="today_no_events_tomorrow">Sin eventos mañana</string>
+    <string name="today_no_tasks_tomorrow">Sin tareas mañana</string>
     <string name="today_no_links">Aún no hay accesos rápidos</string>
     <string name="today_not_connected">No conectado</string>
     <string name="today_locked">🔒 Bloqueado</string>
