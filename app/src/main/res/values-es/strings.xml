@@ -102,10 +102,12 @@
     <string name="today_mail_today">Hoy</string>
     <string name="today_links">Enlaces</string>
     <string name="today_drive">Drive</string>
-    <string name="today_shortcuts">Accesos directos</string>
+    <string name="today_shortcuts">Correo y archivos</string>
+    <string name="today_quick_links_manage">Gestionar</string>
     <string name="today_mail_not_connected">El correo no está conectado</string>
     <string name="today_connect_mail">Conectar correo</string>
     <string name="today_no_content">Aún sin contenido</string>
+    <string name="today_no_reminders">Aún no hay recordatorios</string>
     <string name="today_reception">Recepción</string>
     <string name="today_create_reminder">Crear recordatorio</string>
     <string name="today_record">Grabar</string>
@@ -126,7 +128,6 @@
     <string name="today_reload">Recargar</string>
     <string name="today_rating">Valoración media %1$s / 10</string>
     <string name="today_integrity">Integridad</string>
-    <string name="today_warnings">Avisos</string>
     <string name="today_reminders">Recordatorios</string>
     <string name="today_items_more">+%1$d más</string>
     <string name="today_workspace">Espacio de trabajo</string>
@@ -140,7 +141,7 @@
     <string name="today_locked_banner">Desbloquea para ver tu contenido cifrado</string>
     <string name="today_day_today">Hoy</string>
     <string name="today_day_tomorrow">Mañana</string>
-    <string name="today_day_later">Mañana ++ 1</string>
+    <string name="today_day_later">Próximos</string>
     <string name="today_all_day">Todo el día</string>
     <string name="today_complete_task">Completar tarea</string>
     <string name="today_add_task">Añadir tarea</string>
@@ -202,9 +203,10 @@
     <string name="scoring_scored">Calificado</string>
     <string name="scoring_yet">Aún</string>
     <string name="scoring_today">Hoy</string>
+    <string name="scoring_days_ago_short">hace %d d</string>
     <string name="scoring_history">Ver historial de calificaciones</string>
-    <string name="scoring_score_all">Calificar todos los dominios</string>
-    <string name="scoring_average">Calificar todos los dominios. Promedio %1$s de 10</string>
+    <string name="scoring_score_all">Calificar todos los pilares</string>
+    <string name="scoring_average">Calificar todos los pilares. Promedio %1$s de 10</string>
     <string name="scoring_domain_desc">%1$s: puntuación %2$d de 10</string>
     <string name="scoring_show_domain">Mostrar en Hoy</string>
     <string name="scoring_hide_domain">Ocultar de Hoy</string>
@@ -212,10 +214,10 @@
     <string name="rating_next">Siguiente</string>
     <string name="rating_back">Atrás</string>
     <string name="rating_step">%1$d de %2$d</string>
-    <string name="rating_title_all">Calificación de dominios</string>
-    <string name="error_rating_locked">Desbloquea para calificar dominios cifrados.</string>
-    <string name="scoring_hide_all">Ocultar todos los dominios</string>
-    <string name="scoring_show_all">Mostrar todos los dominios</string>
+    <string name="rating_title_all">Calificación de pilares</string>
+    <string name="error_rating_locked">Desbloquea para calificar pilares cifrados.</string>
+    <string name="scoring_hide_all">Ocultar todos los pilares</string>
+    <string name="scoring_show_all">Mostrar todos los pilares</string>
     <plurals name="scoring_days_ago">
         <item quantity="one">hace %d día</item>
         <item quantity="other">hace %d días</item>
@@ -237,7 +239,9 @@
     <string name="rating_question_19">¿Tus pertenencias y herramientas han cubierto bien tus necesidades, sin desorden, desde la última evaluación?</string>
     <string name="tab_today">Hoy</string>
     <string name="tab_monthly">Mensual</string>
-    <string name="tab_company">Empresa</string>
+    <string name="tab_business">Negocio</string>
+    <string name="business_setup_text">Revisa cada mes la salud de tu negocio en 10 pilares estratégicos. Créalos en la web para verlos aquí.</string>
+    <string name="business_setup_open">Configurar en la web</string>
     <string name="search_open">Buscar</string>
     <string name="search_hint">Buscar elementos, eventos y tareas</string>
     <string name="search_empty">Sin resultados</string>
@@ -289,6 +293,8 @@
     <string name="panel_all_alerts">Todos los avisos</string>
     <string name="panel_quick_links">Enlaces rápidos</string>
     <string name="panel_quick_links_manage">Gestionar en la web</string>
+    <string name="quick_links_manage">Gestionar</string>
+    <string name="quick_links_add">Añadir enlace rápido</string>
     <string name="panel_search_hint">Buscar…</string>
     <string name="panel_sort_newest">Recientes</string>
     <string name="panel_sort_alpha">A–Z</string>
@@ -341,7 +347,7 @@
     <string name="panel_rule_monthly">Mensual</string>
     <string name="panel_rule_bimonthly">Bimestral</string>
     <string name="panel_rule_quarterly">Trimestral</string>
-    <string name="panel_rule_every_4_months">Cada 4 meses</string>
+    <string name="panel_rule_every_6_months">Cada 6 meses</string>
     <string name="panel_rule_yearly">Anual</string>
     <string name="panel_rule_custom">Se repite</string>
     <string name="panel_status_overdue">Vencido</string>
@@ -359,7 +365,7 @@
     <string name="panel_feeds_refresh">Actualizar</string>
     <string name="panel_feeds_mark_all_read">Marcar todo como leído</string>
     <string name="panel_feeds_scope">Mostrando %1$s. Elige carpeta o feed</string>
-    <string name="panel_links_scope">Mostrando %1$s. Elige dominio, subdominio o elemento</string>
+    <string name="panel_links_scope">Mostrando %1$s. Elige pilar, subdominio o elemento</string>
     <string name="panel_feeds_mark_older">Más de %1$d días</string>
     <string name="panel_feeds_empty">No hay elementos</string>
     <string name="panel_feeds_offline">Ahora no se pueden cargar los feeds.</string>

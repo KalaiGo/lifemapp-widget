@@ -93,6 +93,7 @@ object MonthlyPresenter {
         val scoringMonthlyRaw = (listOfNotNull(trayectoryRaw) + otherMonthlyRaw).sortedBy { it.position }
         val scoringMonthlyUi = scoringMonthlyRaw.map { WidgetPresenter.integrity(it, key) }
         val scoring = scoring(state.scoring, scoringMonthlyUi, encryption, today, zone)
+            ?.copy(businessAverage = WidgetPresenter.businessAverage(state.scoring, key))
 
         val hiddenIds = scoring?.domains?.filter { it.hidden }?.map { it.id }?.toSet().orEmpty()
 

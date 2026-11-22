@@ -143,8 +143,10 @@ class SidePanelPresenterTest {
     }
 
     @Test
-    fun `no sections without headings or outside structure order`() {
-        assertNull(SidePanelPresenter.linkSections(listOf(link("a", "1")), PanelSort.STRUCTURE, PanelScope(), "Untitled"))
+    fun `structure order groups per item even without headings, except inside a single item or outside structure order`() {
+        val sections = SidePanelPresenter.linkSections(listOf(link("a", "1")), PanelSort.STRUCTURE, PanelScope(), "Untitled")!!
+        assertEquals(listOf("Item 1"), sections.map { it.title })
+        assertNull(SidePanelPresenter.linkSections(listOf(link("a", "1")), PanelSort.STRUCTURE, PanelScope(itemId = "1"), "Untitled"))
         assertNull(SidePanelPresenter.linkSections(listOf(link("a", "1", "H")), PanelSort.ALPHA, PanelScope(), "Untitled"))
     }
 }

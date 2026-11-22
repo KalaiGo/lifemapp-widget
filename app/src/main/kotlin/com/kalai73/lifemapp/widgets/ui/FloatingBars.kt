@@ -63,15 +63,14 @@ internal val FLOATING_BARS_CLEARANCE: Dp = 112.dp
 
 /**
  * The web's bottom floating bars (main-layout.tsx), stacked and centered: the actions pill (navigation overlay,
- * search, settings | voice, reminder) over the page pill (TODAY, MONTHLY, and COMPANY for admins).
+ * search, settings | voice, reminder) over the page pill (TODAY, MONTHLY, and BUSINESS when the user has it).
  */
 @Composable
 internal fun BoxScope.DashboardFloatingBars(
     activeTab: DashboardTab,
     onSelectTab: (DashboardTab) -> Unit,
-    /** COMPANY (the web's /company; no native screen): admins only */
-    showCompany: Boolean,
-    onOpenCompany: () -> Unit,
+    /** BUSINESS (BUSINESS MAPP): shown when the user has business domains, or is an admin who can set them up */
+    showBusiness: Boolean,
     navOpen: Boolean,
     onToggleNav: () -> Unit,
     searchOpen: Boolean,
@@ -125,8 +124,10 @@ internal fun BoxScope.DashboardFloatingBars(
             PageTab(LucideIcons.CALENDAR_DAYS, stringResource(R.string.tab_monthly), activeTab == DashboardTab.MONTHLY, Modifier.weight(1f)) {
                 onSelectTab(DashboardTab.MONTHLY)
             }
-            if (showCompany) {
-                PageTab(LucideIcons.BUILDING, stringResource(R.string.tab_company), selected = false, Modifier.weight(1f), onClick = onOpenCompany)
+            if (showBusiness) {
+                PageTab(LucideIcons.BUILDING, stringResource(R.string.tab_business), activeTab == DashboardTab.BUSINESS, Modifier.weight(1f)) {
+                    onSelectTab(DashboardTab.BUSINESS)
+                }
             }
         }
     }
@@ -201,13 +202,14 @@ private fun PageTab(icon: Int, label: String, selected: Boolean, modifier: Modif
 private class SearchHit(val icon: Int, val title: String, val detail: String, val open: () -> Unit)
 
 /**
- * The web's search, over what this device has synced: items of the Today and Monthly domains (by name and text),
+ * The web's search, over what this device has synced: items of the Today, Monthly and Business domains (by name and text),
  * events and tasks. Picking one opens it where it lives, as a widget tap does.
  */
 @Composable
 internal fun SearchDialog(
     today: WidgetUi,
     monthly: MonthlyUi,
+    business: MonthlyUi?,
     onItem: (DashboardTab, String) -> Unit,
     onEvent: (EventUi) -> Unit,
     onTask: (TaskUi) -> Unit,
@@ -216,9 +218,9 @@ internal fun SearchDialog(
     val t = LocalTok.current
     var query by remember { mutableStateOf("") }
     // Domain names come from string resources when the user kept the default
-    val sources = searchSources(today, monthly)
+    val sources = searchSources(today, monthly, business)
     val names = sources.associate { (_, domain) -> domain.domainId to domainName(domain) }
-    val hits = remember(query, today, monthly, names) { searchHits(query.trim(), sources, names, today, onItem, onEvent, onTask) }
+    val hits = remember(query, today, monthly, business, names) { searchHits(query.trim(), sources, names, today, onItem, onEvent, onTask) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
@@ -288,11 +290,12 @@ private fun SearchRow(hit: SearchHit, onClick: () -> Unit) {
 private const val MAX_HITS = 50
 private val TAGS = Regex("<[^>]+>")
 
-/** Domains whose items are searched: Today first (Integrity and Tenacity show on both pages), then Monthly */
-private fun searchSources(today: WidgetUi, monthly: MonthlyUi): List<Pair<DashboardTab, IntegrityUi>> =
+/** Domains whose items are searched: Today first (Integrity and Tenacity show on several pages), Monthly, Business */
+private fun searchSources(today: WidgetUi, monthly: MonthlyUi, business: MonthlyUi?): List<Pair<DashboardTab, IntegrityUi>> =
     (listOfNotNull(today.integrity) + today.todayDomains + today.hiddenTodayDomains).map { DashboardTab.TODAY to it } +
         (listOfNotNull(monthly.integrity, monthly.trayectory?.domain, monthly.trayectory?.embeddedTenacity) +
-            monthly.monthlyDomains + monthly.hiddenMonthlyDomains).map { DashboardTab.MONTHLY to it }
+            monthly.monthlyDomains + monthly.hiddenMonthlyDomains).map { DashboardTab.MONTHLY to it } +
+        (business?.let { it.monthlyDomains + it.hiddenMonthlyDomains }.orEmpty()).map { DashboardTab.BUSINESS to it }
 
 private fun searchHits(
     query: String,

@@ -300,13 +300,14 @@ object SidePanelPresenter {
     )
 
     /**
-     * Structure order keeps an item's links in content order, so the headings written in its rich text split
-     * the stream into sections; null (a flat list) in other orders or when no link sits under a heading.
-     * Whatever the breadcrumb already shows is left out: inside one item, sections need no item name; inside
-     * a topic or an item, no topic name. [untitled] names an item without a name.
+     * Structure order groups links under a header per item, kept in content order, so the headings written in its
+     * rich text split an item further. Inside one item the breadcrumb already names it, so sections are only
+     * needed when it has headings; null (a flat list) in other orders. Whatever the breadcrumb already shows is
+     * left out: inside one item, sections need no item name; inside a topic or an item, no topic name.
      */
     fun linkSections(links: List<PanelLink>, sort: PanelSort, scope: PanelScope, untitled: String): List<LinkSection>? {
-        if (sort != PanelSort.STRUCTURE || links.none { it.headings.isNotEmpty() }) return null
+        if (sort != PanelSort.STRUCTURE) return null
+        if (scope.itemId != null && links.none { it.headings.isNotEmpty() }) return null
         val sections = mutableListOf<LinkSection>()
         for (link in links) {
             val key = "${link.itemId}::${link.headings.joinToString("\u0000")}"

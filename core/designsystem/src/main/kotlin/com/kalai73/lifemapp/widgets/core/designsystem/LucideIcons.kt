@@ -258,6 +258,8 @@ object LucideIcons {
     val EYE_OFF = R.drawable.lm_ic_eye_off
     val HISTORY = R.drawable.lm_ic_history
     val CIRCLE_ALERT = R.drawable.lm_ic_circle_alert
+    val USER = R.drawable.lm_ic_user
+    val BRIEFCASE = R.drawable.lm_ic_briefcase
 
     // The side panel (LinksStreamModeToggle, FeedSidebar, FeedStream)
     val RSS = R.drawable.lm_ic_rss

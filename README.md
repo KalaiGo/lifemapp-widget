@@ -3,7 +3,8 @@
 One home-screen widget for LIFE MAPP, the **Dashboard**: the hero (greeting, date, weather, counters, Journal /
 Budget) fixed at the top, then events, tasks and shortcuts in one scrolling list. The app handles sign-in,
 encryption unlock and settings, and has a native **Today** screen (hero, scoring, events, tasks, shortcuts and the
-Today domain cards, with task and item editing) that widget taps open, and the web's **side panel** (Editor, Links,
+Today domain cards, with task and item editing) that widget taps open, the **Monthly** and **Business** pages
+(BUSINESS MAPP: Integrity and the business domains 20–29, scored apart from the life domains), and the web's **side panel** (Editor, Links,
 Alerts, Feeds; `ui/sidepanel/`, plan in [docs/sidePanelPlan.md](docs/sidePanelPlan.md)). Everything else opens the LIFE MAPP web app
 in a Chrome Custom Tab, already signed in. Plan: [docs/androidWidgetsApp.md](docs/androidWidgetsApp.md).
 

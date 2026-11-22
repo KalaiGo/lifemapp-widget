@@ -476,4 +476,19 @@ class WidgetPresenterTest {
         assertEquals("My health", name(11, "My health"))
         assertEquals("IMMUNITY", name(12, "IMMUNITY"))
     }
+
+    @Test
+    fun `business average reads positions 20 to 29, unrated as 0, skipping encrypted it cannot read`() {
+        val domains = listOf(
+            ScoringDomain("life", 3, "VITALITY", rating = 9.0),
+            ScoringDomain("b1", 20, "SALES", rating = 7.0),
+            ScoringDomain("b2", 21, "OPS", rating = 4.0),
+            ScoringDomain("b3", 22, "TEAM", rating = 0.0),
+            ScoringDomain("b4", 23, "CASH", rating = 0.0, encryptedRating = "locked-cipher"),
+        )
+        // (7 + 4 + 0) / 3, one decimal; the encrypted one is left out without a key
+        assertEquals(3.7, WidgetPresenter.businessAverage(Scoring(domains = domains), null)!!, 0.0)
+        assertNull(WidgetPresenter.businessAverage(Scoring(domains = domains.take(1)), null))
+        assertNull(WidgetPresenter.businessAverage(null, null))
+    }
 }

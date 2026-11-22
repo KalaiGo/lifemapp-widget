@@ -49,7 +49,7 @@
     <string name="complete_task">Complete task</string>
     <string name="today">Today</string>
     <string name="tomorrow">Tomorrow</string>
-    <string name="tomorrow_plus_one">Tomorrow ++ 1</string>
+    <string name="tomorrow_plus_one">Upcoming</string>
     <string name="no_due_date">No due date</string>
     <string name="all_day">All day</string>
     <string name="rating">Rating</string>

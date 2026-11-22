@@ -49,7 +49,7 @@
     <string name="complete_task">Completar tarea</string>
     <string name="today">Hoy</string>
     <string name="tomorrow">Mañana</string>
-    <string name="tomorrow_plus_one">Mañana ++ 1</string>
+    <string name="tomorrow_plus_one">Próximos</string>
     <string name="no_due_date">Sin fecha de vencimiento</string>
     <string name="all_day">Todo el día</string>
     <string name="rating">Valoración</string>

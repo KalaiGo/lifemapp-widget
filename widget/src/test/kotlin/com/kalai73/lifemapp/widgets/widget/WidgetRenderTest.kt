@@ -361,7 +361,8 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("Integrity")).assertExists()
         onNode(hasTextEqualTo("8")).assertExists()
         onNode(hasTextEqualTo("Capture & Organize")).assertExists()
-        onNode(hasTextEqualTo("RECEPTION")).assertExists()
+        // Both Reception and the empty Reminders row show "Create reminder"
+        onAllNodes(hasTextEqualTo("Create reminder")).assertCountEquals(2)
         // The Reception's type button and the empty Reminders chip both create reminders
         onAllNodes(hasContentDescriptionEqualTo("Create reminder")).assertCountEquals(2)
         onNode(hasTextEqualTo("Reminders")).assertExists()
@@ -381,7 +382,7 @@ class WidgetRenderTest {
     fun `predator integrity card uppercases labels`() = runGlanceAppWidgetUnitTest {
         dashboard(populated.copy(uiStyle = UiStyle.PREDATOR, integrity = integrity))
         onNode(hasTextEqualTo("INTEGRITY")).assertExists()
-        onNode(hasTextEqualTo("RECEPTION")).assertExists()
+        onAllNodes(hasTextEqualTo("Create reminder")).assertCountEquals(2)
         onNode(hasTextEqualTo("TOPIC 1")).assertExists()
         onNode(hasTextEqualTo("WARNINGS")).assertExists()
     }

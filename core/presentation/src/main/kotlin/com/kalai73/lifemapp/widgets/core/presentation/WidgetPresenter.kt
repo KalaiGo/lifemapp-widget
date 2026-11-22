@@ -278,6 +278,8 @@ data class ScoringUi(
     val locked: Boolean,
     /** The hidden state is known (read from the server at least once); until then nothing can be toggled */
     val ready: Boolean,
+    /** The business average (positions 20–29), shown under the life average; null when there is none to read */
+    val businessAverage: Double? = null,
 ) {
     /** 0 scored today, 1 within two weeks, 2 within three, 3 later or never (scoring-circles.tsx) */
     val urgency: Int get() = when (val d = daysSinceScored) {
@@ -438,6 +440,7 @@ object WidgetPresenter {
         val integrityUi = snapshot.integrity?.let { integrity(it, key) }
         val todayDomainsUi = snapshot.todayDomains.map { integrity(it, key) }
         val scoring = scoring(state.scoring, listOfNotNull(integrityUi) + todayDomainsUi, encryption, today, deviceZone)
+            ?.copy(businessAverage = businessAverage(state.scoring, key))
         val hiddenIds = scoring?.domains?.filter { it.hidden }?.map { it.id }?.toSet().orEmpty()
 
         return WidgetUi(
@@ -631,6 +634,20 @@ object WidgetPresenter {
             locked = encryption == EncryptionState.LOCKED,
             ready = state != null,
         )
+    }
+
+    /**
+     * The business average (positions 20–29) to one decimal, as scoring-circles.tsx: unrated domains count as 0,
+     * encrypted ratings this device cannot read are left out; null when no business domain is readable.
+     */
+    internal fun businessAverage(state: Scoring?, key: String?): Double? {
+        val ratings = state?.domains.orEmpty().filter { it.position in 20..29 }.mapNotNull { d ->
+            val plain = d.rating ?: 0.0
+            val encrypted = d.encryptedRating
+            if (encrypted == null || plain > 0) plain
+            else key?.let { EncryptedField.decrypt(encrypted, it)?.toDoubleOrNull() }
+        }
+        return if (ratings.isEmpty()) null else (ratings.average() * 10).roundToInt() / 10.0
     }
 
     /** Days from the stored scoring time (an ISO instant, or "YYYY-MM" from older rows) to [today]. */

@@ -94,6 +94,48 @@ class ScoringRepository(
         return true
     }
 
+    /**
+     * Saves new BUSINESS MAPP [ratings] (domain id → 1–10) as [rate] does for life domains, but scored on their own
+     * as the web does: the bulk request carries the business domains (positions 20+) only, and the scoring time is
+     * this device's [Scoring.businessLastCompleted] (the web keeps it in the browser), never the life one.
+     *
+     * @return false when the account is encrypted and this device isn't unlocked
+     */
+    suspend fun rateBusiness(ratings: Map<String, Int>, encrypted: Boolean): Boolean {
+        if (ratings.isEmpty()) return true
+        val user = userId() ?: throw NotSignedInException()
+        val key = if (encrypted) dataKey() ?: return false else null
+        val entries = api.businessDomainRatings(user).mapNotNull { d ->
+            val value = ratings[d.id]?.coerceIn(1, 10) ?: readable(d, key) ?: return@mapNotNull null
+            if (key != null) ScoringApi.RatingEntry(d.id, 0, EncryptedField.encrypt(value.toString(), key))
+            else ScoringApi.RatingEntry(d.id, value)
+        }
+        if (entries.none { it.domainId in ratings }) return true
+        api.saveRatings(entries)
+        val now = Instant.ofEpochMilli(clock()).toString()
+
+        val byId = entries.associateBy { it.domainId }
+        cache.update { state ->
+            val snapshot = state.snapshot
+            state.copy(
+                scoring = (state.scoring ?: Scoring()).let { scoring ->
+                    scoring.copy(
+                        businessLastCompleted = now,
+                        domains = scoring.domains.map { d ->
+                            byId[d.id]?.let { d.copy(rating = it.rating.toDouble(), encryptedRating = it.encryptedRating) } ?: d
+                        },
+                    )
+                },
+                snapshot = snapshot?.copy(
+                    monthlyDomains = snapshot.monthlyDomains.map { card ->
+                        byId[card.domainId]?.let { card.copy(rating = it.rating.toDouble(), encryptedRating = it.encryptedRating) } ?: card
+                    },
+                ),
+            )
+        }
+        return true
+    }
+
     /** A stored rating this device can read: plain, or encrypted with [key]; null otherwise. */
     private fun readable(d: StoredRating, key: String?): Int? = when {
         d.encryptedRating == null -> d.rating.roundToInt()

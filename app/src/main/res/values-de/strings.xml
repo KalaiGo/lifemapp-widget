@@ -100,10 +100,12 @@
     <string name="today_mail_today">Heute</string>
     <string name="today_links">Links</string>
     <string name="today_drive">Drive</string>
-    <string name="today_shortcuts">Verknüpfungen</string>
+    <string name="today_shortcuts">Mail &amp; Dateien</string>
+    <string name="today_quick_links_manage">Verwalten</string>
     <string name="today_mail_not_connected">E-Mail ist nicht verbunden</string>
     <string name="today_connect_mail">E-Mail verbinden</string>
     <string name="today_no_content">Noch kein Inhalt</string>
+    <string name="today_no_reminders">Noch keine Erinnerungen</string>
     <string name="today_reception">Empfang</string>
     <string name="today_create_reminder">Erinnerung erstellen</string>
     <string name="today_record">Aufnehmen</string>
@@ -124,7 +126,6 @@
     <string name="today_reload">Neu laden</string>
     <string name="today_rating">Durchschnittliche Bewertung %1$s / 10</string>
     <string name="today_integrity">Integrität</string>
-    <string name="today_warnings">Warnungen</string>
     <string name="today_reminders">Erinnerungen</string>
     <string name="today_items_more">+%1$d weitere</string>
     <string name="today_workspace">Arbeitsbereich</string>
@@ -138,7 +139,7 @@
     <string name="today_locked_banner">Entsperren, um verschlüsselte Inhalte zu sehen</string>
     <string name="today_day_today">Heute</string>
     <string name="today_day_tomorrow">Morgen</string>
-    <string name="today_day_later">Morgen ++ 1</string>
+    <string name="today_day_later">Anstehend</string>
     <string name="today_all_day">Ganztägig</string>
     <string name="today_complete_task">Aufgabe erledigen</string>
     <string name="today_add_task">Aufgabe hinzufügen</string>
@@ -200,9 +201,10 @@
     <string name="scoring_scored">Bewertet</string>
     <string name="scoring_yet">Bisher</string>
     <string name="scoring_today">Heute</string>
+    <string name="scoring_days_ago_short">vor %d T.</string>
     <string name="scoring_history">Bewertungsverlauf anzeigen</string>
-    <string name="scoring_score_all">Alle Bereiche bewerten</string>
-    <string name="scoring_average">Alle Bereiche bewerten. Durchschnitt %1$s von 10</string>
+    <string name="scoring_score_all">Alle Pfeiler bewerten</string>
+    <string name="scoring_average">Alle Pfeiler bewerten. Durchschnitt %1$s von 10</string>
     <string name="scoring_domain_desc">%1$s: Bewertung %2$d von 10</string>
     <string name="scoring_show_domain">Auf Heute zeigen</string>
     <string name="scoring_hide_domain">Auf Heute ausblenden</string>
@@ -210,10 +212,10 @@
     <string name="rating_next">Weiter</string>
     <string name="rating_back">Zurück</string>
     <string name="rating_step">%1$d von %2$d</string>
-    <string name="rating_title_all">Bereichsbewertung</string>
-    <string name="error_rating_locked">Entsperren, um verschlüsselte Bereiche zu bewerten.</string>
-    <string name="scoring_hide_all">Alle Bereiche ausblenden</string>
-    <string name="scoring_show_all">Alle Bereiche einblenden</string>
+    <string name="rating_title_all">Pfeilerbewertung</string>
+    <string name="error_rating_locked">Entsperren, um verschlüsselte Pfeiler zu bewerten.</string>
+    <string name="scoring_hide_all">Alle Pfeiler ausblenden</string>
+    <string name="scoring_show_all">Alle Pfeiler einblenden</string>
     <plurals name="scoring_days_ago">
         <item quantity="one">vor %d Tag</item>
         <item quantity="other">vor %d Tagen</item>
@@ -235,7 +237,9 @@
     <string name="rating_question_19">Haben dir deine Sachen und Werkzeuge gut gedient, ohne Unordnung, seit der letzten Bewertung?</string>
     <string name="tab_today">Heute</string>
     <string name="tab_monthly">Monatlich</string>
-    <string name="tab_company">Firma</string>
+    <string name="tab_business">Business</string>
+    <string name="business_setup_text">Prüfe monatlich die Gesundheit deines Unternehmens in 10 strategischen Säulen. Richte sie im Web ein, um sie hier zu sehen.</string>
+    <string name="business_setup_open">Im Web einrichten</string>
     <string name="search_open">Suchen</string>
     <string name="search_hint">Elemente, Termine und Aufgaben suchen</string>
     <string name="search_empty">Keine Treffer</string>
@@ -287,6 +291,8 @@
     <string name="panel_all_alerts">Alle Erinnerungen</string>
     <string name="panel_quick_links">Schnelllinks</string>
     <string name="panel_quick_links_manage">Im Web verwalten</string>
+    <string name="quick_links_manage">Verwalten</string>
+    <string name="quick_links_add">Schnelllink hinzufügen</string>
     <string name="panel_search_hint">Suchen…</string>
     <string name="panel_sort_newest">Neueste</string>
     <string name="panel_sort_alpha">A–Z</string>
@@ -339,7 +345,7 @@
     <string name="panel_rule_monthly">Monatlich</string>
     <string name="panel_rule_bimonthly">Alle 2 Monate</string>
     <string name="panel_rule_quarterly">Vierteljährlich</string>
-    <string name="panel_rule_every_4_months">Alle 4 Monate</string>
+    <string name="panel_rule_every_6_months">Alle 6 Monate</string>
     <string name="panel_rule_yearly">Jährlich</string>
     <string name="panel_rule_custom">Wiederholt sich</string>
     <string name="panel_status_overdue">Überfällig</string>
@@ -357,7 +363,7 @@
     <string name="panel_feeds_refresh">Aktualisieren</string>
     <string name="panel_feeds_mark_all_read">Alle als gelesen markieren</string>
     <string name="panel_feeds_scope">Angezeigt: %1$s. Ordner oder Feed wählen</string>
-    <string name="panel_links_scope">Angezeigt: %1$s. Bereich, Unterbereich oder Eintrag wählen</string>
+    <string name="panel_links_scope">Angezeigt: %1$s. Pfeiler, Unterbereich oder Eintrag wählen</string>
     <string name="panel_feeds_mark_older">Älter als %1$d Tage</string>
     <string name="panel_feeds_empty">Keine Einträge</string>
     <string name="panel_feeds_offline">Feeds können gerade nicht geladen werden.</string>

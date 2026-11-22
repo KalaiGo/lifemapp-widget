@@ -101,10 +101,12 @@
     <string name="today_mail_today">Today</string>
     <string name="today_links">Links</string>
     <string name="today_drive">Drive</string>
-    <string name="today_shortcuts">Shortcuts</string>
+    <string name="today_shortcuts">Mail &amp; Files</string>
+    <string name="today_quick_links_manage">Manage</string>
     <string name="today_mail_not_connected">Mail is not connected</string>
     <string name="today_connect_mail">Connect mail</string>
     <string name="today_no_content">No content yet</string>
+    <string name="today_no_reminders">No reminders yet</string>
     <string name="today_reception">Reception</string>
     <string name="today_create_reminder">Create reminder</string>
     <string name="today_record">Record</string>
@@ -125,7 +127,6 @@
     <string name="today_reload">Reload</string>
     <string name="today_rating">Average rating %1$s / 10</string>
     <string name="today_integrity">Integrity</string>
-    <string name="today_warnings">Warnings</string>
     <string name="today_reminders">Reminders</string>
     <string name="today_items_more">+%1$d more</string>
     <string name="today_workspace">Workspace</string>
@@ -139,7 +140,7 @@
     <string name="today_locked_banner">Unlock to see your encrypted content</string>
     <string name="today_day_today">Today</string>
     <string name="today_day_tomorrow">Tomorrow</string>
-    <string name="today_day_later">Tomorrow ++ 1</string>
+    <string name="today_day_later">Upcoming</string>
     <string name="today_all_day">All day</string>
     <string name="today_complete_task">Complete task</string>
     <string name="today_add_task">Add task</string>
@@ -201,9 +202,10 @@
     <string name="scoring_scored">Scored</string>
     <string name="scoring_yet">Yet</string>
     <string name="scoring_today">Today</string>
+    <string name="scoring_days_ago_short">%dd ago</string>
     <string name="scoring_history">View scoring history</string>
-    <string name="scoring_score_all">Score all domains</string>
-    <string name="scoring_average">Score all domains. Average %1$s of 10</string>
+    <string name="scoring_score_all">Score all pillars</string>
+    <string name="scoring_average">Score all pillars. Average %1$s of 10</string>
     <string name="scoring_domain_desc">%1$s: score %2$d of 10</string>
     <string name="scoring_show_domain">Show on Today</string>
     <string name="scoring_hide_domain">Hide from Today</string>
@@ -211,10 +213,10 @@
     <string name="rating_next">Next</string>
     <string name="rating_back">Back</string>
     <string name="rating_step">%1$d of %2$d</string>
-    <string name="rating_title_all">Domains scoring</string>
-    <string name="error_rating_locked">Unlock to rate encrypted domains.</string>
-    <string name="scoring_hide_all">Hide all domains</string>
-    <string name="scoring_show_all">Show all domains</string>
+    <string name="rating_title_all">Pillars scoring</string>
+    <string name="error_rating_locked">Unlock to rate encrypted pillars.</string>
+    <string name="scoring_hide_all">Hide all pillars</string>
+    <string name="scoring_show_all">Show all pillars</string>
     <plurals name="scoring_days_ago">
         <item quantity="one">%d day ago</item>
         <item quantity="other">%d days ago</item>
@@ -236,7 +238,9 @@
     <string name="rating_question_19">Have your belongings and tools served your needs well, free of clutter since the last scoring?</string>
     <string name="tab_today">Today</string>
     <string name="tab_monthly">Monthly</string>
-    <string name="tab_company">Company</string>
+    <string name="tab_business">Business</string>
+    <string name="business_setup_text">Review your business health monthly across 10 strategic pillars. Set them up on the web to see them here.</string>
+    <string name="business_setup_open">Set up on the web</string>
     <string name="search_open">Search</string>
     <string name="search_hint">Search items, events and tasks</string>
     <string name="search_empty">No matches</string>
@@ -288,6 +292,8 @@
     <string name="panel_all_alerts">All alerts</string>
     <string name="panel_quick_links">Quick links</string>
     <string name="panel_quick_links_manage">Manage on the web</string>
+    <string name="quick_links_manage">Manage</string>
+    <string name="quick_links_add">Add quick link</string>
     <string name="panel_search_hint">Search…</string>
     <string name="panel_sort_newest">Newest</string>
     <string name="panel_sort_alpha">A–Z</string>
@@ -340,7 +346,7 @@
     <string name="panel_rule_monthly">Monthly</string>
     <string name="panel_rule_bimonthly">Bimonthly</string>
     <string name="panel_rule_quarterly">Quarterly</string>
-    <string name="panel_rule_every_4_months">Every 4 months</string>
+    <string name="panel_rule_every_6_months">Every 6 months</string>
     <string name="panel_rule_yearly">Yearly</string>
     <string name="panel_rule_custom">Repeats</string>
     <string name="panel_status_overdue">Overdue</string>
@@ -358,7 +364,7 @@
     <string name="panel_feeds_refresh">Refresh</string>
     <string name="panel_feeds_mark_all_read">Mark all read</string>
     <string name="panel_feeds_scope">Showing %1$s. Choose folder or feed</string>
-    <string name="panel_links_scope">Showing %1$s. Choose domain, subdomain or item</string>
+    <string name="panel_links_scope">Showing %1$s. Choose pillar, subdomain or item</string>
     <string name="panel_feeds_mark_older">Older than %1$d days</string>
     <string name="panel_feeds_empty">No items here</string>
     <string name="panel_feeds_offline">Feeds can’t be loaded right now.</string>

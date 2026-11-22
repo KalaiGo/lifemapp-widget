@@ -283,4 +283,4 @@ object Sections {
     const val MONTHLY_DOMAINS = "monthlyDomains"
 }
 
-enum class DashboardTab { TODAY, MONTHLY }
+enum class DashboardTab { TODAY, MONTHLY, BUSINESS }

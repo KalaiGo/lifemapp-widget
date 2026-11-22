@@ -22,7 +22,8 @@ import kotlinx.serialization.json.JsonPrimitive
 class ScoringApi internal constructor(client: ApiClient) : ApiArea(client) {
     /**
      * The scoring section's state, read as the web's user-settings-service does: the last scoring from its
-     * column, and every domain's id, position, name and custom color. The web's hidden domains
+     * column, and every domain's id, position, name, custom color and rating (the business average reads
+     * positions 20–29). The web keeps business_scoring_last_completed in the browser only, so it is not read. The web's hidden domains
      * (preferences.hidden_domain_ids) are not read: the app keeps its own list (hiddenDomainIds stays null here).
      * The legacy user_settings column is gone from the table: selecting it fails the whole read (400).
      */
@@ -35,7 +36,7 @@ class ScoringApi internal constructor(client: ApiClient) : ApiArea(client) {
         val domains = authorized { token ->
             http.get("${config.supabaseUrl}/rest/v1/lm_life_domains") {
                 supabase(token)
-                parameter("select", "id,position,name,color")
+                parameter("select", "id,position,name,color,rating,encrypted_rating")
                 parameter("user_id", "eq.$userId")
             }
         }.body<JsonArray>().mapNotNull { element ->
@@ -45,6 +46,8 @@ class ScoringApi internal constructor(client: ApiClient) : ApiArea(client) {
                 position = text(d["position"])?.toDoubleOrNull()?.toInt() ?: 0,
                 name = text(d["name"]),
                 color = text(d["color"]),
+                rating = text(d["rating"])?.toDoubleOrNull(),
+                encryptedRating = text(d["encrypted_rating"]),
             )
         }
         return Scoring(
@@ -61,13 +64,21 @@ class ScoringApi internal constructor(client: ApiClient) : ApiArea(client) {
     }
 
     /** The life domains (positions below 20) with their stored ratings, for the bulk rating's sibling list. */
-    suspend fun lifeDomainRatings(userId: String): List<StoredRating> =
+    suspend fun lifeDomainRatings(userId: String): List<StoredRating> = domainRatings(userId, "lt.20")
+
+    /**
+     * The BUSINESS MAPP domains (positions 20 and up) with their stored ratings: the web scores them separately
+     * from the life domains (domain-rating-modal.tsx), so they are the business rating's sibling list.
+     */
+    suspend fun businessDomainRatings(userId: String): List<StoredRating> = domainRatings(userId, "gte.20")
+
+    private suspend fun domainRatings(userId: String, position: String): List<StoredRating> =
         authorized { token ->
             http.get("${config.supabaseUrl}/rest/v1/lm_life_domains") {
                 supabase(token)
                 parameter("select", "id,position,rating,encrypted_rating")
                 parameter("user_id", "eq.$userId")
-                parameter("position", "lt.20")
+                parameter("position", position)
             }
         }.body<JsonArray>().mapNotNull { element ->
             val d = element as? JsonObject ?: return@mapNotNull null

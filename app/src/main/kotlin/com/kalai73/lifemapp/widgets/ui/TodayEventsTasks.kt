@@ -117,6 +117,18 @@ internal fun EmptyLine(text: String, onClick: () -> Unit) {
     Text(text, style = t.body(13.sp, t.dim), modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp))
 }
 
+/** Today's entries of the Calendar and Tasks widgets: bare Predator target reticle (transparent fill) around the rows. */
+@Composable
+private fun TodayEntriesFrame(content: @Composable ColumnScope.() -> Unit) {
+    val t = LocalTok.current
+    Column(
+        Modifier.fillMaxWidth().let {
+            if (t.predator) it.border(1.dp, t.pd.edge).bracketCorners(t.pd.edge2).padding(6.dp) else it
+        },
+        content = content,
+    )
+}
+
 @Composable
 internal fun EventsSection(ui: WidgetUi, onOpenEvent: (EventUi) -> Unit, onOpenWeb: (String) -> Unit) {
     // The user's events settings from the web (days to show, event cap), today always listed
@@ -134,8 +146,14 @@ internal fun EventsSection(ui: WidgetUi, onOpenEvent: (EventUi) -> Unit, onOpenW
                     if (day.events.isEmpty()) {
                         val empty = if (day.kind == DayKind.TOMORROW) R.string.today_no_events_tomorrow else R.string.today_no_events
                         EmptyLine(stringResource(empty)) { onOpenWeb(WebRoutes.EVENTS) }
+                    } else if (day.kind == DayKind.TODAY) {
+                        val start = offset
+                        TodayEntriesFrame {
+                            day.events.forEachIndexed { i, e -> EventRow(e, start + i + 1, day, onOpenEvent) }
+                        }
+                    } else {
+                        day.events.forEachIndexed { i, e -> EventRow(e, offset + i + 1, day, onOpenEvent) }
                     }
-                    day.events.forEachIndexed { i, e -> EventRow(e, offset + i + 1, day, onOpenEvent) }
                     offset += day.events.size
                 }
                 if (more > 0) {
@@ -227,26 +245,31 @@ internal fun TasksSection(ui: WidgetUi, onComplete: (String) -> Unit, onOpenTask
         if (ui.tasks.isEmpty()) {
             EmptyLine(stringResource(R.string.today_no_tasks)) { onOpenWeb(WebRoutes.TASKS) }
         } else {
-            // Segmented as on the web's Task List Widget: TODAY, TOMORROW, TOMORROW ++ 1, numbered across them.
-            // Today always gets its divider; an empty one says so, as the web's "No tasks today" box does.
-            if (ui.tasks.first().day != DayKind.TODAY) {
-                DayHeader(taskDayName(DayKind.TODAY), emphasized = true)
+            // Segmented as on the web's Task List Widget: TODAY, TOMORROW, UPCOMING, numbered across them.
+            // Today always gets its divider; its rows sit inside TodayEntriesFrame (Predator target reticle).
+            val tomorrowSlot = ui.tasks.indexOfFirst { it.day != DayKind.TODAY }.let { if (it == -1) ui.tasks.size else it }
+            DayHeader(taskDayName(DayKind.TODAY), emphasized = true)
+            if (tomorrowSlot == 0) {
                 EmptyLine(stringResource(R.string.today_no_tasks)) { onOpenWeb(WebRoutes.TASKS) }
+            } else {
+                TodayEntriesFrame {
+                    for (i in 0 until tomorrowSlot) {
+                        TaskRow(ui.tasks[i], i + 1, onComplete) { onOpenTask(ui.tasks[i]) }
+                    }
+                }
             }
             // Tomorrow too, after today's tasks. Unless the list may have been cut by the snapshot's cap before it.
             val tomorrowEmpty = ui.tasks.none { it.day == DayKind.TOMORROW } &&
                 (ui.tasks.any { it.day == DayKind.OTHER } || ui.tasks.size < SNAPSHOT_MAX_TASKS)
-            val tomorrowSlot = ui.tasks.indexOfFirst { it.day != DayKind.TODAY }.let { if (it == -1) ui.tasks.size else it }
-            val noTasksTomorrow = @Composable {
+            if (tomorrowEmpty) {
                 DayHeader(taskDayName(DayKind.TOMORROW), emphasized = true)
                 EmptyLine(stringResource(R.string.today_no_tasks_tomorrow)) { onOpenWeb(WebRoutes.TASKS) }
             }
-            ui.tasks.forEachIndexed { i, task ->
-                if (tomorrowEmpty && i == tomorrowSlot) noTasksTomorrow()
-                if (i == 0 || ui.tasks[i - 1].day != task.day) DayHeader(taskDayName(task.day), emphasized = true)
+            for (i in tomorrowSlot until ui.tasks.size) {
+                val task = ui.tasks[i]
+                if (i == tomorrowSlot || ui.tasks[i - 1].day != task.day) DayHeader(taskDayName(task.day), emphasized = true)
                 TaskRow(task, i + 1, onComplete) { onOpenTask(task) }
             }
-            if (tomorrowEmpty && tomorrowSlot == ui.tasks.size) noTasksTomorrow()
         }
     }
 }

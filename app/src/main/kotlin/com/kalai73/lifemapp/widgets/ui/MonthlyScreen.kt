@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,6 +45,7 @@ import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.presentation.IntegrityUi
 import com.kalai73.lifemapp.widgets.core.presentation.MonthlyUi
+import com.kalai73.lifemapp.widgets.core.presentation.ShortcutUi
 import com.kalai73.lifemapp.widgets.core.presentation.TopicItemUi
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import kotlinx.coroutines.launch
@@ -52,6 +54,9 @@ import kotlinx.coroutines.launch
  * Native Monthly screen (docs/migrationPlan.md), matching the web app's monthly page.
  * Displays positions 1 (Integrity), 10 (Trayectory with embedded Tenacity), and 11–19 (Monthly domains).
  * Calendar events, task lists, and workspace shortcuts are omitted on Monthly.
+ *
+ * It also draws the BUSINESS MAPP page ([MonthlyUi.business], the web's /business): Integrity and the business
+ * domains 20–29 with their own scoring; without any business domain yet, a card to set them up on the web.
  */
 @Composable
 fun MonthlyScreen(
@@ -94,6 +99,8 @@ fun MonthlyScreen(
     /** The navigation overlay is open (toggled by the dashboard's floating Nav button) */
     navOpen: Boolean = false,
     onNavOpenChange: (Boolean) -> Unit = {},
+    /** The quick links for the Integrity card's icon bar (Today's list; Monthly has none of its own) */
+    quickLinks: List<ShortcutUi> = emptyList(),
     listState: LazyListState = rememberLazyListState(),
 ) {
     val t = rememberTokens()
@@ -119,6 +126,7 @@ fun MonthlyScreen(
         if (locked) add("locked")
         if (ui.integrity != null) add("integrity")
         if (ui.trayectory != null) add("trayectory")
+        if (ui.business && ui.hasData && allDomains.isEmpty()) add("business-setup")
         shownDomains.forEach { add(domainKey(it)) }
         add("end")
     }
@@ -211,12 +219,16 @@ fun MonthlyScreen(
                                 onToggleHidden = onToggleDomainHidden,
                                 onSetAllHidden = onSetAllDomainsHidden,
                                 onRate = onRateDomains,
-                                onHistory = { onOpenWeb(WebRoutes.MONTHLY) },
+                                onHistory = { onOpenWeb(if (ui.business) WebRoutes.BUSINESS else WebRoutes.MONTHLY) },
                                 onUnlock = onUnlock,
                             )
                             "locked" -> LockedBanner(onUnlock)
-                            "integrity" -> DomainCard(ui.integrity!!, onOpenWeb, itemHandlers, onToggleTopic)
+                            "integrity" -> DomainCard(
+                                ui.integrity!!, onOpenWeb, itemHandlers, onToggleTopic,
+                                quickLinks = quickLinks, openLink = openLink,
+                            )
                             "trayectory" -> TrayectoryDomainCard(ui.trayectory!!, onOpenWeb, itemHandlers, onToggleTopic)
+                            "business-setup" -> BusinessSetupCard { onOpenWeb(WebRoutes.BUSINESS) }
                             "end" -> Spacer(Modifier.height(FLOATING_BARS_CLEARANCE))
                             else -> shownDomains.firstOrNull { domainKey(it) == key }?.let {
                                 DomainCard(it, onOpenWeb, itemHandlers, onToggleTopic)
@@ -273,6 +285,28 @@ private fun BoxScope.MonthlyNavOverlay(
             val hidden = domain.domainId in hiddenIds
             NavEntry(LucideIcons.domain(domain.position), domainName(domain), if (hidden) t.dim else t.ink) { onDomain(domain) }
         }
+    }
+}
+
+/** BUSINESS MAPP has no domains yet: the web creates its 10 pillars (business-initializer-service.ts). */
+@Composable
+private fun BusinessSetupCard(onOpen: () -> Unit) {
+    val t = LocalTok.current
+    Column(
+        Modifier.fillMaxWidth().padding(top = 16.dp).framed(t, t.card, edge = t.line, cut = 8.dp)
+            .clickable(onClick = onOpen).padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Ic(LucideIcons.BUILDING, 28.dp, t.accent)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "BUSINESS MAPP",
+            style = if (t.predator) t.label(15.sp, t.ink) else t.body(16.sp, t.text, FontWeight.Bold),
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(stringResource(R.string.business_setup_text), style = t.body(13.sp, t.dim), textAlign = TextAlign.Center)
+        Spacer(Modifier.height(10.dp))
+        Text(stringResource(R.string.business_setup_open), style = t.body(13.sp, t.accent, FontWeight.Medium))
     }
 }
 

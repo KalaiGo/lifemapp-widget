@@ -22,7 +22,7 @@ object ReminderDates {
         "FREQ=MONTHLY;INTERVAL=1",
         "FREQ=MONTHLY;INTERVAL=2",
         "FREQ=MONTHLY;INTERVAL=3",
-        "FREQ=MONTHLY;INTERVAL=4",
+        "FREQ=MONTHLY;INTERVAL=6",
         "FREQ=YEARLY;INTERVAL=1",
     )
 

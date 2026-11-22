@@ -289,7 +289,10 @@ class SidePanelViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── Feeds ──────────────────────────────────────────────────────────────────
 
-    private fun loadFeeds() = launch { graph.feeds.reload() }
+    private fun loadFeeds() = launch {
+        graph.feeds.reload()
+        viewModelScope.launch { runCatching { graph.feeds.syncNonSocialFeedsOnLoad() } }
+    }
 
     fun reloadFeeds() = loadFeeds()
 

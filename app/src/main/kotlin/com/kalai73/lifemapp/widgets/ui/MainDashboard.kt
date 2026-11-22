@@ -29,7 +29,6 @@ import com.kalai73.lifemapp.widgets.core.model.DashboardTab
 import com.kalai73.lifemapp.widgets.core.model.SyncError
 import com.kalai73.lifemapp.widgets.core.presentation.MonthlyUi
 import com.kalai73.lifemapp.widgets.core.presentation.WidgetUi
-import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.ui.sidepanel.LocalPanel
 import com.kalai73.lifemapp.widgets.ui.sidepanel.SidePanelHost
 import com.kalai73.lifemapp.widgets.ui.sidepanel.SidePanelViewModel
@@ -38,14 +37,15 @@ import androidx.compose.ui.platform.LocalUriHandler
 import kotlinx.coroutines.launch
 
 /**
- * Main dashboard hosting Today (tab 0) and Monthly (tab 1) in a HorizontalPager, with the web's bottom floating
- * bars over it (navigation overlay, search, settings, voice, reminder; TODAY | MONTHLY | COMPANY) and cross-tab
- * navigation.
+ * Main dashboard hosting Today, Monthly and, when the user has it, Business (BUSINESS MAPP) in a HorizontalPager,
+ * with the web's bottom floating bars over it (navigation overlay, search, settings, voice, reminder;
+ * TODAY | MONTHLY | BUSINESS) and cross-tab navigation.
  */
 @Composable
 fun MainDashboard(
     todayUi: WidgetUi,
     monthlyUi: MonthlyUi,
+    businessUi: MonthlyUi,
     todayViewModel: TodayViewModel,
     appViewModel: AppViewModel,
     panelViewModel: SidePanelViewModel,
@@ -59,11 +59,17 @@ fun MainDashboard(
     val scope = rememberCoroutineScope()
     val activeTab by todayViewModel.activeTab.collectAsState()
     val isAdmin by todayViewModel.isAdmin.collectAsState()
-    val pagerState = rememberPagerState(initialPage = if (activeTab == DashboardTab.MONTHLY) 1 else 0) { 2 }
+    // BUSINESS MAPP: a page once the user has business domains (20–29); admins see it before, to set them up
+    val hasBusiness = businessUi.hasData && (businessUi.monthlyDomains.isNotEmpty() || businessUi.hiddenMonthlyDomains.isNotEmpty())
+    val showBusiness = hasBusiness || isAdmin
+    val tabs = if (showBusiness) DASHBOARD_TABS else DASHBOARD_TABS.dropLast(1)
+    val pageOf = { tab: DashboardTab -> tabs.indexOf(tab).coerceAtLeast(0) }
+    val tabOf = { page: Int -> tabs.getOrElse(page) { DashboardTab.TODAY } }
+    val pagerState = rememberPagerState(initialPage = pageOf(activeTab)) { tabs.size }
 
     // Synchronize activeTab from ViewModel to pager
-    LaunchedEffect(activeTab) {
-        val targetPage = if (activeTab == DashboardTab.TODAY) 0 else 1
+    LaunchedEffect(activeTab, tabs.size) {
+        val targetPage = pageOf(activeTab)
         if (pagerState.currentPage != targetPage) {
             pagerState.animateScrollToPage(targetPage)
         }
@@ -71,7 +77,7 @@ fun MainDashboard(
 
     // Synchronize pager swipe to activeTab
     LaunchedEffect(pagerState.currentPage) {
-        val tab = if (pagerState.currentPage == 0) DashboardTab.TODAY else DashboardTab.MONTHLY
+        val tab = tabOf(pagerState.currentPage)
         if (activeTab != tab) {
             todayViewModel.selectTab(tab)
         }
@@ -97,14 +103,14 @@ fun MainDashboard(
     val showPage = { page: Int -> scope.launch { pagerState.animateScrollToPage(page) }; Unit }
     val selectTab = { tab: DashboardTab ->
         todayViewModel.selectTab(tab)
-        showPage(if (tab == DashboardTab.TODAY) 0 else 1)
+        showPage(pageOf(tab))
     }
     val itemFor = { page: Int -> searchItem?.takeIf { it.first == page }?.second ?: openItemId }
     val itemOpened = { page: Int -> if (searchItem?.first == page) searchItem = null else todayViewModel.itemOpened() }
 
-    val currentTab = if (pagerState.currentPage == 0) DashboardTab.TODAY else DashboardTab.MONTHLY
-    val currentError = if (pagerState.currentPage == 0) todayUi.error else monthlyUi.error
-    val syncing = if (pagerState.currentPage == 0) todayUi.syncing else monthlyUi.syncing
+    val currentTab = tabOf(pagerState.currentPage)
+    val currentError = if (currentTab == DashboardTab.TODAY) todayUi.error else monthlyUi.error
+    val syncing = if (currentTab == DashboardTab.TODAY) todayUi.syncing else monthlyUi.syncing
 
     val uriHandler = LocalUriHandler.current
     val openLink: (String) -> Unit = { url ->
@@ -121,8 +127,8 @@ fun MainDashboard(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
         ) { page ->
-            when (page) {
-                0 -> TodayScreen(
+            when (tabOf(page)) {
+                DashboardTab.TODAY -> TodayScreen(
                     ui = todayUi,
                     onOpenSettings = onOpenSettings,
                     onReload = todayViewModel::reload,
@@ -154,8 +160,9 @@ fun MainDashboard(
                     navOpen = navOpen && page == pagerState.currentPage,
                     onNavOpenChange = { navOpen = it },
                 )
-                1 -> MonthlyScreen(
+                DashboardTab.MONTHLY -> MonthlyScreen(
                     ui = monthlyUi,
+                    quickLinks = if (todayUi.shortcutsLocked) emptyList() else todayUi.shortcuts,
                     onOpenSettings = onOpenSettings,
                     onReload = todayViewModel::reload,
                     onLoadItemText = todayViewModel::loadItemText,
@@ -177,10 +184,35 @@ fun MainDashboard(
                     onJumpToTodayTasks = {
                         todayViewModel.requestTodaySection("tasks")
                     },
-                    openItemId = itemFor(1),
-                    onItemOpened = { itemOpened(1) },
+                    openItemId = itemFor(page),
+                    onItemOpened = { itemOpened(page) },
                     openSection = openSection,
                     onSectionOpened = todayViewModel::sectionOpened,
+                    navOpen = navOpen && page == pagerState.currentPage,
+                    onNavOpenChange = { navOpen = it },
+                )
+                DashboardTab.BUSINESS -> MonthlyScreen(
+                    ui = businessUi,
+                    quickLinks = if (todayUi.shortcutsLocked) emptyList() else todayUi.shortcuts,
+                    onOpenSettings = onOpenSettings,
+                    onReload = todayViewModel::reload,
+                    onLoadItemText = todayViewModel::loadItemText,
+                    onSaveItem = todayViewModel::saveItem,
+                    onDeleteItem = todayViewModel::deleteItem,
+                    onMoveItem = todayViewModel::moveItem,
+                    onSetItemWarning = todayViewModel::setItemWarning,
+                    onLoadItemImage = todayViewModel::loadItemImage,
+                    onToggleItem = todayViewModel::setItemCollapsed,
+                    onToggleTopic = todayViewModel::setTopicCollapsed,
+                    onToggleDomainHidden = todayViewModel::toggleDomainHidden,
+                    onSetAllDomainsHidden = todayViewModel::setAllBusinessDomainsHidden,
+                    onRateDomains = todayViewModel::rateBusinessDomains,
+                    onUnlock = appViewModel::showUnlock,
+                    onOpenWeb = onOpenWeb,
+                    onJumpToTodayEvents = { todayViewModel.requestTodaySection("events") },
+                    onJumpToTodayTasks = { todayViewModel.requestTodaySection("tasks") },
+                    openItemId = itemFor(page),
+                    onItemOpened = { itemOpened(page) },
                     navOpen = navOpen && page == pagerState.currentPage,
                     onNavOpenChange = { navOpen = it },
                 )
@@ -191,8 +223,7 @@ fun MainDashboard(
             DashboardFloatingBars(
                 activeTab = currentTab,
                 onSelectTab = selectTab,
-                showCompany = isAdmin,
-                onOpenCompany = { onOpenWeb(WebRoutes.COMPANY) },
+                showBusiness = showBusiness,
                 navOpen = navOpen,
                 onToggleNav = { navOpen = !navOpen },
                 searchOpen = searchOpen,
@@ -206,9 +237,9 @@ fun MainDashboard(
                 SearchDialog(
                     today = todayUi,
                     monthly = monthlyUi,
+                    business = businessUi.takeIf { showBusiness },
                     onItem = { tab, id ->
-                        val page = if (tab == DashboardTab.TODAY) 0 else 1
-                        searchItem = page to id
+                        searchItem = pageOf(tab) to id
                         selectTab(tab)
                     },
                     onEvent = { event -> searchEntry = TodayEntry.Event(event.id, event.start); selectTab(DashboardTab.TODAY) },
@@ -232,3 +263,6 @@ fun MainDashboard(
     }
     }
 }
+
+/** The dashboard's pages in order; Business is left out when the user has none */
+private val DASHBOARD_TABS = listOf(DashboardTab.TODAY, DashboardTab.MONTHLY, DashboardTab.BUSINESS)

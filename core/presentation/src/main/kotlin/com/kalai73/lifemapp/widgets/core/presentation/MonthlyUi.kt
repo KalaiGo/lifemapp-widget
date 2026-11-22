@@ -47,6 +47,11 @@ data class MonthlyUi(
     val stale: Boolean,
     val syncing: Boolean,
     val error: SyncError?,
+    /**
+     * The BUSINESS MAPP page (BusinessPresenter): [monthlyDomains] / [hiddenMonthlyDomains] then hold the business
+     * domains (20–29), [trayectory] is null, and [scoring] / [averageRating] are the business ones.
+     */
+    val business: Boolean = false,
 ) {
     companion object {
         val SignedOut = MonthlyUi(
@@ -95,6 +100,8 @@ data class MonthlyScoringUi(
     val locked: Boolean,
     /** The hidden state is known (read from the server at least once); until then nothing can be toggled */
     val ready: Boolean,
+    /** The business average (positions 20–29), shown under the life average; null when there is none to read */
+    val businessAverage: Double? = null,
 ) {
     /** 0 scored today, 1 within two weeks, 2 within three, 3 later or never (scoring-circles.tsx) */
     val urgency: Int get() = when (val d = daysSinceScored) {

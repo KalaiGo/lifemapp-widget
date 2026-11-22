@@ -121,6 +121,7 @@ fun LifeMappAppContent(
     val cache by viewModel.cache.collectAsState()
     val today by todayViewModel.today.collectAsState()
     val monthly by todayViewModel.monthly.collectAsState()
+    val business by todayViewModel.business.collectAsState()
     val todayError by todayViewModel.error.collectAsState()
     val openItem by todayViewModel.openItem.collectAsState()
     val openSection by todayViewModel.openSection.collectAsState()
@@ -148,6 +149,7 @@ fun LifeMappAppContent(
                     MainDashboard(
                         todayUi = today,
                         monthlyUi = monthly,
+                        businessUi = business,
                         todayViewModel = todayViewModel,
                         appViewModel = viewModel,
                         // The activity's instance, which widget taps (DeepLink.Panel) also reach

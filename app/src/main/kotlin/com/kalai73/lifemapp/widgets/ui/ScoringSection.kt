@@ -49,7 +49,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
@@ -74,7 +74,6 @@ import com.kalai73.lifemapp.widgets.core.designsystem.PredatorColors
 import com.kalai73.lifemapp.widgets.core.designsystem.pdCaptionStyle
 import com.kalai73.lifemapp.widgets.core.designsystem.pdParallelogramShape
 import kotlin.math.PI
-import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -82,12 +81,12 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * The web Today page's scoring section (scoring-circles.tsx, phone layout): the domains of positions 1–5 as score
- * hexagons (Predator) or liquid circles (Classic) in a 2 + 3 pyramid, then a footer with the average badge, the
- * "hide all" toggle and the last-scoring capsule with its history button.
+ * The web Today page's scoring section (scoring-circles.tsx, phone layout): a header with the "hide all" toggle,
+ * the average badge (life and business averages and scoring clocks) and the history button, then the domains of
+ * positions 1–5 as score hexagons in one zigzag row (Predator) or liquid circles in a 2 + 3 pyramid (Classic).
  *
  * Tapping a domain hides or shows it on Today (Integrity and Tenacity stay); a long press rates it. The average
- * badge and the capsule step through all five domains.
+ * badge steps through all five domains.
  */
 @Composable
 internal fun ScoringSection(
@@ -114,8 +113,19 @@ internal fun ScoringSection(
             .framed(t, t.card, edge = edge, cut = if (t.predator) 8.dp else 24.dp)
             .hexCorner(t.accent, if (t.dark) 0.5f else 1f),
     ) {
+        ScoringHeader(
+            average = average ?: 0.0,
+            businessAverage = scoring.businessAverage,
+            locked = scoring.locked,
+            daysSinceScored = scoring.daysSinceScored,
+            showHideAll = scoring.ready && scoring.domains.any { !it.unhidable },
+            allHidden = scoring.allHidableHidden,
+            onToggleAll = { onSetAllHidden(!scoring.allHidableHidden) },
+            onScore = { openRating(scoring.domains) },
+            onHistory = onHistory,
+        )
         Column(
-            Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 16.dp, bottom = 4.dp),
+            Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 16.dp, bottom = if (t.predator) 16.dp else 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -146,16 +156,6 @@ internal fun ScoringSection(
                     }
                 }
             }
-        }
-        // The summary row follows the domains directly, no divider
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            AverageBadge(average ?: 0.0, scoring.locked) { openRating(scoring.domains) }
-            Spacer(Modifier.weight(1f))
-            if (scoring.ready && scoring.domains.any { !it.unhidable }) {
-                HideAllToggle(scoring.allHidableHidden) { onSetAllHidden(!scoring.allHidableHidden) }
-                Spacer(Modifier.width(8.dp))
-            }
-            ScoringCapsule(scoring, onScore = { openRating(scoring.domains) }, onHistory = onHistory)
         }
     }
 }
@@ -230,22 +230,29 @@ internal fun PredatorHex(
     val full = level >= 1f
     val hi = PredatorColors.mix(fill, Color.White, 0.24f)
     val lo = PredatorColors.mix(fill, Color.Black, 0.22f)
-    val edge = if (full) hi else PredatorColors.mix(t.pd.edge, fill, 0.55f)
+    val rim = Brush.linearGradient(listOf(hi, fill, lo))
     val ink = if (full) onHue else t.text
     // Halo keeps the number readable where it crosses the fill line
     val halo = if (full) null else Shadow(t.pd.well, blurRadius = 8f)
+    val well = t.pd.well
     Box(
         Modifier.size(HEX_W, HEX_W * 1.1f).alpha(if (d.hidden) 0.5f else 1f).clip(PdHexagonShape)
             .drawBehind {
+                // pd-hex-score.tsx in its 100 × 110 viewBox: the well, the reticle watermark, then the fill rising
+                // from the bottom with the reticle etched through it and a bright line along its top
+                val u = size.width / 100f
+                val top = size.height - size.height * level
+                drawRect(well)
+                drawReticle(fill.copy(alpha = 0.24f), u)
                 if (full) {
-                    drawRect(Brush.linearGradient(listOf(hi, fill, lo), start = Offset.Zero, end = Offset(size.width * 0.36f, size.height)))
+                    drawRect(Brush.linearGradient(listOf(hi, fill, lo), start = Offset.Zero, end = Offset(size.width, size.height)))
                 } else {
-                    drawRect(t.pd.well)
-                    val h = size.height * level
-                    drawRect(fill, topLeft = Offset(0f, size.height - h), size = Size(size.width, h))
+                    drawRect(fill, topLeft = Offset(0f, top), size = Size(size.width, size.height - top))
                 }
+                clipRect(top = top) { drawReticle(onHue.copy(alpha = 0.18f), u) }
+                if (!full) drawLine(hi.copy(alpha = 0.75f), Offset(0f, top), Offset(size.width, top), 1.75f * u)
             }
-            .border(1.5.dp, edge, PdHexagonShape),
+            .border(1.75.dp, rim, PdHexagonShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -260,6 +267,16 @@ internal fun PredatorHex(
         )
     }
     if (labelBelow) label()
+}
+
+/** PdHexScore's TargetReticle, [u] being one unit of the 100-wide viewBox: a ring at (50, 55) with four arms. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawReticle(color: Color, u: Float) {
+    drawCircle(color, 23f * u, Offset(50f * u, 55f * u), style = Stroke(5.5f * u))
+    val w = 4.5f * u
+    drawLine(color, Offset(50f * u, 32f * u), Offset(50f * u, 19f * u), w)
+    drawLine(color, Offset(73f * u, 55f * u), Offset(84.5f * u, 55f * u), w)
+    drawLine(color, Offset(50f * u, 78f * u), Offset(50f * u, 91f * u), w)
+    drawLine(color, Offset(27f * u, 55f * u), Offset(15.5f * u, 55f * u), w)
 }
 
 /** hexFillPercent (pd-hex-score.tsx): score/10 with a 15% minimum, full only at 10 */
@@ -347,117 +364,308 @@ private fun scoreColor(score: Int): Color = Color(
     },
 )
 
-// ── Footer: average, hide all, last scoring ─────────────────────────────────
+// ── Header: hide all, average, history ──────────────────────────────────────
 
 private val HEX_W = 54.dp
-private val SQRT_2 = sqrt(2f)
-
-/** The average text as the web prints the number: "7", "7.3" */
-private fun averageText(average: Double): String =
-    if (average % 1.0 == 0.0) average.toInt().toString() else "%.1f".format(java.util.Locale.ROOT, average)
 
 /**
- * Predator: a chamfered panel filled with a honeycomb lit bottom-up to the average. Classic: a rounded capsule with
- * a faint liquid fill in the average's score color.
+ * The scoring header (scoring-circles.tsx, small screens): the "hide all" toggle on the left, the average badge
+ * centred and the history button on the right; the side slots share the rest equally so the badge stays centred
+ * when the toggle is absent. Classic closes it with a faint rule.
  */
 @Composable
-internal fun AverageBadge(average: Double, locked: Boolean, onClick: () -> Unit) {
+internal fun ScoringHeader(
+    average: Double,
+    businessAverage: Double?,
+    locked: Boolean,
+    daysSinceScored: Int?,
+    showHideAll: Boolean,
+    allHidden: Boolean,
+    onToggleAll: () -> Unit,
+    onScore: () -> Unit,
+    onHistory: () -> Unit,
+) {
     val t = LocalTok.current
-    val text = averageText(average)
-    val label = if (locked) stringResource(R.string.scoring_score_all) else stringResource(R.string.scoring_average, text)
-    if (t.predator) {
-        val accent = t.accent
-        val well = t.pd.well
-        val fraction = if (locked) 0f else (average.coerceIn(0.0, 10.0) / 10.0).toFloat()
-        Box(
-            Modifier.size(84.dp, 54.dp)
-                .clickable(onClickLabel = label, onClick = onClick)
-                .drawBehind { drawHoneycombBadge(accent, well, fraction) },
-            contentAlignment = Alignment.Center,
-        ) {
-            val halo = Shadow(t.page, blurRadius = 10f)
-            Row(verticalAlignment = Alignment.Bottom) {
-                val size = if (locked) 26.sp else when {
-                    text.length >= 3 -> 28.sp
-                    text.length == 2 -> 34.sp
-                    else -> 40.sp
-                }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = if (t.predator) 12.dp else 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (showHideAll) HideAllToggle(allHidden, onToggleAll)
+        }
+        AverageBadge(average, businessAverage, locked, daysSinceScored, onScore)
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { HistoryButton(onHistory) }
+    }
+    if (!t.predator) Box(Modifier.fillMaxWidth().height(1.dp).background(t.line.copy(alpha = 0.6f)))
+}
+
+/**
+ * How long ago a section was scored (scoring-circles.tsx buildFreshness): fresh today, warn from day 15 or when
+ * never scored, due from day 22 or when never scored.
+ */
+private class Freshness(val days: Int?) {
+    private val urgency = when {
+        days == null -> 3
+        days == 0 -> 0
+        days <= 14 -> 1
+        days <= 21 -> 2
+        else -> 3
+    }
+    val fresh get() = days == 0
+    val warn get() = !fresh && urgency >= 2
+    val due get() = days == null || days >= 22
+}
+
+/** "Not scored", "Today", "3d ago" */
+@Composable
+private fun Freshness.short(): String = when {
+    days == null -> stringResource(R.string.scoring_not_scored)
+    days == 0 -> stringResource(R.string.scoring_today)
+    else -> stringResource(R.string.scoring_days_ago_short, days)
+}
+
+/** "Not scored", "Scored Today", "Scored 3 days ago" */
+@Composable
+private fun Freshness.full(): String = when {
+    days == null -> stringResource(R.string.scoring_not_scored)
+    days == 0 -> stringResource(R.string.scoring_scored) + " " + stringResource(R.string.scoring_today)
+    else -> stringResource(R.string.scoring_scored) + " " + pluralStringResource(R.plurals.scoring_days_ago, days, days)
+}
+
+private val emeraldInk @Composable get() = if (LocalTok.current.dark) Color(0xFF34D399) else Color(0xFF059669)
+
+/** The warning ink: Predator's --pd-warn-ink, Classic's amber-600 / amber-400 */
+private val amberInk @Composable get() = LocalTok.current.let { t ->
+    if (t.predator) (if (t.dark) Color(0xFFFBBF4D) else Color(0xFFA04D05)) else if (t.dark) Color(0xFFFBBF24) else Color(0xFFD97706)
+}
+
+/**
+ * The average badge: the life average (always one decimal, "7.0") and, under it, the business average when there
+ * is one, with how long ago each was scored: life above, business below. The web keeps the business scoring time
+ * in the browser only, so the app reads it as never scored. Tap: score every domain.
+ */
+@Composable
+internal fun AverageBadge(average: Double, businessAverage: Double?, locked: Boolean, daysSinceScored: Int?, onClick: () -> Unit) {
+    val t = LocalTok.current
+    val life = Freshness(daysSinceScored)
+    val showBusiness = !locked && businessAverage != null
+    val business = if (showBusiness) Freshness(null) else null
+    val avgText = "%.1f".format(java.util.Locale.ROOT, average)
+    val businessText = businessAverage?.let { "%.1f".format(java.util.Locale.ROOT, it) }.orEmpty()
+    val scoreAll = stringResource(R.string.scoring_score_all)
+    val freshText = life.full() + (business?.let { " · " + it.full() } ?: "")
+    val desc = if (locked) "$scoreAll. $freshText" else stringResource(R.string.scoring_average, avgText) + ". $freshText"
+    val modifier = Modifier.clickable(onClickLabel = scoreAll, onClick = onClick).semantics { contentDescription = desc }
+    if (t.predator) PredatorAverageBadge(avgText, businessText, locked, showBusiness, life, business, modifier)
+    else ClassicAverageBadge(average, avgText, businessText, locked, showBusiness, life, business, modifier)
+}
+
+private val BADGE_W = 116.dp
+private val BADGE_H_BASE = 54.dp
+private val BADGE_BAND_H = 12.dp
+
+/**
+ * Predator: a wide target frame (bold 14dp accent corner brackets over a dashed accent outline) with a reticle
+ * watermark behind the numbers, 12dp taller for each scoring-time band. A due scoring turns it amber.
+ */
+@Composable
+private fun PredatorAverageBadge(
+    avgText: String,
+    businessText: String,
+    locked: Boolean,
+    showBusiness: Boolean,
+    life: Freshness,
+    business: Freshness?,
+    modifier: Modifier,
+) {
+    val t = LocalTok.current
+    val accent = if (life.due) Warn else t.accent
+    val panel = t.pd.panel
+    val hasBottom = business != null
+    val h = BADGE_H_BASE + BADGE_BAND_H + if (hasBottom) BADGE_BAND_H else 0.dp
+    val halo = Shadow(t.pd.well, blurRadius = 8f)
+    Box(
+        modifier.size(BADGE_W, h).drawBehind {
+            val w = size.width
+            val ht = size.height
+            drawRect(panel)
+            // Dashed outline, then the solid corner brackets over it
+            val s = 1.dp.toPx()
+            drawRect(
+                accent.copy(alpha = 0.6f), topLeft = Offset(s / 2, s / 2), size = Size(w - s, ht - s),
+                style = Stroke(s, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))),
+            )
+            val arm = 14.dp.toPx()
+            val bw = 2.dp.toPx()
+            val o = bw / 2
+            fun l(x1: Float, y1: Float, x2: Float, y2: Float) = drawLine(accent, Offset(x1, y1), Offset(x2, y2), bw)
+            l(0f, o, arm, o); l(o, 0f, o, arm)
+            l(w, o, w - arm, o); l(w - o, 0f, w - o, arm)
+            l(0f, ht - o, arm, ht - o); l(o, ht, o, ht - arm)
+            l(w, ht - o, w - arm, ht - o); l(w - o, ht, w - o, ht - arm)
+        },
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 if (locked) {
                     Ic(LucideIcons.LOCK, 24.dp, t.text)
                 } else {
-                    Text(text, style = t.label(size, t.text).copy(letterSpacing = 0.sp, shadow = halo, lineHeight = size))
-                    Text("/10", style = t.label(12.sp, t.dim).copy(letterSpacing = 0.sp, shadow = halo), modifier = Modifier.padding(start = 2.dp, bottom = 5.dp))
+                    Ic(LucideIcons.USER, 14.dp, t.ink)
+                    Spacer(Modifier.width(4.dp))
+                    val size = if (showBusiness) (if (avgText.length >= 4) 19.sp else 22.sp) else if (avgText.length >= 4) 23.sp else 27.sp
+                    Text(avgText, style = t.label(size, t.text).copy(letterSpacing = 0.sp, shadow = halo, lineHeight = size))
+                    Text(
+                        "/10", style = pdCaptionStyle(10.sp, t.dim, letterSpacing = 0.sp).copy(shadow = halo),
+                        modifier = Modifier.align(Alignment.Bottom).padding(start = 2.dp, bottom = 3.dp),
+                    )
+                }
+            }
+            if (showBusiness) {
+                Box(
+                    Modifier.padding(vertical = 2.dp).size(40.dp, 1.dp)
+                        .background(Brush.horizontalGradient(listOf(Color.Transparent, t.accent.copy(alpha = 0.55f), Color.Transparent))),
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Ic(LucideIcons.BRIEFCASE, 14.dp, t.ink)
+                    Spacer(Modifier.width(4.dp))
+                    Text(businessText, style = t.label(17.sp, t.ink).copy(letterSpacing = 0.sp, shadow = halo, lineHeight = 17.sp))
+                    Text(
+                        "/10", style = pdCaptionStyle(9.sp, t.ink.copy(alpha = 0.75f), letterSpacing = 0.sp).copy(shadow = halo),
+                        modifier = Modifier.align(Alignment.Bottom).padding(start = 2.dp, bottom = 2.dp),
+                    )
                 }
             }
         }
-    } else {
-        val color = scoreColor(average.roundToInt())
-        val shape = RoundedCornerShape(16.dp)
+        BadgeBand(life, LucideIcons.USER, Modifier.align(Alignment.TopCenter).padding(top = 2.dp))
+        business?.let { BadgeBand(it, LucideIcons.BRIEFCASE, Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp)) }
+    }
+}
+
+/** A scoring-time band of the Predator badge: a check when scored today, else the section's icon, and the time. */
+@Composable
+private fun BadgeBand(f: Freshness, icon: Int, modifier: Modifier) {
+    val t = LocalTok.current
+    val ink = if (f.warn) amberInk else t.ink
+    Row(modifier.height(BADGE_BAND_H), verticalAlignment = Alignment.CenterVertically) {
+        Ic(if (f.fresh) LucideIcons.CHECK else icon, 10.dp, ink)
+        Spacer(Modifier.width(4.dp))
+        Text(f.short().uppercase(), style = pdCaptionStyle(9.sp, ink).copy(fontWeight = FontWeight.Bold), maxLines = 1)
+    }
+}
+
+/**
+ * Classic: a rounded glass capsule with a faint liquid fill in the average's score color, the business average
+ * (sky) on a second line, and a clock line above (life) and below (business).
+ */
+@Composable
+private fun ClassicAverageBadge(
+    average: Double,
+    avgText: String,
+    businessText: String,
+    locked: Boolean,
+    showBusiness: Boolean,
+    life: Freshness,
+    business: Freshness?,
+    modifier: Modifier,
+) {
+    val t = LocalTok.current
+    val color = scoreColor(average.roundToInt())
+    val shape = RoundedCornerShape(16.dp)
+    val mono = MonoFontFamily
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        FreshnessLine(life)
         Box(
-            Modifier.height(36.dp).defaultMinSize(minWidth = 72.dp).clip(shape).background(t.card)
+            Modifier.height(if (showBusiness) 44.dp else 36.dp).defaultMinSize(minWidth = 72.dp).clip(shape).background(t.card)
                 .drawBehind {
                     if (!locked) {
                         val h = size.height * (average.coerceIn(0.0, 10.0) / 10.0).toFloat()
                         drawRect(Brush.verticalGradient(listOf(color.copy(alpha = 0.03f), color.copy(alpha = 0.07f)), startY = size.height - h, endY = size.height), topLeft = Offset(0f, size.height - h), size = Size(size.width, h))
                     }
                 }
-                .border(1.dp, t.accent.copy(alpha = 0.3f), shape)
-                .clickable(onClickLabel = label, onClick = onClick)
+                .border(1.dp, t.accent.copy(alpha = if (life.due) 0.4f else 0.3f), shape)
+                .then(modifier)
                 .padding(horizontal = 12.dp),
             contentAlignment = Alignment.Center,
         ) {
             if (locked) {
                 Ic(LucideIcons.LOCK, 16.dp, t.text)
             } else {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(text, style = t.body(18.sp, t.text, FontWeight.Black).copy(fontFamily = MonoFontFamily))
-                    Text("/10", style = t.body(10.sp, t.dim, FontWeight.SemiBold).copy(fontFamily = MonoFontFamily), modifier = Modifier.padding(start = 2.dp, bottom = 3.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Ic(LucideIcons.USER, 12.dp, t.dim)
+                        Spacer(Modifier.width(4.dp))
+                        Text(avgText, style = t.body(18.sp, t.text, FontWeight.Black).copy(fontFamily = mono, lineHeight = 18.sp))
+                        Text("/10", style = t.body(10.sp, t.dim, FontWeight.SemiBold).copy(fontFamily = mono), modifier = Modifier.align(Alignment.Bottom).padding(start = 2.dp))
+                    }
+                    if (showBusiness) {
+                        val sky = if (t.dark) Color(0xFF7DD3FC) else Color(0xFF0369A1)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Ic(LucideIcons.BRIEFCASE, 14.dp, sky)
+                            Spacer(Modifier.width(4.dp))
+                            Text(businessText, style = t.body(16.sp, sky, FontWeight.Bold).copy(fontFamily = mono, lineHeight = 16.sp))
+                            Text("/10", style = t.body(10.sp, sky.copy(alpha = 0.75f), FontWeight.SemiBold).copy(fontFamily = mono), modifier = Modifier.align(Alignment.Bottom).padding(start = 2.dp))
+                        }
+                    }
                 }
             }
         }
+        business?.let { FreshnessLine(it) }
     }
 }
 
+/** Classic clock line: a status icon (check, alert, ping dot or clock) and how long ago, in the tone's color. */
+@Composable
+private fun FreshnessLine(f: Freshness) {
+    val t = LocalTok.current
+    val amber = amberInk
+    val emerald = emeraldInk
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        when {
+            f.fresh -> Ic(LucideIcons.CHECK, 10.dp, emerald)
+            f.days == null -> Ic(LucideIcons.CIRCLE_ALERT, 10.dp, amber)
+            f.warn -> PulsingDot(Color(0xFFF59E0B))
+            else -> Ic(LucideIcons.CLOCK, 10.dp, t.accent)
+        }
+        Spacer(Modifier.width(4.dp))
+        Text(
+            f.short(),
+            style = t.body(10.sp, if (f.fresh) emerald else if (f.warn) amber else t.dim, FontWeight.SemiBold).copy(fontFamily = MonoFontFamily),
+            maxLines = 1,
+        )
+    }
+}
+
+/** The eye button: shows every hidable domain when all are hidden, else hides them all. */
+@Composable
+internal fun HideAllToggle(allHidden: Boolean, onClick: () -> Unit) {
+    val label = stringResource(if (allHidden) R.string.scoring_show_all else R.string.scoring_hide_all)
+    UtilityButton(if (allHidden) LucideIcons.EYE else LucideIcons.EYE_OFF, label, onClick)
+}
+
+/** Opens the scoring history. */
+@Composable
+internal fun HistoryButton(onClick: () -> Unit) =
+    UtilityButton(LucideIcons.HISTORY, stringResource(R.string.scoring_history), onClick)
+
 /**
- * The web's Predator average badge: the panel with its top-left and bottom-right corners cut, a pointy-top
- * honeycomb (cells at 0.84 of the grid radius) whose first cells, bottom row first, are lit up to [fraction].
+ * A view-utility button, 40dp: Predator's target frame (short 5dp accent brackets over a faint outline), Classic's
+ * outlined circle.
  */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawHoneycombBadge(accent: Color, well: Color, fraction: Float) {
-    val w = size.width
-    val h = size.height
-    val unit = w / 84f
-    val cut = 20f * unit
-    val gridR = 5f * unit
-    val panel = Path().apply {
-        moveTo(cut, 0f); lineTo(w, 0f); lineTo(w, h - cut); lineTo(w - cut, h); lineTo(0f, h); lineTo(0f, cut); close()
-    }
-    val cellR = gridR * 0.84f
-    val colStep = sqrt(3f) * gridR
-    val rowStep = 1.5f * gridR
-    val cols = ceil((w / 2f) / colStep).toInt() + 1
-    val rows = ceil((h / 2f) / rowStep).toInt()
-    fun inside(x: Float, y: Float) =
-        x >= -cellR && x <= w + cellR && y >= -cellR && y <= h + cellR &&
-            x + y >= cut - cellR * SQRT_2 && (w - x) + (h - y) >= cut - cellR * SQRT_2
-    val cells = buildList {
-        for (row in rows downTo -rows) {
-            val y = h / 2f + row * rowStep
-            val offset = if (row % 2 != 0) colStep / 2f else 0f
-            for (col in -cols..cols) {
-                val x = w / 2f + offset + col * colStep
-                if (inside(x, y)) add(hexPath(x, y, cellR))
-            }
-        }
-    }
-    val lit = (fraction * cells.size).roundToInt()
-    clipPath(panel) {
-        drawPath(panel, well)
-        cells.forEachIndexed { i, cell ->
-            drawPath(cell, accent, alpha = if (i < lit) 0.5f else 0.05f)
-            drawPath(cell, accent, alpha = if (i < lit) 0.95f else 0.22f, style = Stroke(gridR * 0.12f))
-        }
-        // The outline is centred on the clip edge, so half of it shows inside
-        drawPath(panel, accent, style = Stroke(2f * unit))
+@Composable
+private fun UtilityButton(icon: Int, label: String, onClick: () -> Unit) {
+    val t = LocalTok.current
+    val shape = if (t.predator) RectangleShape else CircleShape
+    Box(
+        Modifier.size(40.dp).clip(shape)
+            .let { if (t.predator) it.background(t.pd.panel) else it }
+            .border(1.dp, if (t.predator) t.pd.edge else t.dim.copy(alpha = 0.3f), shape)
+            .let { if (t.predator) it.bracketCorners(t.accent, arm = 5.dp, stroke = 1.5.dp, tick = 0.dp) else it }
+            .clickable(onClickLabel = label, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Ic(icon, 16.dp, t.dim, label)
     }
 }
 
@@ -469,87 +677,6 @@ private fun hexPath(cx: Float, cy: Float, r: Float) = Path().apply {
         if (i == 0) moveTo(x, y) else lineTo(x, y)
     }
     close()
-}
-
-/** The dashed eye button: shows every hidable domain when all are hidden, else hides them all. */
-@Composable
-internal fun HideAllToggle(allHidden: Boolean, onClick: () -> Unit) {
-    val t = LocalTok.current
-    val label = stringResource(if (allHidden) R.string.scoring_show_all else R.string.scoring_hide_all)
-    val ring = t.dim.copy(alpha = 0.3f)
-    Box(
-        Modifier.size(32.dp).alpha(0.75f).clip(CircleShape)
-            .clickable(onClickLabel = label, onClick = onClick)
-            .drawBehind {
-                val stroke = 1.dp.toPx()
-                drawCircle(ring, radius = size.minDimension / 2f - stroke, style = Stroke(stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))))
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Ic(if (allHidden) LucideIcons.EYE else LucideIcons.EYE_OFF, 15.dp, t.dim, label)
-    }
-}
-
-/**
- * The last scoring: "NOT SCORED / Yet", "SCORED / Today" or "SCORED / 3 days ago" (tap: score the domains), and the
- * history button. Predator frames it with target brackets, in the warning color when a scoring is due.
- */
-@Composable
-private fun ScoringCapsule(scoring: ScoringUi, onScore: () -> Unit, onHistory: () -> Unit) =
-    ScoringCapsule(scoring.daysSinceScored, scoring.urgency, scoring.scoringDue, onScore, onHistory)
-
-@Composable
-internal fun ScoringCapsule(daysSinceScored: Int?, urgency: Int, scoringDue: Boolean, onScore: () -> Unit, onHistory: () -> Unit) {
-    val t = LocalTok.current
-    val days = daysSinceScored
-
-    val emerald = if (t.dark) Color(0xFF34D399) else Color(0xFF059669)
-    val amber = if (t.predator) (if (t.dark) Color(0xFFFBBF4D) else Color(0xFFA04D05)) else if (t.dark) Color(0xFFFBBF24) else Color(0xFFD97706)
-    val shape = if (t.predator) RectangleShape else RoundedCornerShape(16.dp)
-    Row(
-        Modifier.height(IntrinsicSize.Min).defaultMinSize(minHeight = 40.dp)
-            .clip(shape).background(t.card, shape)
-            .border(1.dp, if (t.predator) t.pd.edge else t.accent.copy(alpha = if (scoringDue) 0.45f else 0.3f), shape)
-            .let { if (t.predator) it.bracketCorners(if (scoringDue) Warn else t.accent, arm = 6.dp, stroke = 2.dp, tick = 0.dp) else it },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(
-            Modifier.clickable(onClickLabel = stringResource(R.string.scoring_score_all), onClick = onScore)
-                .padding(start = if (t.predator) 12.dp else 10.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                when {
-                    days == 0 -> Ic(LucideIcons.CHECK, 11.dp, emerald)
-                    days == null -> Ic(LucideIcons.CIRCLE_ALERT, 11.dp, amber)
-                    urgency >= 2 -> PulsingDot(Color(0xFFF59E0B))
-                    else -> Ic(LucideIcons.CLOCK, 11.dp, t.ink)
-                }
-                Spacer(Modifier.width(5.dp))
-                Text(
-                    stringResource(if (days == null) R.string.scoring_not_scored else R.string.scoring_scored).uppercase(),
-                    style = if (t.predator) t.caption(9.sp, t.dim) else t.body(9.sp, t.dim, FontWeight.SemiBold).copy(letterSpacing = 0.1.em),
-                    maxLines = 1,
-                )
-            }
-            Spacer(Modifier.height(2.dp))
-            val (value, color) = when {
-                days == null -> stringResource(R.string.scoring_yet) to amber
-                days == 0 -> stringResource(R.string.scoring_today) to emerald
-                else -> pluralStringResource(R.plurals.scoring_days_ago, days, days) to (if (days > 1 && urgency >= 2) amber else t.text)
-            }
-            Text(
-                value,
-                style = t.body(13.sp, color, FontWeight.Bold).let { if (days != null && days > 0) it.copy(fontFamily = MonoFontFamily, fontSize = 12.sp) else it },
-                maxLines = 1,
-            )
-        }
-        Box(Modifier.width(1.dp).fillMaxHeight().padding(vertical = 8.dp).background(t.line))
-        val historyLabel = stringResource(R.string.scoring_history)
-        Box(
-            Modifier.width(36.dp).fillMaxHeight().clickable(onClickLabel = historyLabel, onClick = onHistory),
-            contentAlignment = Alignment.Center,
-        ) { Ic(LucideIcons.HISTORY, 15.dp, t.dim, historyLabel) }
-    }
 }
 
 /** The web's ping dot: a solid dot with a fading ring growing out of it. */
@@ -716,6 +843,16 @@ internal fun scoreDomainName(d: ScoreDomainUi): String = d.name?.takeIf { it.isN
     17 -> "Mobility"
     18 -> "Efficacy"
     19 -> "Property"
+    20 -> "Delivery"
+    21 -> "Solvency"
+    22 -> "Visibility"
+    23 -> "Fidelity"
+    24 -> "Capacity"
+    25 -> "Strategy"
+    26 -> "Security"
+    27 -> "Clarity"
+    28 -> "Discovery"
+    29 -> "Utility"
     else -> stringResource(R.string.today_locked)
 }
 

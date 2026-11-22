@@ -5,6 +5,9 @@ import com.kalai73.lifemapp.widgets.core.model.Feed
 import com.kalai73.lifemapp.widgets.core.model.FeedFilter
 import com.kalai73.lifemapp.widgets.core.model.FeedFolder
 import com.kalai73.lifemapp.widgets.core.model.FeedItem
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,6 +15,7 @@ import kotlinx.coroutines.flow.update
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /** What the Feeds tab shows; online only, like the web's feed store (nothing is cached on the device). */
@@ -26,6 +30,8 @@ data class FeedState(
     val loadingMore: Boolean = false,
     /** The feed being synced by a refresh, if any */
     val syncingFeedId: String? = null,
+    /** Whether active non-social feeds have already been synced on this session load */
+    val hasAutoSyncedOnLoad: Boolean = false,
     /** Feeds and items were loaded at least once */
     val loaded: Boolean = false,
     /** The last load failed (offline, server error) */
@@ -44,25 +50,25 @@ class FeedRepository(private val api: FeedsApi, private val zone: () -> ZoneId =
     private val latestRequest = AtomicInteger()
 
     /** Folders and feeds with counts, today counted from the device's local midnight. */
-    suspend fun loadFeeds() {
-        _state.update { it.copy(loadingFeeds = true) }
+    suspend fun loadFeeds(silent: Boolean = false) {
+        if (!silent) _state.update { it.copy(loadingFeeds = true) }
         try {
             val midnight = LocalDate.now(zone()).atStartOfDay(zone()).toInstant().toString()
             val data = api.feeds(midnight)
             _state.update { it.copy(folders = data.folders, feeds = data.feeds, failed = false) }
         } catch (e: Exception) {
-            _state.update { it.copy(failed = true) }
+            if (!silent) _state.update { it.copy(failed = true) }
             throw e
         } finally {
-            _state.update { it.copy(loadingFeeds = false) }
+            if (!silent) _state.update { it.copy(loadingFeeds = false) }
         }
     }
 
     /** The first page for the current filter, or ([append]) the next one. */
-    suspend fun loadItems(append: Boolean = false) {
+    suspend fun loadItems(append: Boolean = false, silent: Boolean = false) {
         val request = latestRequest.incrementAndGet()
         val current = _state.value
-        _state.update { if (append) it.copy(loadingMore = true) else it.copy(loadingItems = true) }
+        if (!silent) _state.update { if (append) it.copy(loadingMore = true) else it.copy(loadingItems = true) }
         try {
             val page = api.items(current.filter, offset = if (append) current.items.size else 0)
             if (request != latestRequest.get()) return
@@ -75,11 +81,47 @@ class FeedRepository(private val api: FeedsApi, private val zone: () -> ZoneId =
                 )
             }
         } catch (e: Exception) {
-            if (request == latestRequest.get()) _state.update { it.copy(failed = true) }
+            if (!silent && request == latestRequest.get()) _state.update { it.copy(failed = true) }
             throw e
         } finally {
-            if (request == latestRequest.get()) _state.update { it.copy(loadingItems = false, loadingMore = false) }
+            if (!silent && request == latestRequest.get()) _state.update { it.copy(loadingItems = false, loadingMore = false) }
         }
+    }
+
+    /** Syncs all active non-social feeds (RSS, YouTube) once per session load (feed-store.ts syncNonSocialFeedsOnLoad). */
+    suspend fun syncNonSocialFeedsOnLoad() {
+        val s = _state.value
+        if (s.hasAutoSyncedOnLoad || s.syncingFeedId != null) return
+        _state.update { it.copy(hasAutoSyncedOnLoad = true) }
+        // Social feeds (billed per scrape) only sync on a manual refresh
+        val targets = s.feeds.filter { it.isActive && it.sourceType != "social" }
+        if (targets.isEmpty()) return
+
+        val anyInserted = AtomicBoolean(false)
+        val nextIndex = AtomicInteger(0)
+        val concurrency = minOf(4, targets.size)
+        try {
+            coroutineScope {
+                List(concurrency) {
+                    async {
+                        while (true) {
+                            val idx = nextIndex.getAndIncrement()
+                            if (idx >= targets.size) break
+                            val feed = targets[idx]
+                            _state.update { it.copy(syncingFeedId = feed.id) }
+                            runCatching { api.refresh(feed.id) }.getOrNull()?.let { inserted ->
+                                if (inserted > 0) anyInserted.set(true)
+                            }
+                        }
+                    }
+                }.awaitAll()
+            }
+        } finally {
+            _state.update { it.copy(syncingFeedId = null) }
+        }
+
+        runCatching { loadFeeds(silent = true) }
+        if (anyInserted.get()) runCatching { loadItems(append = false, silent = true) }
     }
 
     suspend fun reload() {

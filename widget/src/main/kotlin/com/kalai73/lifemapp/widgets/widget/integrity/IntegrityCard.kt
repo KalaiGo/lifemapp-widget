@@ -265,7 +265,6 @@ private fun Reception() {
     val pd = LocalPd.current
     val speak = speakReminders()
     val type = typeReminder()
-    val label = context.getString(R.string.integrity_reception)
     val hint = context.getString(R.string.integrity_create_reminder)
     val recordLabel = context.getString(R.string.integrity_record)
     if (pd != null) {
@@ -276,10 +275,7 @@ private fun Reception() {
                 Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
                     PdHex(32.dp, edge = pd.accent, fill = pd.panel, modifier = GlanceModifier.clickable(speak)) { Icon(LucideIcons.MIC, recordLabel, size = 15.dp, tint = pd.ink) }
                 }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(style.label(label), style = labelStyle(size = 13.sp, color = pd.text), maxLines = 1)
-                    Text(hint, style = captionStyle(size = 10.sp, color = pd.dim), maxLines = 1)
-                }
+                Text(hint, style = captionStyle(size = 10.sp, color = pd.dim), maxLines = 1)
                 Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
                     PdHex(32.dp, edge = pd.accent, fill = pd.panel, modifier = GlanceModifier.clickable(type)) { Icon(LucideIcons.PENCIL, hint, size = 15.dp, tint = pd.ink) }
                 }
@@ -297,10 +293,7 @@ private fun Reception() {
                     contentAlignment = Alignment.Center,
                 ) { Icon(LucideIcons.MIC, recordLabel, size = 18.dp) }
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(label.uppercase(), style = textStyle(size = 12.sp, weight = FontWeight.Bold, color = GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
-                Text(hint, style = textStyle(size = 11.sp, color = GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
-            }
+            Text(hint, style = textStyle(size = 11.sp, color = GlanceTheme.colors.onSurfaceVariant), maxLines = 1)
             Box(modifier = GlanceModifier.defaultWeight(), contentAlignment = Alignment.Center) {
                 Box(
                     modifier = GlanceModifier.size(36.dp).cornerRadius(18.dp).background(GlanceTheme.colors.secondaryContainer).clickable(type),

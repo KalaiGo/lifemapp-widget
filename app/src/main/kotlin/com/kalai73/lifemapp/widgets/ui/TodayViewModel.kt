@@ -10,6 +10,7 @@ import com.kalai73.lifemapp.widgets.core.data.repository.TaskText
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.CachedState
 import com.kalai73.lifemapp.widgets.core.model.DashboardTab
+import com.kalai73.lifemapp.widgets.core.presentation.BusinessPresenter
 import com.kalai73.lifemapp.widgets.core.presentation.MonthlyPresenter
 import com.kalai73.lifemapp.widgets.core.presentation.MonthlyUi
 import com.kalai73.lifemapp.widgets.core.presentation.WidgetPresenter
@@ -45,6 +46,10 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     private val _monthly = MutableStateFlow(MonthlyUi.SignedOut)
     val monthly: StateFlow<MonthlyUi> = _monthly.asStateFlow()
 
+    /** What the Business screen draws (BUSINESS MAPP, positions 20–29): decrypted and formatted. */
+    private val _business = MutableStateFlow(MonthlyUi.SignedOut.copy(business = true))
+    val business: StateFlow<MonthlyUi> = _business.asStateFlow()
+
     val activeTab = MutableStateFlow(DashboardTab.TODAY)
     fun selectTab(tab: DashboardTab) { activeTab.value = tab }
 
@@ -62,7 +67,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    /** The user is an admin: the dashboard's COMPANY tab shows for admins only */
+    /** The user is an admin: the dashboard's BUSINESS tab shows for admins even before business domains exist */
     private val _isAdmin = MutableStateFlow(false)
     val isAdmin: StateFlow<Boolean> = _isAdmin.asStateFlow()
 
@@ -70,10 +75,11 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         // Sign-in, unlock and lock change the secrets, which aren't observable: they bump the widgets' invalidation
         viewModelScope.launch {
             combine(graph.cache.state, graph.widgetInvalidations) { _, _ ->
-                presentToday() to presentMonthly()
-            }.collect { (t, m) ->
+                Triple(presentToday(), presentMonthly(), presentBusiness())
+            }.collect { (t, m, b) ->
                 _today.value = t
                 _monthly.value = m
+                _business.value = b
                 // Read once per user (cached); a failed read keeps what was known
                 if (t.authState != AuthState.SIGNED_IN) _isAdmin.value = false
                 else launch { graph.items.isAdmin()?.let { _isAdmin.value = it } }
@@ -91,6 +97,12 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         val secrets = runCatching { graph.secrets.read() }.getOrNull()
         val auth = if (secrets?.session != null) AuthState.SIGNED_IN else AuthState.SIGNED_OUT
         return MonthlyPresenter.present(graph.cache.current(), auth, secrets?.dataKey)
+    }
+
+    private suspend fun presentBusiness(): MonthlyUi {
+        val secrets = runCatching { graph.secrets.read() }.getOrNull()
+        val auth = if (secrets?.session != null) AuthState.SIGNED_IN else AuthState.SIGNED_OUT
+        return BusinessPresenter.present(graph.cache.current(), auth, secrets?.dataKey)
     }
 
     // ── Widget taps ──────────────────────────────────────────────────────────
@@ -222,10 +234,11 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── Scoring ──────────────────────────────────────────────────────────────
 
-    /** Hides or shows a domain on Today or Monthly; unhidable domains (1, 5, 10) always stay. */
+    /** Hides or shows a domain on Today, Monthly or Business; unhidable domains (1, 5, 10) always stay. */
     fun toggleDomainHidden(domainId: String) {
         val domain = (_today.value.scoring?.domains ?: _monthly.value.scoring?.domains)?.firstOrNull { it.id == domainId }
             ?: _monthly.value.scoring?.domains?.firstOrNull { it.id == domainId }
+            ?: _business.value.scoring?.domains?.firstOrNull { it.id == domainId }
             ?: return
         if (domain.unhidable) return
         toggle { graph.scoring.setHidden(mapOf(domainId to !domain.hidden)) }
@@ -243,12 +256,23 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         toggle { graph.scoring.setHidden(domains.associate { it.id to hidden }) }
     }
 
+    /** Hides (true) or shows every business domain (20–29). */
+    fun setAllBusinessDomainsHidden(hidden: Boolean) {
+        val domains = _business.value.scoring?.domains?.filterNot { it.unhidable } ?: return
+        toggle { graph.scoring.setHidden(domains.associate { it.id to hidden }) }
+    }
+
     /**
      * Saves new ratings (domain id → 1–10) with the web's bulk route, encrypted when the account is; the cached
      * snapshot takes them at once, so the cards and the widgets' average follow without a sync.
      */
     fun rateDomains(ratings: Map<String, Int>) = run {
         if (!graph.scoring.rate(ratings, encrypted)) fail(R.string.error_rating_locked)
+    }
+
+    /** Saves new BUSINESS MAPP ratings (domain id → 1–10), scored apart from the life domains as on the web. */
+    fun rateBusinessDomains(ratings: Map<String, Int>) = run {
+        if (!graph.scoring.rateBusiness(ratings, encrypted)) fail(R.string.error_rating_locked)
     }
 
     // ── Running edits ────────────────────────────────────────────────────────

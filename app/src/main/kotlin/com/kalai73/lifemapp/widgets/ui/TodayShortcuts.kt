@@ -43,31 +43,16 @@ import com.kalai73.lifemapp.widgets.core.designsystem.pdParallelogramShape
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.ui.sidepanel.LocalPanel
 
-// ── Shortcuts ───────────────────────────────────────────────────────────────
+// ── Mail & Files (WorkspaceWidget) ──────────────────────────────────────────
 
 @Composable
-internal fun ShortcutsSection(ui: WidgetUi, openLink: (String) -> Unit, onOpenWeb: (String) -> Unit, onUnlock: () -> Unit) {
-    val t = LocalTok.current
-    WidgetCard(stringResource(R.string.today_shortcuts), LucideIcons.ZAP, rule = false, onTitle = { onOpenWeb(WebRoutes.QUICK_LINKS) }) {
+internal fun ShortcutsSection(ui: WidgetUi, openLink: (String) -> Unit, onOpenWeb: (String) -> Unit, @Suppress("UNUSED_PARAMETER") onUnlock: () -> Unit = {}) {
+    WidgetCard(stringResource(R.string.today_shortcuts), LucideIcons.ZAP, rule = false, onTitle = { openLink(ui.mailUrl ?: WebRoutes.MAIL) }) {
         SubHeader(LucideIcons.MAIL, stringResource(R.string.today_mail), count = null) { openLink(ui.mailUrl ?: WebRoutes.MAIL) }
         MailBody(ui, openLink, onOpenWeb)
         if (ui.driveLinks.isNotEmpty()) {
             SubHeader(LucideIcons.FOLDER, stringResource(R.string.today_drive), count = null, top = SUB_HEADER_GAP) { openLink(ui.driveLinks.first().url) }
             DriveBody(ui, openLink)
-        }
-        // The Links header opens the side panel's quick links (quick-links-section.tsx "Manage"); adding stays on the web
-        val panel = LocalPanel.current
-        val manage = { panel?.openQuickLinks() ?: onOpenWeb(WebRoutes.QUICK_LINKS) }
-        SubHeader(
-            LucideIcons.LINK, stringResource(R.string.today_links),
-            count = ui.shortcuts.size.takeUnless { ui.shortcutsLocked },
-            onAdd = { onOpenWeb(WebRoutes.QUICK_LINKS) }.takeUnless { ui.shortcutsLocked },
-            top = SUB_HEADER_GAP,
-        ) { manage() }
-        when {
-            ui.shortcutsLocked -> EmptyLine(stringResource(R.string.today_locked_banner), onUnlock)
-            ui.shortcuts.isEmpty() -> EmptyLine(stringResource(R.string.today_no_links)) { onOpenWeb(WebRoutes.QUICK_LINKS) }
-            else -> ShortcutGrid(ui.shortcuts, openLink)
         }
     }
 }
@@ -295,7 +280,7 @@ private fun ShortcutTile(s: ShortcutUi, modifier: Modifier, openLink: (String) -
  * of the label. The link color is raised to icon contrast over the page, as the widget does.
  */
 @Composable
-private fun LinkGlyph(s: ShortcutUi, tint: Color?, size: Dp, linkFallback: Boolean = false) {
+internal fun LinkGlyph(s: ShortcutUi, tint: Color?, size: Dp, linkFallback: Boolean = false) {
     val t = LocalTok.current
     val drawable = LucideIcons.resolve(s.icon)
     val bg = if (t.predator) t.row else t.page

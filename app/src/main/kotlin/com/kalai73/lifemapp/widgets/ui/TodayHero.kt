@@ -238,8 +238,8 @@ internal fun WeatherCard(ui: MonthlyUi, onClick: () -> Unit) =
     WeatherCard(ui.weather, ui.averageRating, hasScoring = ui.scoring != null, onClick = onClick)
 
 /**
- * Feeds, Links, Journal and Budget (hero-section.tsx): low-key outlined buttons (parallelograms in Predator, pills in
- * Classic) in the muted text color. Feeds and Links open the side panel.
+ * Editor, Feeds, Links, Journal and Budget (hero-section.tsx): low-key outlined buttons (parallelograms in Predator,
+ * pills in Classic) in the muted text color. Editor, Feeds and Links open the side panel.
  */
 @Composable
 internal fun QuickActions(onOpenWeb: (String) -> Unit) {
@@ -247,6 +247,7 @@ internal fun QuickActions(onOpenWeb: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         // Icons only; the label stays as the button's description for screen readers
         if (panel != null) {
+            ActionButton(Modifier.weight(1f), LucideIcons.CONTENT, stringResource(R.string.panel_editor), showLabel = false) { panel.open(PanelMode.EDITOR) }
             ActionButton(Modifier.weight(1f), LucideIcons.RSS, stringResource(R.string.today_feeds), showLabel = false) { panel.open(PanelMode.FEEDS) }
             ActionButton(Modifier.weight(1f), LucideIcons.LINK_2, stringResource(R.string.today_links), showLabel = false) { panel.open(PanelMode.LINKS) }
         }
@@ -261,14 +262,20 @@ internal fun ActionButton(modifier: Modifier, icon: Int, label: String, showLabe
     val shape: Shape = if (t.predator) pdParallelogramShape(8.dp) else RoundedCornerShape(12.dp)
     Row(
         modifier.clip(shape).border(1.dp, t.line, shape)
-            .clickable(onClickLabel = label, onClick = onClick).padding(vertical = if (showLabel) 6.dp else 7.dp),
+            .clickable(onClickLabel = label, onClick = onClick)
+            .padding(horizontal = if (showLabel) 6.dp else 0.dp, vertical = if (showLabel) 6.dp else 7.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Ic(icon, if (showLabel) 13.dp else 15.dp, t.dim, desc = label.takeUnless { showLabel })
         if (showLabel) {
-            Spacer(Modifier.width(6.dp))
-            Text(t.s(label), style = if (t.predator) t.label(11.sp, t.dim) else t.body(12.sp, t.dim, FontWeight.Medium), maxLines = 1)
+            Spacer(Modifier.width(5.dp))
+            Text(
+                t.s(label),
+                style = if (t.predator) t.label(11.sp, t.dim) else t.body(12.sp, t.dim, FontWeight.Medium),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

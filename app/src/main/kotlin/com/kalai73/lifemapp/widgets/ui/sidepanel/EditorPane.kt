@@ -352,7 +352,7 @@ internal fun ruleLabel(rule: String): String = when (ReminderDates.RECURRENCE_PR
     4 -> stringResource(R.string.panel_rule_monthly)
     5 -> stringResource(R.string.panel_rule_bimonthly)
     6 -> stringResource(R.string.panel_rule_quarterly)
-    7 -> stringResource(R.string.panel_rule_every_4_months)
+    7 -> stringResource(R.string.panel_rule_every_6_months)
     8 -> stringResource(R.string.panel_rule_yearly)
     else -> stringResource(R.string.panel_rule_custom)
 }

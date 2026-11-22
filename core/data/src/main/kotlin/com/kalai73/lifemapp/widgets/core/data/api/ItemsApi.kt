@@ -100,7 +100,7 @@ class ItemsApi internal constructor(client: ApiClient) : ApiArea(client) {
         return response.readRawBytes()
     }
 
-    /** The profile's admin flag (lm_users_profile.is_admin): admins get the web's COMPANY page */
+    /** The profile's admin flag (lm_users_profile.is_admin): admins see the BUSINESS tab before any business domain exists */
     suspend fun isAdmin(userId: String): Boolean {
         val profile = authorized { token ->
             http.get("${config.supabaseUrl}/rest/v1/lm_users_profile") {

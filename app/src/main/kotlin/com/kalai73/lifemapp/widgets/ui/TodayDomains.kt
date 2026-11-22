@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.runtime.rememberUpdatedState
 import com.kalai73.lifemapp.widgets.core.data.content.ImageContent
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,7 +49,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kalai73.lifemapp.widgets.R
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
+import com.kalai73.lifemapp.widgets.core.designsystem.PdHexagonShape
+import androidx.compose.ui.text.font.FontStyle
+import com.kalai73.lifemapp.widgets.core.designsystem.PredatorColors
 import com.kalai73.lifemapp.widgets.core.presentation.IntegrityUi
+import com.kalai73.lifemapp.widgets.core.presentation.ShortcutUi
+import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors
 import com.kalai73.lifemapp.widgets.core.presentation.TopicItemUi
 import com.kalai73.lifemapp.widgets.core.presentation.TopicUi
 import com.kalai73.lifemapp.widgets.core.designsystem.ColorContrast
@@ -95,11 +108,21 @@ internal fun domainName(name: String?, position: Int): String = name?.takeIf { i
     17 -> "Mobility"
     18 -> "Efficacy"
     19 -> "Property"
+    20 -> "Delivery"
+    21 -> "Solvency"
+    22 -> "Visibility"
+    23 -> "Fidelity"
+    24 -> "Capacity"
+    25 -> "Strategy"
+    26 -> "Security"
+    27 -> "Clarity"
+    28 -> "Discovery"
+    29 -> "Utility"
     else -> stringResource(R.string.today_locked)
 }
 
 /**
- * The web's domain card: Integrity (with the Reception above Reminders and the Warnings bar) or one of the other
+ * The web's domain card: Integrity (with the Reception above Reminders) or one of the other
  * Today domains, Serenity, Vitality, Stability and Tenacity, which only this screen shows (never the widgets).
  */
 @Composable
@@ -108,6 +131,9 @@ internal fun DomainCard(
     items: ItemHandlers,
     onToggleTopic: (String, Boolean) -> Unit,
     preActionContent: (@Composable () -> Unit)? = null,
+    /** Integrity only: the user's quick links for the icon bar above the panel buttons */
+    quickLinks: List<ShortcutUi> = emptyList(),
+    openLink: (String) -> Unit = onOpenWeb,
 ) {
     val t = LocalTok.current
     val isIntegrity = integrity.position == 1
@@ -171,12 +197,14 @@ internal fun DomainCard(
             Gauge(integrity.rating)
             integrity.infoBox?.let { info ->
                 Spacer(Modifier.height(8.dp))
+                val pdTint = PredatorColors.mix(t.card, t.accent, 0.16f)
                 Text(
                     info,
-                    style = (if (t.predator) t.caption(12.sp, t.text) else t.body(12.sp, t.onTint)).copy(textAlign = TextAlign.Center),
+                    style = (if (t.predator) t.caption(14.sp, t.text).copy(fontWeight = FontWeight.Bold)
+                    else t.body(14.sp, t.text.copy(alpha = 0.9f), FontWeight.Bold).copy(fontStyle = FontStyle.Italic)).copy(textAlign = TextAlign.Center),
                     modifier = Modifier.fillMaxWidth().let {
-                        // Predator: square tinted field, thin edge, bracket corners and center ticks (styleguide info box)
-                        if (t.predator) it.background(t.pd.accentTint).border(1.dp, t.pd.edge).bracketCorners(t.pd.edge2)
+                        // Predator: square tinted field (16% accent tint), thin edge, bracket corners and center ticks
+                        if (t.predator) it.background(pdTint).border(1.dp, t.pd.edge).bracketCorners(t.pd.edge2)
                         else it.framed(t, t.tint)
                     }.padding(horizontal = 12.dp, vertical = 10.dp),
                 )
@@ -186,53 +214,123 @@ internal fun DomainCard(
             Spacer(Modifier.height(10.dp))
             it()
         }
-        // Integrity's buttons that open the side panel (PanelButtonsSection), above its topics
-        if (isIntegrity && panel != null) PanelButtons(panel, onOpenWeb)
         integrity.topics.forEach { topic ->
             // The Reception sits right above the Reminders topic, as on the web
             if (topic.reminders) Reception()
             TopicHeader(topic) { onToggleTopic(topic.id, !topic.collapsed) }
             // A collapsed topic shows its header only, as on the web card
             if (topic.collapsed && topic.items.isNotEmpty()) return@forEach
-            if (topic.items.isEmpty()) NoContent(topic) { onOpenWeb(route) }
-            else topic.items.forEachIndexed { i, item ->
-                ItemRow(
-                    topic, item, i + 1,
-                    canMoveUp = i > 0,
-                    // Items beyond the listed ones can still follow the last listed one
-                    canMoveDown = i < maxOf(topic.count, topic.items.size) - 1,
-                    onAction = { onItemAction(topic, item, it) },
-                    onToggle = { items.setCollapsed(item.id, !item.collapsed) },
-                )
-                // An expanded image item shows its picture, as on the web card
-                if (item.isImage && !item.collapsed) ItemPicture(item, items.loadImage)
+            val topicContent: @Composable () -> Unit = {
+                if (topic.items.isEmpty()) NoContent(topic) { onOpenWeb(route) }
+                else topic.items.forEachIndexed { i, item ->
+                    ItemRow(
+                        topic, item, i + 1,
+                        canMoveUp = i > 0,
+                        // Items beyond the listed ones can still follow the last listed one
+                        canMoveDown = i < maxOf(topic.count, topic.items.size) - 1,
+                        onAction = { onItemAction(topic, item, it) },
+                        onToggle = { items.setCollapsed(item.id, !item.collapsed) },
+                    )
+                    // An expanded image item shows its picture, as on the web card
+                    if (item.isImage && !item.collapsed) ItemPicture(item, items.loadImage)
+                }
+                if (topic.more > 0) {
+                    Text(
+                        stringResource(R.string.today_items_more, topic.more), style = t.caption(10.sp),
+                        modifier = Modifier.padding(start = 24.dp, top = 2.dp, bottom = 2.dp),
+                    )
+                }
             }
-            if (topic.more > 0) {
-                Text(
-                    stringResource(R.string.today_items_more, topic.more), style = t.caption(10.sp),
-                    modifier = Modifier.padding(start = 24.dp, top = 2.dp, bottom = 2.dp),
-                )
+            if (topic.reminders) {
+                val stripeColor = t.accent.copy(alpha = 0.4f)
+                Column(
+                    Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp).let {
+                        if (t.predator) it.background(t.pd.accentTint).border(1.dp, t.pd.edge).bracketCorners(t.pd.edge2).padding(vertical = 6.dp, horizontal = 4.dp)
+                        else it.clip(RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp))
+                            .background(t.tint.copy(alpha = 0.35f))
+                            .drawBehind { drawLine(stripeColor, Offset(1.dp.toPx(), 0f), Offset(1.dp.toPx(), size.height), strokeWidth = 2.dp.toPx()) }
+                            .padding(start = 4.dp, top = 4.dp, bottom = 6.dp, end = 4.dp)
+                    },
+                ) { topicContent() }
+            } else {
+                topicContent()
             }
         }
-        // The Warnings bar counts flagged items of every domain; the web shows it on the Integrity card only
-        if (isIntegrity) WarningsBar(integrity.warnings) { onOpenWeb(WebRoutes.WARNINGS) }
+        // Integrity's buttons that open the side panel (PanelButtonsSection), at the bottom of the card
+        if (isIntegrity && panel != null) PanelButtons(panel, quickLinks, openLink, onOpenWeb)
     }
 }
 
-/** Feeds, Links, Journal, Budget, then "Items with alerts" across the width (integrity-domain-with-widgets.tsx). */
+/**
+ * The quick links icon bar, then Editor, Feeds, Links / Journal, Budget, Alerts in two rows of three
+ * (integrity-domain-with-widgets.tsx PanelButtonsSection).
+ */
 @Composable
-private fun PanelButtons(panel: PanelOpener, onOpenWeb: (String) -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun PanelButtons(panel: PanelOpener, quickLinks: List<ShortcutUi>, openLink: (String) -> Unit, onOpenWeb: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        QuickLinksBar(panel, quickLinks, openLink, onOpenWeb)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ActionButton(Modifier.weight(1f), LucideIcons.CONTENT, stringResource(R.string.panel_editor)) { panel.open(PanelMode.EDITOR) }
             ActionButton(Modifier.weight(1f), LucideIcons.RSS, stringResource(R.string.today_feeds)) { panel.open(PanelMode.FEEDS) }
             ActionButton(Modifier.weight(1f), LucideIcons.LINK_2, stringResource(R.string.today_links)) { panel.open(PanelMode.LINKS) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionButton(Modifier.weight(1f), LucideIcons.JOURNAL, stringResource(R.string.today_journal)) { onOpenWeb(WebRoutes.JOURNAL) }
             ActionButton(Modifier.weight(1f), LucideIcons.BUDGET, stringResource(R.string.today_budget)) { onOpenWeb(WebRoutes.BUDGET) }
+            ActionButton(Modifier.weight(1f), LucideIcons.ALERTS, stringResource(R.string.panel_alerts)) { panel.open(PanelMode.ALERTS) }
         }
-        ActionButton(Modifier.fillMaxWidth(), LucideIcons.ALERTS, stringResource(R.string.panel_items_with_alerts)) { panel.open(PanelMode.ALERTS) }
     }
+}
+
+/** Icon buttons per row in the quick links bar; more links wrap onto the next row */
+private const val QUICK_LINKS_PER_ROW = 7
+
+/**
+ * The web's QuickLinksIconBar: a Manage button (the Links tab on its quick links) followed by the user's quick links
+ * as icon-only buttons sorted by name. Without links, an "Add quick link" button opens the web's quick links page.
+ */
+@Composable
+private fun QuickLinksBar(panel: PanelOpener, quickLinks: List<ShortcutUi>, openLink: (String) -> Unit, onOpenWeb: (String) -> Unit) {
+    val t = LocalTok.current
+    val manage = stringResource(R.string.quick_links_manage)
+    val links = remember(quickLinks) { quickLinks.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label }) }
+    if (links.isEmpty()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            QuickLinkButton(Modifier.weight(1f), manage, accent = true, onClick = panel::openQuickLinks) { Ic(LucideIcons.PANEL, 15.dp, t.accent) }
+            ActionButton(Modifier.weight(1f), LucideIcons.ADD, stringResource(R.string.quick_links_add)) { onOpenWeb(WebRoutes.QUICK_LINKS) }
+        }
+        return
+    }
+    // null stands for the Manage button, which leads the first row
+    val cells: List<ShortcutUi?> = listOf(null) + links
+    val perRow = minOf(cells.size, QUICK_LINKS_PER_ROW)
+    cells.chunked(perRow).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            row.forEach { link ->
+                if (link == null) {
+                    QuickLinkButton(Modifier.weight(1f), manage, accent = true, onClick = panel::openQuickLinks) { Ic(LucideIcons.PANEL, 15.dp, t.accent) }
+                } else {
+                    QuickLinkButton(Modifier.weight(1f), link.label, onClick = { openLink(link.url) }) {
+                        LinkGlyph(link, LifeMappColors.parseHex(link.color), 15.dp, linkFallback = true)
+                    }
+                }
+            }
+            repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+}
+
+/** An icon-only quick link button, outlined like the panel buttons; the Manage button's outline is the accent. */
+@Composable
+private fun QuickLinkButton(modifier: Modifier, label: String, accent: Boolean = false, onClick: () -> Unit, icon: @Composable () -> Unit) {
+    val t = LocalTok.current
+    val shape: Shape = if (t.predator) pdParallelogramShape(8.dp) else RoundedCornerShape(10.dp)
+    Box(
+        modifier.height(32.dp).clip(shape).border(1.dp, if (accent) t.accent else t.line, shape)
+            .clickable(onClickLabel = label, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) { icon() }
 }
 
 @Composable
@@ -275,17 +373,16 @@ private fun Reception() {
     Row(
         Modifier.fillMaxWidth().padding(top = 12.dp)
             .let {
-                // Predator: the web's target reticle (square well, thin edge, accent corner brackets and center ticks)
-                if (t.predator) it.background(t.pd.well).border(1.dp, t.pd.edge).bracketCorners(t.accent)
+                // Predator: the web's target reticle (square well, accent corner brackets and center ticks)
+                if (t.predator) it.background(t.pd.well).bracketCorners(t.accent)
                 else it.framed(t, t.well, edge = t.well, cut = 8.dp)
             }
-            .padding(horizontal = 12.dp, vertical = 27.dp),
+            .padding(horizontal = if (t.predator) 40.dp else 12.dp, vertical = if (t.predator) 34.dp else 27.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ReceptionButton(LucideIcons.MIC, record) { context.startActivity(VoiceInputActivity.intent(context, reminders = true)) }
-        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(t.s(stringResource(R.string.today_reception)), style = if (t.predator) t.label(14.sp, t.text) else t.body(13.sp, t.dim, FontWeight.Bold))
-            Text(hint, style = t.caption(10.sp), maxLines = 1)
+        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            Text(hint, style = t.caption(11.sp), maxLines = 1)
         }
         ReceptionButton(LucideIcons.PENCIL, hint) { context.startActivity(VoiceInputActivity.intent(context, reminders = true, typed = true)) }
     }
@@ -295,7 +392,23 @@ private fun Reception() {
 private fun ReceptionButton(icon: Int, desc: String, onClick: () -> Unit) {
     val t = LocalTok.current
     Box(Modifier.clickable(onClickLabel = desc, onClick = onClick)) {
-        if (t.predator) Hex(36.dp, edge = t.accent, fill = t.pd.panel) { Ic(icon, 16.dp, t.ink, desc) }
+        if (t.predator) {
+            // Open hexagon: dashed accent outline over the well, accent icon
+            val edge = t.accent.copy(alpha = 0.7f)
+            Box(
+                Modifier.size(44.dp, 48.dp).drawBehind {
+                    val s = 1.dp.toPx()
+                    val outline = PdHexagonShape.createOutline(Size(size.width - s, size.height - s), layoutDirection, this)
+                    translate(s / 2, s / 2) {
+                        drawOutline(
+                            outline, edge,
+                            style = Stroke(s, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))),
+                        )
+                    }
+                },
+                contentAlignment = Alignment.Center,
+            ) { Ic(icon, 18.dp, t.accent, desc) }
+        }
         else Box(Modifier.size(38.dp).clip(CircleShape).background(t.tint), contentAlignment = Alignment.Center) { Ic(icon, 18.dp, t.onTint, desc) }
     }
 }
@@ -344,7 +457,7 @@ private fun NoContent(topic: TopicUi, onClick: () -> Unit) {
         if (t.predator) Hex(28.dp, edge = t.accent, fill = t.pd.accentTint) { Ic(icon, 13.dp, t.accent) }
         else Box(Modifier.size(28.dp).clip(CircleShape).background(t.tint), contentAlignment = Alignment.Center) { Ic(icon, 14.dp, t.onTint) }
         Spacer(Modifier.width(10.dp))
-        Text(stringResource(R.string.today_no_content), style = t.body(13.sp, t.text, FontWeight.Medium))
+        Text(stringResource(if (topic.reminders) R.string.today_no_reminders else R.string.today_no_content), style = t.body(13.sp, t.text, FontWeight.Medium))
     }
 }
 
@@ -425,27 +538,5 @@ internal fun ItemRow(
             item, canMoveUp, canMoveDown,
             expanded = menuOpen, onDismiss = { menuOpen = false }, onAction = { menuOpen = false; onAction(it) },
         )
-    }
-}
-
-/** The amber "WARNINGS" bar with its count. */
-@Composable
-private fun WarningsBar(count: Int, onClick: () -> Unit) {
-    val t = LocalTok.current
-    val ink = if (t.dark) Color(0xFFFBBF4D) else Color(0xFFA04D05)
-    Row(
-        Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp)
-            .framed(t, if (t.predator) t.tinted(Warn, 0.14f) else if (t.dark) Color(0xFF3A2A08) else Color(0xFFFEF3C7), edge = if (t.predator) Warn else Color.Transparent)
-            .clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Ic(LucideIcons.WARNING, 14.dp, ink)
-        Spacer(Modifier.width(6.dp))
-        Text(t.s(stringResource(R.string.today_warnings)), style = if (t.predator) t.label(14.sp, ink) else t.body(14.sp, ink, FontWeight.Bold))
-        Spacer(Modifier.width(10.dp))
-        Box(Modifier.size(24.dp).clip(RoundedCornerShape(4.dp)).background(Warn), contentAlignment = Alignment.Center) {
-            Text("$count", style = t.label(12.sp, Color(0xFF1A1004)))
-        }
     }
 }

@@ -22,8 +22,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 object WebRoutes {
     const val TODAY = "/today"
     const val MONTHLY = "/monthly"
-    /** The Company Mapp page (domains 20–29); the app has no native screen for it */
-    const val COMPANY = "/company"
+    /** BUSINESS MAPP (domains 20–29; the web's old /company redirects here): native in the app, the web sets it up */
+    const val BUSINESS = "/business"
     /** Pre-sign-in pages the sign-in screen links to */
     const val SIGN_UP = "/signup"
     const val FORGOT_PASSWORD = "/forgot-password"

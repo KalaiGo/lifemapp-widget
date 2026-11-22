@@ -16,6 +16,11 @@ data class Scoring(
     val hiddenDomainIds: List<String>? = null,
     /** monthly_scoring_last_completed: an ISO instant, or "YYYY-MM" from older rows; null when never scored */
     val lastCompleted: String? = null,
+    /**
+     * The last BUSINESS MAPP scoring (positions 20–29), an ISO instant: this device's own, like the web's
+     * business_scoring_last_completed, which lives in the browser only. Kept in the cache, never synced.
+     */
+    val businessLastCompleted: String? = null,
     /** Every domain of the user, to materialize the hidden list when it was never set (as the web's toggle does) */
     val domains: List<ScoringDomain> = emptyList(),
     /** The events card's days to show (preferences.days_ahead, 1–14 on the web); null when never set */
@@ -32,6 +37,10 @@ data class ScoringDomain(
     val name: String? = null,
     /** Custom color name (one of the 20 Tailwind families), null when not set */
     val color: String? = null,
+    /** The stored rating (0 when unrated, or when encrypted) */
+    val rating: Double? = null,
+    /** The encrypted rating when ratings are end-to-end encrypted */
+    val encryptedRating: String? = null,
 ) {
     /** Integrity, Tenacity and Trayectory are always shown (scoring-circles.tsx#isUnhidableDomain) */
     val unhidable: Boolean get() = isUnhidable(position, name)

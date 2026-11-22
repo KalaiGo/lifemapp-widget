@@ -86,9 +86,12 @@ class FeedsApi internal constructor(client: ApiClient) : ApiArea(client) {
         }
     }
 
-    /** Syncs one feed now; the route's own error text (plan, quota) is thrown as [FeedRequestException]. */
-    suspend fun refresh(feedId: String) {
-        userCall { token -> http.post("$base/$feedId/refresh") { bearerAuth(token) } }
+    /** Syncs one feed now; returns how many new items were inserted. The route's own error text is thrown as [FeedRequestException]. */
+    suspend fun refresh(feedId: String): Int {
+        val response = userCall { token -> http.post("$base/$feedId/refresh") { bearerAuth(token) } }
+        return runCatching {
+            (LifeMappJson.parseToJsonElement(response.bodyAsText()).jsonObject["insertedCount"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
+        }.getOrNull() ?: 0
     }
 
     /** Subscribes to a URL or handle (POST /api/feeds); the server detects RSS, YouTube or social sources. */

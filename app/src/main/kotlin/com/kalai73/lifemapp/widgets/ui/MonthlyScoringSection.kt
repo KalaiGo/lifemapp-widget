@@ -36,8 +36,8 @@ import com.kalai73.lifemapp.widgets.core.presentation.ScoreDomainUi
  * - Classic: [3, 3, 4] pyramid with row widths 90%, 90%, 100%.
  * - Predator: 2 rows of 5 [5, 5] with alternating zigzag offset (+28.dp for odd columns).
  *
- * Footer contains the shared average badge (across all life domains < 20),
- * the "hide/show all" eye toggle for monthly domains 11–19, and the last-scoring capsule.
+ * Above the domains, the shared scoring header: the "hide/show all" eye toggle for monthly domains 11–19, the
+ * average badge (across all life domains < 20, with the business average and scoring clocks) and history.
  */
 @Composable
 internal fun MonthlyScoringSection(
@@ -68,8 +68,24 @@ internal fun MonthlyScoringSection(
         Modifier.fillMaxWidth().padding(top = 16.dp)
             .framed(t, t.card, edge = t.line, cut = if (t.predator) 8.dp else 24.dp)
             .let { if (t.predator) it.hexCorner(t.accent, opacity = 0.9f) else it }
-            .padding(top = 12.dp, bottom = 10.dp),
+            .padding(bottom = 10.dp),
     ) {
+        val scoreAll: () -> Unit = { if (scoring.locked) onUnlock() else ratingDialogDomains = scoring.domains }
+        ScoringHeader(
+            average = average ?: 0.0,
+            businessAverage = scoring.businessAverage,
+            locked = scoring.locked,
+            daysSinceScored = scoring.daysSinceScored,
+            showHideAll = scoring.ready && scoring.domains.any { !it.unhidable },
+            allHidden = scoring.allHidableHidden,
+            onToggleAll = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onSetAllHidden(!scoring.allHidableHidden)
+            },
+            onScore = scoreAll,
+            onHistory = onHistory,
+        )
+        Spacer(Modifier.height(16.dp))
         if (scoring.domains.isNotEmpty()) {
             if (t.predator) {
                 PredatorMonthlyGrid(
@@ -86,42 +102,6 @@ internal fun MonthlyScoringSection(
                     onUnlock = onUnlock,
                 )
             }
-        }
-
-        Spacer(Modifier.height(14.dp))
-
-        // Footer: Average badge + Eye button + Last scoring capsule
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            average?.let { avg ->
-                AverageBadge(avg, scoring.locked) {
-                    if (scoring.locked) onUnlock()
-                    else ratingDialogDomains = scoring.domains
-                }
-            } ?: Spacer(Modifier.width(1.dp))
-
-            Spacer(Modifier.weight(1f))
-
-            if (scoring.ready) {
-                HideAllToggle(scoring.allHidableHidden) {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onSetAllHidden(!scoring.allHidableHidden)
-                }
-                Spacer(Modifier.width(8.dp))
-            }
-
-            ScoringCapsule(
-                daysSinceScored = scoring.daysSinceScored,
-                urgency = scoring.urgency,
-                scoringDue = scoring.scoringDue,
-                onScore = {
-                    if (scoring.locked) onUnlock()
-                    else ratingDialogDomains = scoring.domains
-                },
-                onHistory = onHistory,
-            )
         }
     }
 }

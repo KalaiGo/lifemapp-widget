@@ -56,8 +56,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Native Today screen (docs/todayScreenPlan.md), drawn in the widgets' look and feel: in Predator the framed hero
- * (greeting, date, counters, weather), numbered hex rows with color bars, the score gauge and the amber warnings
- * bar; in Classic the rounded flat variants. It renders the same [WidgetUi] the widgets use.
+ * (greeting, date, counters, weather), numbered hex rows with color bars, and the score gauge;
+ * in Classic the rounded flat variants. It renders the same [WidgetUi] the widgets use.
  *
  * This file holds the screen's layout, widget-tap handling and navigation overlay. The parts live beside it:
  * TodayTheme.kt (style tokens and shared drawing helpers), TodayHero.kt (top bar and hero), TodayEventsTasks.kt,
@@ -268,7 +268,10 @@ fun TodayScreen(
                             onUnlock = onUnlock,
                         )
                         "locked" -> LockedBanner(onUnlock)
-                        "integrity" -> DomainCard(ui.integrity!!, onOpenWeb, itemHandlers, onToggleTopic)
+                        "integrity" -> DomainCard(
+                            ui.integrity!!, onOpenWeb, itemHandlers, onToggleTopic,
+                            quickLinks = if (ui.shortcutsLocked) emptyList() else ui.shortcuts, openLink = openLink,
+                        )
                         "events" -> EventsSection(ui, showEvent, onOpenWeb)
                         "tasks" -> TasksSection(ui, onCompleteTask, showTask, onOpenWeb)
                         "shortcuts" -> ShortcutsSection(ui, openLink, onOpenWeb, onUnlock)
