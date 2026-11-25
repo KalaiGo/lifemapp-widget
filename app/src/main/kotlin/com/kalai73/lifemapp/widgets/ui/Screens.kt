@@ -712,7 +712,7 @@ private fun SettingsPanel(
                 }
             } else {
                 Button(onClick = viewModel::syncNow, enabled = !syncing) {
-                    if (syncing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.sync_now))
+                    if (syncing) com.kalai73.lifemapp.widgets.core.designsystem.LoadingSpinner(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.sync_now))
                 }
                 OutlinedButton(onClick = { onOpenWeb(WebRoutes.TODAY) }) { Text(stringResource(R.string.open_web)) }
             }

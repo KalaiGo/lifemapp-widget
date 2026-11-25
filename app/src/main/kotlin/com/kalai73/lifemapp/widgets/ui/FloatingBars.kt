@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kalai73.lifemapp.widgets.R
+import com.kalai73.lifemapp.widgets.core.designsystem.LoadingSpinner
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.pdChamferShape
 import com.kalai73.lifemapp.widgets.core.designsystem.pdParallelogramShape
@@ -166,7 +166,7 @@ private fun BarButton(
         Modifier.size(34.dp).clip(shape).background(bg, shape).clickable(onClickLabel = desc, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (busy) CircularProgressIndicator(Modifier.size(16.dp), color = t.ink, strokeWidth = 2.dp)
+        if (busy) LoadingSpinner(Modifier.size(16.dp), color = t.ink, strokeWidth = 2.dp)
         else Ic(icon, 17.dp, if (active) t.onAccent else tint, desc)
     }
 }

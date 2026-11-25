@@ -13,7 +13,6 @@ import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.Action
 import androidx.glance.action.clickable
-import androidx.glance.appwidget.CircularProgressIndicator
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
@@ -52,6 +51,7 @@ import com.kalai73.lifemapp.widgets.widget.common.ReloadButton
 import com.kalai73.lifemapp.widgets.widget.common.StatusLine
 import com.kalai73.lifemapp.widgets.widget.common.openApp
 import com.kalai73.lifemapp.widgets.widget.common.VoiceButton
+import com.kalai73.lifemapp.widgets.widget.common.WidgetSpinner
 import com.kalai73.lifemapp.widgets.widget.common.captionStyle
 import com.kalai73.lifemapp.widgets.widget.common.labelStyle
 import com.kalai73.lifemapp.widgets.widget.common.numberStyle
@@ -230,7 +230,7 @@ internal fun HeroFooter(ui: WidgetUi) {
         }
         half(GlanceModifier.defaultWeight(), reload, actionRunCallback<ReloadAction>()) {
             val tint = pd?.ink ?: GlanceTheme.colors.primary
-            if (ui.syncing) CircularProgressIndicator(modifier = GlanceModifier.size(14.dp), color = tint)
+            if (ui.syncing) WidgetSpinner(size = 14.dp, color = tint)
             else Icon(LucideIcons.RELOAD, reload, size = 16.dp, tint = tint)
         }
     }

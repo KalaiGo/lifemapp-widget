@@ -419,4 +419,17 @@ class WidgetRenderTest {
         onNode(hasTextEqualTo("RECEPTION")).assertDoesNotExist()
         onNode(hasTextEqualTo("Warnings")).assertDoesNotExist()
     }
+
+    @Test
+    fun `syncing replaces the reload icon with the spinner in tall and compact heroes`() = runGlanceAppWidgetUnitTest {
+        dashboard(populated.copy(syncing = true), TALL)
+        onNode(hasContentDescription("Reload")).assertDoesNotExist()
+        onNode(hasTextEqualTo("Reload")).assertExists()
+    }
+
+    @Test
+    fun `syncing replaces the reload icon with the spinner in the compact hero`() = runGlanceAppWidgetUnitTest {
+        dashboard(populated.copy(syncing = true), HERO)
+        onNode(hasContentDescription("Reload")).assertDoesNotExist()
+    }
 }

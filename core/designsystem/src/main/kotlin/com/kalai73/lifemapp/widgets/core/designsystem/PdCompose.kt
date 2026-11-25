@@ -1,6 +1,7 @@
 package com.kalai73.lifemapp.widgets.core.designsystem
 
 import androidx.compose.ui.text.font.Font
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,16 +13,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -253,7 +260,7 @@ fun PdButton(
         contentAlignment = Alignment.Center,
     ) {
         if (busy) {
-            CircularProgressIndicator(
+            LoadingSpinner(
                 modifier = Modifier.size(18.dp),
                 color = palette.on,
                 strokeWidth = 2.dp,
@@ -444,6 +451,46 @@ fun PdFilterChip(
         Text(
             text = label.uppercase(),
             style = pdLabelStyle(size = 12.sp, color = textCol, letterSpacing = 0.1.em),
+        )
+    }
+}
+
+/**
+ * 270° spinning arc driven by display frame time rather than Material3's CircularProgressIndicator,
+ * whose indeterminate animation collapses to a tiny 0.1° dot when Android's animator duration scale
+ * is 0 (e.g. "Remove animations" or battery saver).
+ */
+@Composable
+fun LoadingSpinner(
+    modifier: Modifier = Modifier,
+    color: Color = LocalContentColor.current,
+    strokeWidth: Dp = 2.dp,
+) {
+    var angle by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        var lastNanos = 0L
+        while (true) {
+            withFrameNanos { now ->
+                if (lastNanos != 0L) {
+                    val dtSeconds = (now - lastNanos) / 1_000_000_000f
+                    angle = (angle + dtSeconds * 360f / 0.9f) % 360f
+                }
+                lastNanos = now
+            }
+        }
+    }
+    Canvas(modifier) {
+        val strokePx = strokeWidth.toPx()
+        val inset = strokePx / 2f
+        val diameter = (minOf(size.width, size.height) - strokePx).coerceAtLeast(0f)
+        drawArc(
+            color = color,
+            startAngle = angle,
+            sweepAngle = 270f,
+            useCenter = false,
+            topLeft = Offset(inset + (size.width - strokePx - diameter) / 2f, inset + (size.height - strokePx - diameter) / 2f),
+            size = Size(diameter, diameter),
+            style = Stroke(width = strokePx, cap = StrokeCap.Round),
         )
     }
 }

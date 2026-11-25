@@ -1,10 +1,14 @@
 package com.kalai73.lifemapp.widgets.widget.common
 
 import android.content.Context
+import android.content.res.ColorStateList
+import android.os.Build
+import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -17,11 +21,12 @@ import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.action.Action
 import androidx.glance.action.clickable
-import androidx.glance.appwidget.CircularProgressIndicator
+import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
+import androidx.glance.color.DayNightColorProvider
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
@@ -261,6 +266,29 @@ fun HeaderButton(
 }
 
 @Composable
+fun WidgetSpinner(size: Dp, color: ColorProvider) {
+    val context = LocalContext.current
+    val rv = RemoteViews(context.packageName, R.layout.lm_widget_spinner)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (color is DayNightColorProvider) {
+            rv.setColorStateList(
+                R.id.lm_spinner,
+                "setIndeterminateTintList",
+                ColorStateList.valueOf(color.day.toArgb()),
+                ColorStateList.valueOf(color.night.toArgb()),
+            )
+        } else {
+            rv.setColorStateList(
+                R.id.lm_spinner,
+                "setIndeterminateTintList",
+                ColorStateList.valueOf(color.getColor(context).toArgb()),
+            )
+        }
+    }
+    AndroidRemoteViews(rv, modifier = GlanceModifier.size(size))
+}
+
+@Composable
 fun ReloadButton(ui: WidgetUi, primary: Boolean = false) {
     val description = LocalContext.current.getString(R.string.reload)
     val pd = LocalPd.current
@@ -269,7 +297,7 @@ fun ReloadButton(ui: WidgetUi, primary: Boolean = false) {
     val tint = if (primary && pd != null) pd.on else GlanceTheme.colors.primary
     HeaderButton(LucideIcons.RELOAD, description, actionRunCallback<ReloadAction>(), primary = primary) {
         if (ui.syncing) {
-            CircularProgressIndicator(modifier = GlanceModifier.size(if (predator) 14.dp else 18.dp), color = tint)
+            WidgetSpinner(size = if (predator) 14.dp else 18.dp, color = tint)
         } else {
             Icon(LucideIcons.RELOAD, description, size = if (predator) 15.dp else 18.dp, tint = tint)
         }

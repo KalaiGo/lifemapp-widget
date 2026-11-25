@@ -479,7 +479,7 @@ private fun FeedStream(vm: SidePanelViewModel, feeds: FeedState) {
         Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             ScopeButton(t.s(title), stringResource(R.string.panel_feeds_scope, title), Modifier.weight(1f)) { vm.showPane(PanelPane.SIDEBAR) }
             Spacer(Modifier.width(4.dp))
-            if (feeds.syncingFeedId != null) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = t.accent)
+            if (feeds.syncingFeedId != null) com.kalai73.lifemapp.widgets.core.designsystem.LoadingSpinner(Modifier.size(16.dp), color = t.accent, strokeWidth = 2.dp)
             else PanelIconButton(LucideIcons.RELOAD, stringResource(R.string.panel_feeds_refresh)) { vm.refreshFeeds() }
             Box {
                 PanelIconButton(LucideIcons.MARK_ALL_READ, stringResource(R.string.panel_feeds_mark_all_read)) { menu = true }
