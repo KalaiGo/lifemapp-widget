@@ -17,9 +17,11 @@ import com.kalai73.lifemapp.widgets.core.data.api.FeedRequestException
 import com.kalai73.lifemapp.widgets.core.data.api.LinksApi
 import com.kalai73.lifemapp.widgets.core.data.repository.FeedState
 import com.kalai73.lifemapp.widgets.core.data.repository.ItemText
+import com.kalai73.lifemapp.widgets.core.model.CustomTag
 import com.kalai73.lifemapp.widgets.core.model.Feed
 import com.kalai73.lifemapp.widgets.core.model.FeedFilter
 import com.kalai73.lifemapp.widgets.core.model.PlanLimits
+import com.kalai73.lifemapp.widgets.core.presentation.panel.ItemTags
 import com.kalai73.lifemapp.widgets.core.presentation.panel.LinkExtractor
 import com.kalai73.lifemapp.widgets.core.presentation.panel.PanelScope
 import com.kalai73.lifemapp.widgets.core.presentation.panel.PanelSort
@@ -84,7 +86,7 @@ class SidePanelViewModel(app: Application) : AndroidViewModel(app) {
     fun messageShown() { _message.value = null }
 
     private val limits = MutableStateFlow(PlanLimits.forTier("basic"))
-    private val customTags = MutableStateFlow<Map<String, String>>(emptyMap())
+    private val customTags = MutableStateFlow<List<CustomTag>>(emptyList())
     private val titles = MutableStateFlow<Map<String, String>>(emptyMap())
     /** URLs already sent to /api/links/titles, so each is asked once per session */
     private val askedTitles = mutableSetOf<String>()
@@ -93,7 +95,15 @@ class SidePanelViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             combine(graph.cache.state, graph.widgetInvalidations, limits, customTags, titles) { cache, _, limits, tags, titles ->
                 val key = runCatching { graph.secrets.read().dataKey }.getOrNull()
-                SidePanelPresenter.present(cache.snapshot, key, limits, tags, titles)
+                val effectiveTags = cache.customTags.ifEmpty { tags }
+                SidePanelPresenter.present(
+                    snapshot = cache.snapshot,
+                    dataKey = key,
+                    limits = limits,
+                    customTags = effectiveTags.associate { it.id to it.name },
+                    titles = titles,
+                    customTagList = effectiveTags,
+                )
             }.collect { ui ->
                 _panel.value = ui
                 fetchTitles(ui)
@@ -129,6 +139,13 @@ class SidePanelViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun close() = _state.update { it.copy(open = false) }
+
+    fun saveTags(itemId: String, ownTags: List<String>) {
+        viewModelScope.launch {
+            runCatching { graph.items.saveItemTags(itemId, ownTags) }
+                .onFailure { _message.value = getApplication<Application>().getString(R.string.panel_save_failed) }
+        }
+    }
 
     fun setMode(mode: PanelMode) {
         _state.update {

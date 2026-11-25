@@ -78,6 +78,8 @@ fun MonthlyScreen(
     onToggleItem: (String, Boolean) -> Unit,
     /** Topic id and the collapsed state to switch to */
     onToggleTopic: (String, Boolean) -> Unit,
+    onSaveItemTags: (String, List<String>, List<String>) -> Unit = { _, _, _ -> },
+    onSaveTopicTags: (String, List<String>) -> Unit = { _, _ -> },
     /** Scoring section: hide or show one domain on Monthly */
     onToggleDomainHidden: (String) -> Unit,
     /** Scoring section: hide (true) or show every hidable domain (11–19) */
@@ -104,7 +106,12 @@ fun MonthlyScreen(
     listState: LazyListState = rememberLazyListState(),
 ) {
     val t = rememberTokens()
-    val itemHandlers = ItemHandlers(onLoadItemText, onSaveItem, onDeleteItem, onMoveItem, onSetItemWarning, onLoadItemImage, onToggleItem)
+    val itemHandlers = ItemHandlers(
+        onLoadItemText, onSaveItem, onDeleteItem, onMoveItem, onSetItemWarning, onLoadItemImage, onToggleItem,
+        nav = remember(ui) { editorItems(listOfNotNull(ui.integrity, ui.trayectory?.domain) + ui.monthlyDomains.sortedBy { it.position } + listOfNotNull(ui.trayectory?.embeddedTenacity)) },
+        saveTags = onSaveItemTags,
+        saveTopicTags = onSaveTopicTags,
+    )
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
     val openLink: (String) -> Unit = { url ->
@@ -187,8 +194,9 @@ fun MonthlyScreen(
             item,
             focusTitle = false,
             loadText = itemHandlers.loadText,
-            onSave = { name, html -> itemHandlers.save(item.id, name, html); close() },
-            onDelete = { itemHandlers.delete(item.id); close() },
+            nav = itemHandlers.nav,
+            onSave = { id, name, html -> itemHandlers.save(id, name, html); close() },
+            onDelete = { id -> itemHandlers.delete(id); close() },
             onDismiss = close,
             autoFocus = false,
         )

@@ -6,11 +6,13 @@ import com.kalai73.lifemapp.widgets.core.data.api.ServerException
 import com.kalai73.lifemapp.widgets.core.data.cache.CacheStore
 import com.kalai73.lifemapp.widgets.core.data.content.ImageContent
 import com.kalai73.lifemapp.widgets.core.data.content.ItemHtml
+import com.kalai73.lifemapp.widgets.core.model.CustomTag
 import com.kalai73.lifemapp.widgets.core.model.Integrity
 import com.kalai73.lifemapp.widgets.core.model.PlanLimits
 import com.kalai73.lifemapp.widgets.core.model.Topic
 import com.kalai73.lifemapp.widgets.core.model.TopicItem
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -196,6 +198,12 @@ class ItemRepository(
         }
     }
 
+    /** Replaces an item's own tags, those on top of its topic's (the web route also keeps the legacy `tag` column). */
+    suspend fun saveTags(itemId: String, tags: List<String>) {
+        api.updateItem(itemId, buildJsonObject { put("tags", JsonArray(tags.map(::JsonPrimitive))) })
+        mapItem(itemId) { it.copy(tags = tags) }
+    }
+
     /**
      * Renames a topic (subdomain), encrypted like an item name when the account is (subdomain-store.ts).
      * @return false when the account is encrypted and this device isn't unlocked
@@ -249,16 +257,103 @@ class ItemRepository(
         }
     }
 
-    /** The user's own tags as id → name; empty when they can't be read (chips then show the built-in tags only). */
-    suspend fun customTags(): Map<String, String> {
-        val user = userId() ?: return emptyMap()
+    /** The user's own context tags; empty when they can't be read. */
+    suspend fun customTags(): List<CustomTag> {
+        val user = userId() ?: return emptyList()
         return try {
-            api.customTags(user)
+            api.customTags(user).also { fresh ->
+                cache.update { it.copy(customTags = fresh) }
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            emptyMap()
+            cache.current().customTags
         }
+    }
+
+    /** Switches the local context tag filter of the Today and Monthly screens ("all" or a tag id). */
+    suspend fun setActiveTag(tag: String) {
+        cache.update { it.copy(activeTag = tag) }
+    }
+
+    /** Saves the user's custom tags list (preferences.custom_tags) with optimistic cache update and rollback. */
+    suspend fun saveCustomTags(tags: List<CustomTag>) {
+        val user = userId() ?: return
+        val previous = cache.current().customTags
+        cache.update { it.copy(customTags = tags) }
+        try {
+            api.saveCustomTags(user, tags)
+        } catch (e: Exception) {
+            cache.update { it.copy(customTags = previous) }
+            throw e
+        }
+    }
+
+    /**
+     * Updates a topic's (subdomain's) context tags (`PUT /api/subdomains/{id}`), never empty (defaults to `["me"]`).
+     * Optimistically updates the cache and rolls back on failure.
+     */
+    suspend fun saveTopicTags(topicId: String, tags: List<String>) {
+        val normalized = tags.distinct().ifEmpty { listOf("me") }
+        val previous = findTopic(topicId)?.tags
+        mapTopic(topicId) { it.copy(tags = normalized) }
+        try {
+            api.updateTopic(topicId, buildJsonObject {
+                put("tags", JsonArray(normalized.map(::JsonPrimitive)))
+            })
+        } catch (e: Exception) {
+            if (previous != null) mapTopic(topicId) { it.copy(tags = previous) }
+            throw e
+        }
+    }
+
+    /**
+     * Updates an item's (subsubdomain's) own context tags (`PUT /api/subsubdomains/{id}`), on top of its topic's.
+     * Optimistically updates the cache and rolls back on failure.
+     */
+    suspend fun saveItemTags(itemId: String, ownTags: List<String>) {
+        val normalized = ownTags.distinct()
+        val previous = findItem(itemId)?.tags
+        mapItem(itemId) { it.copy(tags = normalized) }
+        try {
+            api.updateItem(itemId, buildJsonObject {
+                put("tags", JsonArray(normalized.map(::JsonPrimitive)))
+            })
+        } catch (e: Exception) {
+            if (previous != null) mapItem(itemId) { it.copy(tags = previous) }
+            throw e
+        }
+    }
+
+    /**
+     * Deletes a user-created tag from settings and strips it from every topic (falling back to `["me"]`) and item
+     * carrying it, matching the web's `tag-manager-dialog.tsx deleteCustomTag`. Task labels stay as plain labels.
+     */
+    suspend fun deleteCustomTag(tagId: String) {
+        val current = cache.current()
+        val nextTags = current.customTags.filterNot { it.id == tagId }
+        saveCustomTags(nextTags)
+        if (current.activeTag == tagId) {
+            cache.update { it.copy(activeTag = CustomTag.TAG_ALL) }
+        }
+        val snapshot = cache.current().snapshot ?: return
+        val allCards = (listOfNotNull(snapshot.integrity) + snapshot.todayDomains + snapshot.monthlyDomains)
+        val affectedTopics = allCards.flatMap { it.topics }.distinctBy { it.id }.filter { tagId in it.tags }
+        val affectedItems = allCards.flatMap { it.topics }.flatMap { it.items }.distinctBy { it.id }.filter { tagId in it.tags }
+        for (topic in affectedTopics) {
+            val remaining = topic.tags.filterNot { it == tagId }.ifEmpty { listOf("me") }
+            runCatching { saveTopicTags(topic.id, remaining) }
+        }
+        for (item in affectedItems) {
+            val remaining = item.tags.filterNot { it == tagId }
+            runCatching { saveItemTags(item.id, remaining) }
+        }
+    }
+
+    private suspend fun findTopic(topicId: String): Topic? {
+        val snapshot = cache.current().snapshot ?: return null
+        return (listOfNotNull(snapshot.integrity) + snapshot.todayDomains + snapshot.monthlyDomains)
+            .asSequence().flatMap { it.topics }.firstOrNull { it.id == topicId }
     }
 
     private suspend fun findItem(itemId: String): TopicItem? {

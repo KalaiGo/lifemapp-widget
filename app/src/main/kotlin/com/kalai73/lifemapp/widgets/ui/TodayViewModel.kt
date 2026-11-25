@@ -9,15 +9,18 @@ import com.kalai73.lifemapp.widgets.core.data.repository.ItemText
 import com.kalai73.lifemapp.widgets.core.data.repository.TaskText
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.CachedState
+import com.kalai73.lifemapp.widgets.core.model.CustomTag
 import com.kalai73.lifemapp.widgets.core.model.DashboardTab
 import com.kalai73.lifemapp.widgets.core.presentation.BusinessPresenter
 import com.kalai73.lifemapp.widgets.core.presentation.MonthlyPresenter
 import com.kalai73.lifemapp.widgets.core.presentation.MonthlyUi
 import com.kalai73.lifemapp.widgets.core.presentation.WidgetPresenter
 import com.kalai73.lifemapp.widgets.core.presentation.WidgetUi
+import com.kalai73.lifemapp.widgets.core.presentation.panel.ItemTags
 import com.kalai73.lifemapp.widgets.widget.DeepLink
 import com.kalai73.lifemapp.widgets.widget.sync.SyncScheduler
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -90,7 +93,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun presentToday(): WidgetUi {
         val secrets = runCatching { graph.secrets.read() }.getOrNull()
         val auth = if (secrets?.session != null) AuthState.SIGNED_IN else AuthState.SIGNED_OUT
-        return WidgetPresenter.present(graph.cache.current(), auth, secrets?.dataKey)
+        return WidgetPresenter.present(graph.cache.current(), auth, secrets?.dataKey, applyTagFilter = true)
     }
 
     private suspend fun presentMonthly(): MonthlyUi {
@@ -170,16 +173,35 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun loadTaskText(taskId: String): TaskText = graph.tasks.loadText(taskId)
 
     /**
-     * Saves a task's new [title] and/or [html] description (null keeps it) on the server and in the cached
+     * Saves a task's new [title], [html] description, and/or [labels] (null keeps each) on the server and in the cached
      * snapshot, encrypted when the account is.
      */
-    fun saveTask(taskId: String, title: String?, html: String?) {
+    fun saveTask(taskId: String, title: String?, html: String?, labels: List<String>? = null) {
         if (title != null && title.isBlank()) return
-        if (title == null && html == null) return
+        if (title == null && html == null && labels == null) return
         run {
-            if (!graph.tasks.saveText(taskId, title, html, encrypted)) fail(R.string.error_task_locked)
+            if (!graph.tasks.saveText(taskId, title, html, encrypted, labels)) fail(R.string.error_task_locked)
         }
     }
+
+    // ── Context tags ─────────────────────────────────────────────────────────
+
+    /** Switches the active context tag filter shared by Today and Monthly ("all", "me", "work", "family", or "c-…"). */
+    fun setActiveTag(tag: String) {
+        viewModelScope.launch { graph.items.setActiveTag(ItemTags.normalizeTagFilter(tag)) }
+    }
+
+    fun saveTopicTags(topicId: String, tags: List<String>) =
+        toggle { graph.items.saveTopicTags(topicId, ItemTags.topicTags(tags)) }
+
+    fun saveItemTags(itemId: String, topicTags: List<String>, picked: List<String>) =
+        toggle { graph.items.saveItemTags(itemId, ItemTags.itemTagsToStore(topicTags, picked)) }
+
+    fun saveCustomTags(tags: List<CustomTag>) =
+        toggle { graph.items.saveCustomTags(ItemTags.normalizeCustomTags(tags)) }
+
+    fun deleteCustomTag(tagId: String) =
+        toggle { graph.items.deleteCustomTag(tagId) }
 
     // ── Items and topics ─────────────────────────────────────────────────────
 
@@ -201,6 +223,36 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         run {
             if (!graph.items.save(itemId, name, html, encrypted)) fail(R.string.error_item_locked)
         }
+    }
+
+    /** What the item editor needs beside the texts: saves that report back, tags and the reminder. */
+    internal val itemEditing = object : ItemEditing {
+        private val customTags = MutableStateFlow<Map<String, String>>(emptyMap())
+
+        override fun meta(itemId: String): Flow<ItemMeta?> = combine(graph.cache.state, customTags) { state, custom ->
+            val snapshot = state.snapshot ?: return@combine null
+            val names = state.customTags.associate { it.id to it.name }.ifEmpty { custom }
+            // The full domain list first: the Today cards of older servers come without tags and reminders
+            val topics = (snapshot.monthlyDomains + listOfNotNull(snapshot.integrity) + snapshot.todayDomains).asSequence().flatMap { it.topics }
+            topics.firstNotNullOfOrNull { topic -> topic.items.firstOrNull { it.id == itemId }?.let { ItemMeta.of(topic, it, names) } }
+        }
+
+        override suspend fun loadCustomTags() { customTags.value = graph.items.customTags().associate { it.id to it.name } }
+
+        override suspend fun saveNow(itemId: String, name: String?, html: String?): Boolean = try {
+            _error.value = null
+            graph.items.save(itemId, name, html, encrypted).also { if (!it) fail(R.string.error_item_locked) else refreshWidgets() }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            report(e)
+            false
+        }
+
+        override fun saveTags(itemId: String, tags: List<String>) = toggle { graph.items.saveTags(itemId, tags) }
+
+        override fun saveReminder(itemId: String, date: String?, rule: String?, leadDays: Int) =
+            toggle { graph.items.saveReminder(itemId, date, rule, leadDays) }
     }
 
     /** Moves an item one place up or down in its topic (the item menu's Move up / Move down). */

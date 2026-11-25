@@ -5,6 +5,7 @@ import com.kalai73.lifemapp.widgets.core.model.LifeMappJson
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.CachedState
 import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
+import com.kalai73.lifemapp.widgets.core.model.CustomTag
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.model.Integrity
 import com.kalai73.lifemapp.widgets.core.model.MailTag
@@ -15,7 +16,9 @@ import com.kalai73.lifemapp.widgets.core.model.SyncError
 import com.kalai73.lifemapp.widgets.core.model.Task
 import com.kalai73.lifemapp.widgets.core.model.TaskSources
 import com.kalai73.lifemapp.widgets.core.model.ThemeMode
+import com.kalai73.lifemapp.widgets.core.model.TopicItem
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
+import com.kalai73.lifemapp.widgets.core.presentation.panel.ItemTags
 import kotlinx.serialization.builtins.ListSerializer
 import java.text.Collator
 import java.time.Instant
@@ -79,6 +82,10 @@ data class WidgetUi(
     val syncing: Boolean,
     val error: SyncError?,
     val completionFailed: Boolean,
+    /** Selected context tag filter ("all", "me", "work", "family", or custom tag id) */
+    val activeTag: String = CustomTag.TAG_ALL,
+    /** User-created context tags, normalized */
+    val customTags: List<CustomTag> = emptyList(),
 ) {
     companion object {
         val SignedOut = WidgetUi(
@@ -219,6 +226,10 @@ data class TaskUi(
     val descriptionLocked: Boolean = false,
     /** Local due date; [dueLabel] leaves today's date out */
     val dueDate: LocalDate? = null,
+    /** Raw task labels */
+    val labels: List<String> = emptyList(),
+    /** Context tag ids carried as labels on this task (for TagBadges) */
+    val contextTags: List<String> = emptyList(),
 ) {
     val upcoming: Boolean get() = day != DayKind.TODAY
 }
@@ -251,6 +262,8 @@ data class TopicUi(
     val collapsed: Boolean = false,
     val count: Int,
     val items: List<TopicItemUi>,
+    /** Normalized context tags of this topic (never empty; defaults to ["me"]) */
+    val tags: List<String> = listOf(ItemTags.DEFAULT_TAG),
 ) {
     /** Items not listed (beyond the snapshot's cap) */
     val more: Int get() = (count - items.size).coerceAtLeast(0)
@@ -267,6 +280,8 @@ data class TopicItemUi(
     val collapsed: Boolean = false,
     /** The item has text, also when it's encrypted and this device is locked ([content] is null then) */
     val hasContent: Boolean = content != null,
+    /** Own context tags of this item (on top of its topic's) */
+    val tags: List<String> = emptyList(),
 )
 
 /** The web's ScoringCircles on Today: the domains of positions 1–5, the average and the last scoring. */
@@ -322,6 +337,8 @@ object WidgetPresenter {
         dataKey: String?,
         now: Long = System.currentTimeMillis(),
         deviceZone: ZoneId = ZoneId.systemDefault(),
+        /** True on the app's Today screen to apply the context tag filter; false on home screen widgets */
+        applyTagFilter: Boolean = false,
     ): WidgetUi {
         val snapshot = state.snapshot
         if (authState == AuthState.SIGNED_OUT) return WidgetUi.SignedOut.copy(themeMode = state.themeMode)
@@ -348,8 +365,16 @@ object WidgetPresenter {
             )
         }
 
+        val customTags = ItemTags.normalizeCustomTags(state.customTags.ifEmpty { snapshot.settings.customTags })
+        val resolvedFilter = if (applyTagFilter) ItemTags.resolveFilter(state.activeTag, customTags) else null
+        val selectedTag = ItemTags.resolveFilter(state.activeTag, customTags) ?: CustomTag.TAG_ALL
+
         val pending = state.pendingCompletions.keys
         val visibleTasks = snapshot.tasks.filterNot { it.id in pending }
+            .let { list ->
+                if (resolvedFilter == null) list
+                else list.filter { ItemTags.taskTag(it.labels, customTags) == resolvedFilter }
+            }
         // The server counts the Today segment only
         val hiddenCount = snapshot.tasks.count { it.id in pending && it.segment == Task.SEGMENT_TODAY }
 
@@ -383,6 +408,8 @@ object WidgetPresenter {
                 description = (t.description ?: key?.let { EncryptedField.decrypt(t.encryptedDescription, it) })?.takeIf { it.isNotBlank() },
                 descriptionLocked = key == null && !t.encryptedDescription.isNullOrBlank(),
                 dueDate = due,
+                labels = t.labels,
+                contextTags = ItemTags.taskContextTags(t.labels, customTags),
             )
         }
             // Segments in order (Today, Tomorrow, Tomorrow ++ 1); the server's order within each is kept
@@ -437,11 +464,14 @@ object WidgetPresenter {
 
         val unit = if (snapshot.weather?.unit == "fahrenheit") "°F" else "°C"
 
-        val integrityUi = snapshot.integrity?.let { integrity(it, key) }
-        val todayDomainsUi = snapshot.todayDomains.map { integrity(it, key) }
-        val scoring = scoring(state.scoring, listOfNotNull(integrityUi) + todayDomainsUi, encryption, today, deviceZone)
+        val integrityUi = snapshot.integrity?.let { integrity(it, key, resolvedFilter) }
+        val todayDomainsAllUi = snapshot.todayDomains.map { integrity(it, key, resolvedFilter) }
+        val scoring = scoring(state.scoring, listOfNotNull(integrityUi) + todayDomainsAllUi, encryption, today, deviceZone)
             ?.copy(businessAverage = businessAverage(state.scoring, key))
         val hiddenIds = scoring?.domains?.filter { it.hidden }?.map { it.id }?.toSet().orEmpty()
+        val todayDomainsUi = if (resolvedFilter == null) todayDomainsAllUi else snapshot.todayDomains
+            .filter { domainVisibleForTag(it, resolvedFilter) }
+            .map { integrity(it, key, resolvedFilter) }
 
         return WidgetUi(
             authState = authState,
@@ -465,9 +495,12 @@ object WidgetPresenter {
             },
             tasksCount = run {
                 val listedToday = tasks.count { it.day == DayKind.TODAY }
-                // As for events: the server's count covers tasks beyond the list cap, but only for the day it was made
-                val counted = (snapshot.counts.tasks - hiddenCount).coerceAtLeast(0)
-                if (snapshot.today == today.toString()) maxOf(listedToday, counted) else listedToday
+                if (resolvedFilter != null) listedToday
+                else {
+                    // As for events: the server's count covers tasks beyond the list cap, but only for the day it was made
+                    val counted = (snapshot.counts.tasks - hiddenCount).coerceAtLeast(0)
+                    if (snapshot.today == today.toString()) maxOf(listedToday, counted) else listedToday
+                }
             },
             mailCount = snapshot.counts.mail,
             mailConnected = snapshot.counts.mailConnected,
@@ -511,6 +544,8 @@ object WidgetPresenter {
             syncing = state.isSyncing(now),
             error = state.lastError,
             completionFailed = state.completionFailed,
+            activeTag = selectedTag,
+            customTags = customTags,
         )
     }
 
@@ -684,7 +719,16 @@ object WidgetPresenter {
     internal fun renamedDefault(position: Int, name: String?): String? =
         name?.let { RENAMED_DEFAULTS[position]?.get(it.trim().uppercase()) ?: it }
 
-    internal fun integrity(i: Integrity, key: String?): IntegrityUi {
+    /** Whether a domain stays visible under [activeTag] (domains-list.tsx: Integrity always stays; empty domains count as "me"). */
+    internal fun domainVisibleForTag(domain: Integrity, activeTag: String?): Boolean {
+        if (activeTag == null || domain.position == 1) return true
+        if (domain.topics.isEmpty()) return activeTag == ItemTags.DEFAULT_TAG
+        return domain.topics.any { topic ->
+            ItemTags.isTopicVisibleForTag(topic.tags, topic.items, TopicItem::tags, activeTag)
+        }
+    }
+
+    internal fun integrity(i: Integrity, key: String?, activeTag: String? = null): IntegrityUi {
         fun text(plain: String?, encrypted: String?): String? =
             if (encrypted != null) key?.let { EncryptedField.decrypt(encrypted, it) } else plain
         val rating = if (i.encryptedRating != null) key?.let { EncryptedField.decrypt(i.encryptedRating, it) }?.toDoubleOrNull()
@@ -695,23 +739,29 @@ object WidgetPresenter {
             name = renamedDefault(i.position, text(i.name, i.encryptedName)),
             infoBox = text(i.infoBox, i.encryptedInfoBox)?.takeIf { it.isNotBlank() },
             rating = rating?.roundToInt()?.coerceIn(0, 10),
-            topics = i.topics.mapIndexed { index, t ->
+            topics = i.topics.mapIndexedNotNull { index, t ->
+                if (activeTag != null && !t.reminders && !ItemTags.isTopicVisibleForTag(t.tags, t.items, TopicItem::tags, activeTag)) {
+                    return@mapIndexedNotNull null
+                }
+                val visibleItems = if (activeTag == null) t.items else ItemTags.filterItemsByTag(t.tags, t.items, TopicItem::tags, activeTag)
                 TopicUi(
                     id = t.id,
                     number = index + 1,
                     name = text(t.name, t.encryptedName),
                     reminders = t.reminders,
                     collapsed = t.collapsed && !t.reminders,
-                    count = maxOf(t.count, t.items.size),
-                    items = t.items.map { item ->
+                    count = if (activeTag != null) visibleItems.size else maxOf(t.count, t.items.size),
+                    items = visibleItems.map { item ->
                         val content = text(item.content, item.encryptedContent)?.takeIf { it.isNotBlank() }
                         TopicItemUi(
                             item.id, text(item.name, item.encryptedName), item.warning, item.isImage,
                             content = content,
                             collapsed = item.collapsed,
                             hasContent = content != null || (!item.isImage && !item.encryptedContent.isNullOrBlank()),
+                            tags = ItemTags.itemTags(item.tags),
                         )
                     },
+                    tags = ItemTags.topicTags(t.tags),
                 )
             },
             warnings = i.warnings,

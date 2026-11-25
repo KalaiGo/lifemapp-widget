@@ -86,6 +86,8 @@ object LucideIcons {
         "lightbulb" to R.drawable.lm_ic_lightbulb,
         "pencil" to R.drawable.lm_ic_pencil,
         "flag" to R.drawable.lm_ic_flag,
+        "layers" to R.drawable.lm_ic_layers,
+        "tag" to R.drawable.lm_ic_tag,
     )
 
     /** lucide-react names (kebab-cased) drawn with a close match */
@@ -206,6 +208,7 @@ object LucideIcons {
     val INBOX = R.drawable.lm_ic_inbox
     val CLOCK = R.drawable.lm_ic_clock
     val CHEVRON_DOWN = R.drawable.lm_ic_chevron_down
+    val CHEVRON_LEFT = R.drawable.lm_ic_chevron_left
     val CHEVRON_RIGHT = R.drawable.lm_ic_chevron_right
     val FOLDER = R.drawable.lm_ic_folder
     val SMARTPHONE = R.drawable.lm_ic_smartphone
@@ -235,6 +238,12 @@ object LucideIcons {
     val BULLET_LIST = R.drawable.lm_ic_list
     val PALETTE = R.drawable.lm_ic_palette
     val CLEAR_FORMATTING = R.drawable.lm_ic_remove_formatting
+    val TYPE = R.drawable.lm_ic_type
+    val HIGHLIGHTER = R.drawable.lm_ic_highlighter
+    val PAINTBRUSH = R.drawable.lm_ic_paintbrush
+    val HEADING = R.drawable.lm_ic_heading
+    val ALIGN_CENTER = R.drawable.lm_ic_align_center
+    val ALIGN_RIGHT = R.drawable.lm_ic_align_right
 
     // The web's item editor modal (subsubdomain-editor-modal.tsx)
     val MAXIMIZE = R.drawable.lm_ic_maximize_2
@@ -259,7 +268,10 @@ object LucideIcons {
     val HISTORY = R.drawable.lm_ic_history
     val CIRCLE_ALERT = R.drawable.lm_ic_circle_alert
     val USER = R.drawable.lm_ic_user
+    val USERS = R.drawable.lm_ic_users
     val BRIEFCASE = R.drawable.lm_ic_briefcase
+    val LAYERS = R.drawable.lm_ic_layers
+    val TAG = R.drawable.lm_ic_tag
 
     // The side panel (LinksStreamModeToggle, FeedSidebar, FeedStream)
     val RSS = R.drawable.lm_ic_rss

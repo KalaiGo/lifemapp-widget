@@ -3,11 +3,14 @@ package com.kalai73.lifemapp.widgets.core.presentation
 import com.kalai73.lifemapp.widgets.core.crypto.EncryptedField
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.CachedState
+import com.kalai73.lifemapp.widgets.core.model.CustomTag
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.model.Integrity
 import com.kalai73.lifemapp.widgets.core.model.Scoring
 import com.kalai73.lifemapp.widgets.core.model.ScoringDomain
+import com.kalai73.lifemapp.widgets.core.model.Task
 import com.kalai73.lifemapp.widgets.core.model.UiStyle
+import com.kalai73.lifemapp.widgets.core.presentation.panel.ItemTags
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -65,12 +68,17 @@ object MonthlyPresenter {
             )
         }
 
+        val customTags = ItemTags.normalizeCustomTags(state.customTags.ifEmpty { snapshot.settings.customTags })
+        val resolvedFilter = ItemTags.resolveFilter(state.activeTag, customTags)
+        val selectedTag = resolvedFilter ?: CustomTag.TAG_ALL
+
         // Domain sources:
         // Integrity: position 1
         // Tenacity: position 5 (for embedding in Trayectory 10)
         // Trayectory: position 10
         // Monthly domains: positions 11..19
-        val allDomains = (listOfNotNull(snapshot.integrity) + snapshot.todayDomains + snapshot.monthlyDomains)
+        // Prefer monthlyDomains (full DomainsApi rows with tags) when available
+        val allDomains = (snapshot.monthlyDomains + listOfNotNull(snapshot.integrity) + snapshot.todayDomains)
             .distinctBy { it.position }
 
         val integrityRaw = allDomains.firstOrNull { it.position == 1 }
@@ -78,9 +86,14 @@ object MonthlyPresenter {
         val trayectoryRaw = allDomains.firstOrNull { it.position == 10 }
         val otherMonthlyRaw = allDomains.filter { it.position in 11..19 }
 
-        val integrityUi = integrityRaw?.let { WidgetPresenter.integrity(it, key) }
-        val tenacityUi = tenacityRaw?.let { WidgetPresenter.integrity(it, key) }
-        val trayectoryUiCard = trayectoryRaw?.let { WidgetPresenter.integrity(it, key) }
+        val integrityUi = integrityRaw?.let { WidgetPresenter.integrity(it, key, resolvedFilter) }
+        val tenacityUi = tenacityRaw
+            ?.takeIf { WidgetPresenter.domainVisibleForTag(it, resolvedFilter) }
+            ?.let { WidgetPresenter.integrity(it, key, resolvedFilter) }
+        val trayectoryVisible = trayectoryRaw != null && (
+            WidgetPresenter.domainVisibleForTag(trayectoryRaw, resolvedFilter) || tenacityUi != null
+            )
+        val trayectoryUiCard = if (trayectoryVisible) WidgetPresenter.integrity(trayectoryRaw, key, resolvedFilter) else null
 
         val trayectoryUi = trayectoryUiCard?.let {
             TrayectoryUi(
@@ -89,7 +102,7 @@ object MonthlyPresenter {
             )
         }
 
-        // Monthly scoring: positions 10..19
+        // Monthly scoring: positions 10..19 (unfiltered so scoring circles always show every monthly domain)
         val scoringMonthlyRaw = (listOfNotNull(trayectoryRaw) + otherMonthlyRaw).sortedBy { it.position }
         val scoringMonthlyUi = scoringMonthlyRaw.map { WidgetPresenter.integrity(it, key) }
         val scoring = scoring(state.scoring, scoringMonthlyUi, encryption, today, zone)
@@ -97,9 +110,19 @@ object MonthlyPresenter {
 
         val hiddenIds = scoring?.domains?.filter { it.hidden }?.map { it.id }?.toSet().orEmpty()
 
-        val otherMonthlyUi = otherMonthlyRaw.map { WidgetPresenter.integrity(it, key) }
+        val otherMonthlyUi = otherMonthlyRaw
+            .filter { WidgetPresenter.domainVisibleForTag(it, resolvedFilter) }
+            .map { WidgetPresenter.integrity(it, key, resolvedFilter) }
         val visibleMonthly = otherMonthlyUi.filterNot { it.domainId in hiddenIds }
         val hiddenMonthly = otherMonthlyUi.filter { it.domainId in hiddenIds }
+
+        val pending = state.pendingCompletions.keys
+        val tasksCount = if (resolvedFilter == null) snapshot.counts.tasks
+        else snapshot.tasks.count { t ->
+            t.id !in pending &&
+                ItemTags.taskTag(t.labels, customTags) == resolvedFilter &&
+                WidgetPresenter.taskDay(t.segment, t.dueDate?.let(LocalDate::parse), today) == DayKind.TODAY
+        }
 
         return MonthlyUi(
             authState = authState,
@@ -113,7 +136,7 @@ object MonthlyPresenter {
             todayLabel = DateLabels.dayAndDate(today, DateLabels.DATE_FORMAT, language),
             today = today,
             eventsCount = snapshot.counts.events,
-            tasksCount = snapshot.counts.tasks,
+            tasksCount = tasksCount,
             mailCount = snapshot.counts.mail,
             mailConnected = snapshot.counts.mailConnected,
             mailUrl = snapshot.mail.inboxUrl,
@@ -128,6 +151,8 @@ object MonthlyPresenter {
             stale = state.lastSuccessAt > 0 && now - state.lastSuccessAt > WidgetPresenter.STALE_AFTER_MS,
             syncing = state.isSyncing(now),
             error = state.lastError,
+            activeTag = selectedTag,
+            customTags = customTags,
         )
     }
 

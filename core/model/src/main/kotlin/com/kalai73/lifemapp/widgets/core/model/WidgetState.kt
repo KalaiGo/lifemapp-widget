@@ -28,6 +28,10 @@ data class CachedState(
     val colorSchemeOverride: String? = null,
     /** The Today screen's scoring section state (hidden domains, last scoring); null until first read */
     val scoring: Scoring? = null,
+    /** Active context tag filter of the Today and Monthly screens ("all", "me", "work", "family", or "c-…") */
+    val activeTag: String = CustomTag.TAG_ALL,
+    /** User-created context tags (synced from lm_user_settings.preferences.custom_tags) */
+    val customTags: List<CustomTag> = emptyList(),
 ) {
     /** The scheme the app and widgets use: this device's choice, else the web's, else the default. */
     val colorScheme: ColorSchemeName

@@ -27,6 +27,7 @@ data class StoredTaskContent(
     val encryptedTitle: String?,
     val description: String?,
     val encryptedDescription: String?,
+    val labels: List<String> = emptyList(),
 )
 
 /** A life domain's stored rating: [rating], or (end-to-end encrypted) [encryptedRating] with the column at 0. */

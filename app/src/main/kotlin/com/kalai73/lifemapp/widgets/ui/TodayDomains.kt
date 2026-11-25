@@ -71,6 +71,10 @@ import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
 import com.kalai73.lifemapp.widgets.ui.sidepanel.LocalPanel
 import com.kalai73.lifemapp.widgets.ui.sidepanel.PanelMode
 import com.kalai73.lifemapp.widgets.ui.sidepanel.PanelOpener
+import com.kalai73.lifemapp.widgets.ui.tags.LocalTags
+import com.kalai73.lifemapp.widgets.ui.tags.TagBadges
+import com.kalai73.lifemapp.widgets.ui.tags.TagPickerDialog
+import com.kalai73.lifemapp.widgets.core.presentation.panel.ItemTags
 import androidx.compose.ui.platform.LocalContext
 import com.kalai73.lifemapp.widgets.widget.voice.VoiceInputActivity
 
@@ -142,6 +146,56 @@ internal fun DomainCard(
     val linkCopied = stringResource(R.string.item_link_copied)
     // The item with a dialog open from its long-press menu: the editor (Edit) or the delete confirmation
     var editing by remember { mutableStateOf<Pair<TopicItemUi, ItemAction>?>(null) }
+    var taggingItem by remember { mutableStateOf<Pair<TopicUi, TopicItemUi>?>(null) }
+    var taggingTopic by remember { mutableStateOf<TopicUi?>(null) }
+    val tagEnv = LocalTags.current
+    taggingItem?.let { (topic, item) ->
+        val effective = ItemTags.effective(topic.tags, item.tags)
+        val locked = ItemTags.topicTags(topic.tags)
+        TagPickerDialog(
+            value = effective,
+            locked = locked,
+            required = false,
+            onChange = { picked ->
+                items.saveTags(item.id, topic.tags, picked)
+                taggingItem = topic to item.copy(tags = ItemTags.itemTagsToStore(topic.tags, picked))
+            },
+            onOpenManager = {
+                taggingItem = null
+                tagEnv.onOpenManager { created ->
+                    items.saveTags(item.id, topic.tags, effective + created)
+                }
+            },
+            onEditTags = {
+                taggingItem = null
+                tagEnv.onOpenManager(null)
+            },
+            onDismiss = { taggingItem = null },
+        )
+    }
+    taggingTopic?.let { topic ->
+        TagPickerDialog(
+            value = topic.tags,
+            locked = emptyList(),
+            required = true,
+            onChange = { picked ->
+                val next = ItemTags.topicTags(picked)
+                items.saveTopicTags(topic.id, next)
+                taggingTopic = topic.copy(tags = next)
+            },
+            onOpenManager = {
+                taggingTopic = null
+                tagEnv.onOpenManager { created ->
+                    items.saveTopicTags(topic.id, ItemTags.topicTags(topic.tags + created))
+                }
+            },
+            onEditTags = {
+                taggingTopic = null
+                tagEnv.onOpenManager(null)
+            },
+            onDismiss = { taggingTopic = null },
+        )
+    }
     editing?.let { (item, action) ->
         val close = { editing = null }
         when (action) {
@@ -150,8 +204,9 @@ internal fun DomainCard(
                 item,
                 focusTitle = true,
                 loadText = items.loadText,
-                onSave = { name, html -> items.save(item.id, name, html); close() },
-                onDelete = { items.delete(item.id); close() },
+                nav = items.nav,
+                onSave = { id, name, html -> items.save(id, name, html); close() },
+                onDelete = { id -> items.delete(id); close() },
                 onDismiss = close,
             )
         }
@@ -159,6 +214,7 @@ internal fun DomainCard(
     val onItemAction = { topic: TopicUi, item: TopicItemUi, action: ItemAction ->
         when (action) {
             ItemAction.EDIT, ItemAction.DELETE -> editing = item to action
+            ItemAction.TAGS -> taggingItem = topic to item
             ItemAction.MOVE_UP -> items.move(item.id, topic.id, true)
             ItemAction.MOVE_DOWN -> items.move(item.id, topic.id, false)
             ItemAction.TOGGLE_WARNING -> items.setWarning(item.id, !item.warning)
@@ -217,7 +273,11 @@ internal fun DomainCard(
         integrity.topics.forEach { topic ->
             // The Reception sits right above the Reminders topic, as on the web
             if (topic.reminders) Reception()
-            TopicHeader(topic) { onToggleTopic(topic.id, !topic.collapsed) }
+            TopicHeader(
+                topic,
+                onToggle = { onToggleTopic(topic.id, !topic.collapsed) },
+                onLongPress = if (!topic.reminders) ({ taggingTopic = topic }) else null,
+            )
             // A collapsed topic shows its header only, as on the web card
             if (topic.collapsed && topic.items.isNotEmpty()) return@forEach
             val topicContent: @Composable () -> Unit = {
@@ -418,14 +478,33 @@ private fun ReceptionButton(icon: Int, desc: String, onClick: () -> Unit) {
  * card's chevron does; Reminders (always expanded) and a topic without items have nothing to fold.
  */
 @Composable
-internal fun TopicHeader(topic: TopicUi, onToggle: () -> Unit) {
+internal fun TopicHeader(topic: TopicUi, onToggle: () -> Unit, onLongPress: (() -> Unit)? = null) {
     val t = LocalTok.current
+    val haptics = LocalHapticFeedback.current
     val name = topic.name ?: stringResource(R.string.today_locked)
     val toggles = !topic.reminders && topic.items.isNotEmpty()
     val label = stringResource(if (topic.collapsed) R.string.today_expand else R.string.today_collapse)
+    val tagLabel = stringResource(R.string.tag_label_many)
+    val latestToggle by rememberUpdatedState(onToggle)
+    val latestLongPress by rememberUpdatedState(onLongPress)
     Row(
         Modifier.fillMaxWidth()
-            .let { if (toggles) it.clickable(onClickLabel = label, onClick = onToggle) else it }
+            .let {
+                if (toggles || onLongPress != null) {
+                    it.pointerInput(topic.id, toggles, onLongPress != null) {
+                        detectTapGestures(
+                            onTap = if (toggles) ({ latestToggle() }) else null,
+                            onLongPress = if (onLongPress != null) ({
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                latestLongPress?.invoke()
+                            }) else null,
+                        )
+                    }.semantics {
+                        if (toggles) onClick(label) { latestToggle(); true }
+                        if (onLongPress != null) onLongClick(tagLabel) { latestLongPress?.invoke(); true }
+                    }
+                } else it
+            }
             .padding(top = 20.dp, bottom = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -440,6 +519,9 @@ internal fun TopicHeader(topic: TopicUi, onToggle: () -> Unit) {
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
         )
         if (topic.count > 0) Text("(${topic.count})", style = t.caption(11.sp), modifier = Modifier.padding(start = 6.dp))
+        if (!topic.reminders) {
+            TagBadges(topic.tags, includeMe = false, modifier = Modifier.padding(start = 6.dp))
+        }
     }
 }
 
@@ -532,6 +614,9 @@ internal fun ItemRow(
             if (item.isImage || ImageContent.embedsImage(item.content)) {
                 Spacer(Modifier.width(6.dp))
                 Ic(LucideIcons.IMAGE, 13.dp, t.dim, stringResource(R.string.item_has_image))
+            }
+            if (item.tags.isNotEmpty()) {
+                TagBadges(item.tags, includeMe = true, modifier = Modifier.padding(start = 6.dp))
             }
         }
         ItemMenu(

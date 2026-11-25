@@ -1,5 +1,17 @@
 
 
+
+
+
+ .\gradlew.bat assembleRelease
+
+
+
+
+
+
+
+
 journal
 budget
 

@@ -63,6 +63,7 @@ import com.kalai73.lifemapp.widgets.R
 import com.kalai73.lifemapp.widgets.core.data.content.ItemHtml
 import com.kalai73.lifemapp.widgets.core.data.repository.ItemText
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
+import com.kalai73.lifemapp.widgets.core.presentation.panel.ItemTags
 import com.kalai73.lifemapp.widgets.core.presentation.panel.PanelDomain
 import com.kalai73.lifemapp.widgets.core.presentation.panel.PanelItem
 import com.kalai73.lifemapp.widgets.core.presentation.panel.PanelReminder
@@ -385,12 +386,12 @@ internal fun ReminderChip(reminder: PanelReminder, compact: Boolean) {
 }
 
 /** What the reminder sheet edits: the web's ReminderValue */
-private data class ReminderValue(val date: String?, val rule: String?, val leadDays: Int)
+internal data class ReminderValue(val date: String?, val rule: String?, val leadDays: Int)
 
 /** ReminderPanel as a bottom sheet: quick days, a date, repeat presets and when the task is created. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun ReminderSheet(value: ReminderValue, onChange: (ReminderValue) -> Unit, onDismiss: () -> Unit) {
+internal fun ReminderSheet(value: ReminderValue, onChange: (ReminderValue) -> Unit, onDismiss: () -> Unit) {
     val t = LocalTok.current
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
@@ -574,7 +575,13 @@ internal fun InlineItemEditor(vm: SidePanelViewModel, ui: PanelUi, item: PanelIt
                     vm.saveReminder(item.id, null, null, r.leadDays)
                 }
                 Spacer(Modifier.weight(1f))
-                item.tags.forEach { Text("#${tagLabel(it, ui)}", style = t.caption(10.sp, t.ink)) }
+                val topicTags = ui.topic(item.topicId)?.tags.orEmpty()
+                com.kalai73.lifemapp.widgets.ui.tags.TagPill(
+                    value = item.tags,
+                    locked = topicTags,
+                    disabled = ui.locked,
+                    onChange = { picked -> vm.saveTags(item.id, ItemTags.itemTagsToStore(topicTags, picked)) },
+                )
             }
             when {
                 item.isImage || loaded == ItemText.Image -> Text(stringResource(R.string.item_text_image), style = t.body(12.sp, t.dim))

@@ -40,14 +40,15 @@ class LifeMappGraph private constructor(context: Context) {
     private suspend fun dataKey(): String? = encryption.dataKey()
 
     val scoring = ScoringRepository(api.scoring, cache, userId = ::userId, dataKey = ::dataKey)
+    val items = ItemRepository(api.items, cache, dataKey = ::dataKey, userId = ::userId)
     val snapshots = SnapshotRepository(
         api.snapshots,
         cache,
         scoring = { scoring.load() },
         monthlyDomains = { userId()?.let { api.domains.fetchDomains(it) } },
+        customTags = { userId()?.let { api.items.customTags(it) } },
     )
     val tasks = TaskRepository(api.tasks, cache, userId = ::userId, dataKey = ::dataKey)
-    val items = ItemRepository(api.items, cache, dataKey = ::dataKey, userId = ::userId)
     val voice = VoiceRepository(api.voice, dataKey = ::dataKey)
     val feeds = FeedRepository(api.feeds)
 

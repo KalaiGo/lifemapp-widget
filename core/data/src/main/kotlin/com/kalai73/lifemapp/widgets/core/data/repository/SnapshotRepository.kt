@@ -5,6 +5,7 @@ import com.kalai73.lifemapp.widgets.core.data.api.ServerException
 import com.kalai73.lifemapp.widgets.core.data.auth.NotSignedInException
 import com.kalai73.lifemapp.widgets.core.data.cache.CacheStore
 import com.kalai73.lifemapp.widgets.core.data.secure.DeviceLockedException
+import com.kalai73.lifemapp.widgets.core.model.CustomTag
 import com.kalai73.lifemapp.widgets.core.model.Integrity
 import com.kalai73.lifemapp.widgets.core.model.Scoring
 import com.kalai73.lifemapp.widgets.core.model.Sections
@@ -33,6 +34,8 @@ class SnapshotRepository(
     private val scoring: suspend () -> Scoring? = { null },
     /** The Monthly screen's domains (10–19, and 5 for embed), read alongside the snapshot */
     private val monthlyDomains: suspend () -> List<Integrity>? = { null },
+    /** The user's custom context tags, read when the snapshot didn't include them (older server) */
+    private val customTags: suspend () -> List<CustomTag>? = { null },
 ) {
     suspend fun markSyncing() {
         val now = clock()
@@ -66,7 +69,17 @@ class SnapshotRepository(
                 logFailure(e)
                 null
             }
-            val withMonthly = if (freshMonthly != null) fresh.copy(monthlyDomains = freshMonthly) else fresh
+            val freshCustomTags = fresh.settings.customTags.takeIf { it.isNotEmpty() } ?: try {
+                customTags()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logFailure(e)
+                null
+            }
+            val withMonthly = if (freshMonthly != null) {
+                mergeDomainTags(fresh.copy(monthlyDomains = freshMonthly), freshMonthly)
+            } else fresh
             cache.update { old ->
                 old.copy(
                     snapshot = merge(old.snapshot, withMonthly),
@@ -75,6 +88,7 @@ class SnapshotRepository(
                         hiddenDomainIds = old.scoring?.hiddenDomainIds,
                         businessLastCompleted = old.scoring?.businessLastCompleted,
                     ) ?: old.scoring,
+                    customTags = freshCustomTags ?: old.customTags,
                     lastSuccessAt = clock(),
                     lastError = null,
                     syncing = false,
@@ -119,6 +133,29 @@ class SnapshotRepository(
     companion object {
         /** A checked task stays hidden this long even if the server still lists it (slow providers, retries) */
         const val PENDING_TTL_MS = 10 * 60 * 1000L
+
+        /**
+         * Backfills topic/item tags on [Snapshot.integrity] and [Snapshot.todayDomains] from [domains]
+         * (fetched via DomainsApi) when an older server's widget snapshot didn't include them.
+         */
+        internal fun mergeDomainTags(snapshot: Snapshot, domains: List<Integrity>): Snapshot {
+            val topicTags = domains.flatMap { it.topics }.associate { it.id to it.tags }
+            val itemTags = domains.flatMap { it.topics }.flatMap { it.items }.associate { it.id to it.tags }
+            fun Integrity.backfill(): Integrity = copy(
+                topics = topics.map { topic ->
+                    topic.copy(
+                        tags = topic.tags.ifEmpty { topicTags[topic.id].orEmpty() },
+                        items = topic.items.map { item ->
+                            item.copy(tags = item.tags.ifEmpty { itemTags[item.id].orEmpty() })
+                        },
+                    )
+                },
+            )
+            return snapshot.copy(
+                integrity = snapshot.integrity?.backfill(),
+                todayDomains = snapshot.todayDomains.map { it.backfill() },
+            )
+        }
 
         /** Sections the server failed to load keep their previous values. */
         fun merge(old: Snapshot?, fresh: Snapshot): Snapshot {

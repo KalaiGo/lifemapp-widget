@@ -1,6 +1,7 @@
 package com.kalai73.lifemapp.widgets.core.data.api
 
 import com.kalai73.lifemapp.widgets.core.crypto.EncryptedField
+import com.kalai73.lifemapp.widgets.core.model.CustomTag
 import com.kalai73.lifemapp.widgets.core.model.LifeMappJson
 import com.kalai73.lifemapp.widgets.core.model.PlanLimits
 import io.ktor.client.call.body
@@ -8,6 +9,7 @@ import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
+import io.ktor.client.request.patch
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.readRawBytes
@@ -134,8 +136,8 @@ class ItemsApi internal constructor(client: ApiClient) : ApiArea(client) {
         }
     }
 
-    /** The user's own tags (lm_user_settings.preferences.custom_tags) as id → name, for the panel's tag chips. */
-    suspend fun customTags(userId: String): Map<String, String> {
+    /** The user's own context tags (lm_user_settings.preferences.custom_tags). */
+    suspend fun customTags(userId: String): List<CustomTag> {
         val row = authorized { token ->
             http.get("${config.supabaseUrl}/rest/v1/lm_user_settings") {
                 supabase(token)
@@ -143,13 +145,46 @@ class ItemsApi internal constructor(client: ApiClient) : ApiArea(client) {
                 parameter("user_id", "eq.$userId")
             }
         }.body<JsonArray>().firstOrNull() as? JsonObject
-        val tags = blob(row?.get("preferences"))?.get("custom_tags") as? JsonArray ?: return emptyMap()
+        val tags = blob(row?.get("preferences"))?.get("custom_tags") as? JsonArray ?: return emptyList()
         return tags.mapNotNull { tag ->
             val o = tag as? JsonObject ?: return@mapNotNull null
             val id = text(o["id"]) ?: return@mapNotNull null
             val name = text(o["name"]) ?: return@mapNotNull null
-            id to name
-        }.toMap()
+            val color = text(o["color"])?.takeIf { it in CustomTag.COLORS } ?: CustomTag.DEFAULT_COLOR
+            CustomTag(id = id, name = name, color = color)
+        }
+    }
+
+    /** Saves the user's own context tags into `lm_user_settings.preferences.custom_tags`, keeping all other preferences. */
+    suspend fun saveCustomTags(userId: String, tags: List<CustomTag>) {
+        val row = authorized { token ->
+            http.get("${config.supabaseUrl}/rest/v1/lm_user_settings") {
+                supabase(token)
+                parameter("select", "preferences")
+                parameter("user_id", "eq.$userId")
+            }
+        }.body<JsonArray>().firstOrNull() as? JsonObject
+        val existing = blob(row?.get("preferences")) ?: JsonObject(emptyMap())
+        val encodedTags = JsonArray(
+            tags.map { tag ->
+                JsonObject(
+                    mapOf(
+                        "id" to JsonPrimitive(tag.id),
+                        "name" to JsonPrimitive(tag.name),
+                        "color" to JsonPrimitive(tag.color),
+                    ),
+                )
+            },
+        )
+        val merged = JsonObject(existing.toMutableMap().apply { put("custom_tags", encodedTags) })
+        authorized { token ->
+            http.patch("${config.supabaseUrl}/rest/v1/lm_user_settings") {
+                supabase(token)
+                parameter("user_id", "eq.$userId")
+                contentType(ContentType.Application.Json)
+                setBody(JsonObject(mapOf("preferences" to merged)))
+            }
+        }
     }
 
     /**

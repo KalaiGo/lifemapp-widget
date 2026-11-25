@@ -1,6 +1,7 @@
 package com.kalai73.lifemapp.widgets.core.presentation.panel
 
 import com.kalai73.lifemapp.widgets.core.crypto.EncryptedField
+import com.kalai73.lifemapp.widgets.core.model.CustomTag
 import com.kalai73.lifemapp.widgets.core.model.Integrity
 import com.kalai73.lifemapp.widgets.core.model.PlanLimits
 import com.kalai73.lifemapp.widgets.core.model.Snapshot
@@ -20,6 +21,8 @@ data class PanelUi(
     val encrypted: Boolean = false,
     /** User tags' names by id */
     val customTags: Map<String, String> = emptyMap(),
+    /** Full user-created tags (with colors) */
+    val customTagList: List<CustomTag> = emptyList(),
     val limits: PlanLimits = PlanLimits.forTier("basic"),
 ) {
     val linkCount: Int get() = links.size
@@ -146,8 +149,10 @@ object SidePanelPresenter {
         titles: Map<String, String> = emptyMap(),
         today: LocalDate = LocalDate.now(),
         zone: ZoneId = ZoneId.systemDefault(),
+        customTagList: List<CustomTag> = emptyList(),
     ): PanelUi {
-        snapshot ?: return PanelUi(limits = limits, customTags = customTags)
+        val tagNames = if (customTags.isNotEmpty()) customTags else customTagList.associate { it.id to it.name }
+        snapshot ?: return PanelUi(limits = limits, customTags = tagNames, customTagList = customTagList)
         val encrypted = snapshot.settings.encryptionEnabled
         val source = snapshot.monthlyDomains.ifEmpty { listOfNotNull(snapshot.integrity) + snapshot.todayDomains }
         val cards = source.distinctBy { it.domainId }.filter { it.position < BUSINESS_MIN_POSITION }.sortedBy { it.position }
@@ -158,7 +163,8 @@ object SidePanelPresenter {
             links = links,
             locked = encrypted && dataKey == null,
             encrypted = encrypted,
-            customTags = customTags,
+            customTags = tagNames,
+            customTagList = customTagList,
             limits = limits,
         )
     }

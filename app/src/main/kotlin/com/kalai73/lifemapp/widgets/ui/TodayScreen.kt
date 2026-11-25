@@ -71,8 +71,8 @@ fun TodayScreen(
     onCompleteTask: (String) -> Unit,
     /** A LIFE MAPP task's whole title and description for the task dialog's editor */
     onLoadTaskText: suspend (String) -> TaskText,
-    /** Task id, new title and new HTML description (null keeps either) */
-    onSaveTask: (String, String?, String?) -> Unit,
+    /** Task id, new title, new HTML description, and/or labels (null keeps each) */
+    onSaveTask: (String, String?, String?, List<String>?) -> Unit,
     /** An item's whole text for the edit dialog */
     onLoadItemText: suspend (String) -> ItemText,
     /** Item id, new name and new HTML text (null keeps either) */
@@ -88,6 +88,8 @@ fun TodayScreen(
     onToggleItem: (String, Boolean) -> Unit,
     /** Topic id and the collapsed state to switch to */
     onToggleTopic: (String, Boolean) -> Unit,
+    onSaveItemTags: (String, List<String>, List<String>) -> Unit = { _, _, _ -> },
+    onSaveTopicTags: (String, List<String>) -> Unit = { _, _ -> },
     /** Scoring section: hide or show one domain on Today */
     onToggleDomainHidden: (String) -> Unit,
     /** Scoring section: hide (true) or show every hidable domain */
@@ -114,7 +116,12 @@ fun TodayScreen(
     listState: LazyListState = rememberLazyListState(),
 ) {
     val t = rememberTokens()
-    val itemHandlers = ItemHandlers(onLoadItemText, onSaveItem, onDeleteItem, onMoveItem, onSetItemWarning, onLoadItemImage, onToggleItem)
+    val itemHandlers = ItemHandlers(
+        onLoadItemText, onSaveItem, onDeleteItem, onMoveItem, onSetItemWarning, onLoadItemImage, onToggleItem,
+        nav = remember(ui) { editorItems(listOfNotNull(ui.integrity) + ui.todayDomains.sortedBy { it.position }) },
+        saveTags = onSaveItemTags,
+        saveTopicTags = onSaveTopicTags,
+    )
 
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
@@ -196,8 +203,9 @@ fun TodayScreen(
             item,
             focusTitle = false,
             loadText = itemHandlers.loadText,
-            onSave = { name, html -> itemHandlers.save(item.id, name, html); close() },
-            onDelete = { itemHandlers.delete(item.id); close() },
+            nav = itemHandlers.nav,
+            onSave = { id, name, html -> itemHandlers.save(id, name, html); close() },
+            onDelete = { id -> itemHandlers.delete(id); close() },
             onDismiss = close,
             autoFocus = false,
         )
@@ -237,7 +245,7 @@ fun TodayScreen(
           TaskDetailsDialog(
               task, onCompleteTask,
               loadText = onLoadTaskText,
-              onSave = { title, html -> onSaveTask(task.id, title, html) },
+              onSave = { title, html, labels -> onSaveTask(task.id, title, html, labels) },
           ) { shownEntry = null }
       }
       Box(Modifier.fillMaxWidth()) {

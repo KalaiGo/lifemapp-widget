@@ -226,6 +226,7 @@ fun PdButton(
     busy: Boolean = false,
     slant: Dp = 8.dp,
     palette: PdPalette = LocalPdPalette.current,
+    padding: androidx.compose.foundation.layout.PaddingValues = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 10.dp),
     content: @Composable () -> Unit,
 ) {
     val shape = remember(slant) { pdParallelogramShape(slant) }
@@ -248,7 +249,7 @@ fun PdButton(
                 role = Role.Button,
                 onClick = onClick,
             )
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(padding),
         contentAlignment = Alignment.Center,
     ) {
         if (busy) {

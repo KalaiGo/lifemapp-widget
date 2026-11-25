@@ -74,6 +74,10 @@ import com.kalai73.lifemapp.widgets.core.designsystem.LifeMappColors
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdButton
 import com.kalai73.lifemapp.widgets.core.designsystem.pdPanel
+import com.kalai73.lifemapp.widgets.core.presentation.panel.ItemTags
+import com.kalai73.lifemapp.widgets.ui.tags.LocalTags
+import com.kalai73.lifemapp.widgets.ui.tags.TagBadges
+import com.kalai73.lifemapp.widgets.ui.tags.TaskTagPicker
 
 /** An event or task a widget tap asked the Today screen to show in its details modal. */
 sealed interface TodayEntry {
@@ -137,13 +141,13 @@ internal fun TaskDetailsDialog(
     task: TaskUi,
     onComplete: (String) -> Unit,
     loadText: suspend (String) -> TaskText,
-    /** New title and new HTML description, null keeping either */
-    onSave: (title: String?, html: String?) -> Unit,
+    /** New title, new HTML description, and/or new labels, null keeping each */
+    onSave: (title: String?, html: String?, labels: List<String>?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var editing by remember(task.id) { mutableStateOf(false) }
     if (editing && task.editable) {
-        TaskEditPanel(task, loadText, onSave = { title, html -> onSave(title, html); editing = false }, onCancel = { editing = false }, onDismiss = onDismiss)
+        TaskEditPanel(task, loadText, onSave = { title, html, labels -> onSave(title, html, labels); editing = false }, onCancel = { editing = false }, onDismiss = onDismiss)
     } else {
         TaskReadPanel(task, onComplete, onEdit = if (task.editable) ({ editing = true }) else null, onDismiss)
     }
@@ -197,6 +201,11 @@ private fun TaskReadPanel(task: TaskUi, onComplete: (String) -> Unit, onEdit: ((
                 ColorLine(list, LifeMappColors.parseHex(task.listColor) ?: t.dim)
             }
         }
+        if (task.contextTags.isNotEmpty()) {
+            Field(LucideIcons.TAG, stringResource(R.string.tag_label)) {
+                TagBadges(task.contextTags, includeMe = true, iconSize = 15.dp)
+            }
+        }
         when {
             task.description != null -> Field(LucideIcons.ALIGN_LEFT, stringResource(R.string.details_description)) {
                 LinkedText(task.description!!, t.dim)
@@ -212,13 +221,15 @@ private fun TaskReadPanel(task: TaskUi, onComplete: (String) -> Unit, onEdit: ((
 private fun TaskEditPanel(
     task: TaskUi,
     loadText: suspend (String) -> TaskText,
-    onSave: (title: String?, html: String?) -> Unit,
+    onSave: (title: String?, html: String?, labels: List<String>?) -> Unit,
     onCancel: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val t = LocalTok.current
+    val customTags = LocalTags.current.customTags
     var state by remember(task.id) { mutableStateOf<TaskEditState>(TaskEditState.Loading) }
     var title by remember(task.id) { mutableStateOf(TextFieldValue("")) }
+    var selectedTag by remember(task.id) { mutableStateOf(ItemTags.taskTag(task.labels, customTags)) }
     var editor by remember(task.id) { mutableStateOf<RichEditText?>(null) }
     var tick by remember(task.id) { mutableIntStateOf(0) }
     // Where a confirmed discard goes: back to the details, or closed
@@ -230,6 +241,7 @@ private fun TaskEditPanel(
             when (val loaded = loadText(task.id)) {
                 is TaskText.Loaded -> {
                     title = TextFieldValue(loaded.title, TextRange(loaded.title.length))
+                    selectedTag = ItemTags.taskTag(loaded.labels, customTags)
                     TaskEditState.Ready(loaded)
                 }
                 TaskText.Locked -> TaskEditState.Unavailable(R.string.error_task_locked)
@@ -250,12 +262,17 @@ private fun TaskEditPanel(
     val newTitle = title.text.trim()
     val titleChanged = ready != null && newTitle != ready.text.title.trim()
     val textChanged = tick >= 0 && editor?.changed == true
-    val dirty = titleChanged || textChanged
+    val initialTag = ready?.let { ItemTags.taskTag(it.text.labels, customTags) }
+    val tagChanged = ready != null && selectedTag != initialTag
+    val dirty = titleChanged || textChanged || tagChanged
     val canSave = ready != null && newTitle.isNotEmpty()
     val leave = { then: () -> Unit -> if (dirty) discardThen = then else then() }
     val save = {
         if (!dirty) onCancel()
-        else if (canSave) onSave(if (titleChanged) newTitle else null, if (textChanged) editor?.text?.let(ItemHtml::toHtml) else null)
+        else if (canSave) {
+            val nextLabels = if (tagChanged) ItemTags.withTaskTag(ready!!.text.labels, selectedTag, customTags) else null
+            onSave(if (titleChanged) newTitle else null, if (textChanged) editor?.text?.let(ItemHtml::toHtml) else null, nextLabels)
+        }
     }
 
     discardThen?.let { then ->
@@ -294,6 +311,9 @@ private fun TaskEditPanel(
             }
             is TaskEditState.Unavailable -> Text(stringResource(s.message), style = t.body(13.sp, t.dim))
             is TaskEditState.Ready -> {
+                Field(LucideIcons.TAG, stringResource(R.string.tag_label)) {
+                    TaskTagPicker(selectedTag = selectedTag, onSelect = { selectedTag = it })
+                }
                 Field(LucideIcons.ALIGN_LEFT, stringResource(R.string.details_description)) {}
                 RichTextBox(
                     html = s.text.description,

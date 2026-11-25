@@ -5,9 +5,11 @@ import android.content.Context
 import android.graphics.Typeface
 import android.os.SystemClock
 import android.text.Editable
+import android.text.Layout
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextWatcher
+import android.text.style.AlignmentSpan
 import android.text.style.BackgroundColorSpan
 import android.text.style.BulletSpan
 import android.text.style.CharacterStyle
@@ -21,6 +23,7 @@ import android.text.style.TypefaceSpan
 import android.text.style.URLSpan
 import android.text.style.UnderlineSpan
 import android.widget.EditText
+import com.kalai73.lifemapp.widgets.core.data.content.HeadingSpan
 
 /** Character marks of the web editor's toolbar that Android's Html.toHtml writes back as tags. */
 enum class Mark {
@@ -125,6 +128,7 @@ class RichEditText(context: Context) : EditText(context) {
     override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
         super.onFocusChanged(focused, direction, previouslyFocusedRect)
         @Suppress("SENSELESS_COMPARISON") // also called while the super constructor runs
+        if (pending != null) onStateChange()
         if (focused && pending != null && startPending) {
             startPending = false
             showStart()
@@ -212,6 +216,103 @@ class RichEditText(context: Context) : EditText(context) {
         }
     }
 
+    /** Highlights the selection in [color] (0xAARRGGBB), or removes its highlight */
+    fun setHighlight(color: Int?) {
+        if (selStart == selEnd) return
+        edit {
+            val start = selStart
+            val end = selEnd
+            clear(start, end) { it is BackgroundColorSpan }
+            if (color != null) text.setSpan(BackgroundColorSpan(color), start, end, Spanned.SPAN_EXCLUSIVE_INCLUSIVE)
+        }
+    }
+
+    /** The heading level (1 to 3) of the first selected paragraph, null for normal text */
+    fun heading(): Int? = paragraphs().first().let { (s, e) -> paragraphSpans(s, e, HeadingSpan::class.java).firstOrNull()?.level }
+
+    /** Makes the selected paragraphs headings of [level], or normal text for null or their own level. */
+    fun setHeading(level: Int?) {
+        val target = level.takeIf { it != heading() }
+        edit {
+            paragraphs().forEach { (s, e) ->
+                clearHeading(s, e)
+                if (target != null && e > s) {
+                    text.getSpans(s, e, BulletSpan::class.java).forEach(text::removeSpan)
+                    text.setSpan(HeadingSpan(target), s, e, Spanned.SPAN_PARAGRAPH)
+                }
+            }
+        }
+    }
+
+    fun alignment(): Layout.Alignment = paragraphs().first()
+        .let { (s, e) -> paragraphSpans(s, e, AlignmentSpan::class.java).firstOrNull()?.alignment } ?: Layout.Alignment.ALIGN_NORMAL
+
+    fun setAlignment(alignment: Layout.Alignment) {
+        edit {
+            paragraphs().forEach { (s, e) ->
+                paragraphSpans(s, e, AlignmentSpan::class.java).forEach { span ->
+                    val from = text.getSpanStart(span)
+                    val to = text.getSpanEnd(span)
+                    text.removeSpan(span)
+                    // A span may run over several paragraphs: the others keep it
+                    if (from < s) text.setSpan(AlignmentSpan.Standard(span.alignment), from, s, Spanned.SPAN_PARAGRAPH)
+                    if (to > e) text.setSpan(AlignmentSpan.Standard(span.alignment), e, to, Spanned.SPAN_PARAGRAPH)
+                }
+                if (alignment != Layout.Alignment.ALIGN_NORMAL && e > s) text.setSpan(AlignmentSpan.Standard(alignment), s, e, Spanned.SPAN_PARAGRAPH)
+            }
+        }
+    }
+
+    private class Style(val marks: Set<Mark>, val color: Int?, val highlight: Int?, val heading: Int?, val alignment: Layout.Alignment)
+
+    /** The format painter's copied style */
+    private var copied: Style? = null
+    val hasCopiedStyle get() = copied != null
+
+    fun copyStyle() {
+        val at = selStart
+        val from = if (selStart == selEnd) (at - 1).coerceAtLeast(0) else at
+        val to = (from + 1).coerceAtMost(length())
+        copied = Style(
+            marks = Mark.entries.filter(::isActive).toSet(),
+            color = text.getSpans(from, to, ForegroundColorSpan::class.java).lastOrNull()?.foregroundColor,
+            highlight = text.getSpans(from, to, BackgroundColorSpan::class.java).lastOrNull()?.backgroundColor,
+            heading = heading(),
+            alignment = alignment(),
+        )
+        onStateChange()
+    }
+
+    /** Puts the copied style on the selection; with just a cursor, its paragraph's heading and alignment only */
+    fun pasteStyle() {
+        val style = copied ?: return
+        val start = selStart
+        val end = selEnd
+        if (start != end) edit {
+            clear(start, end) { span -> Mark.entries.any { it.matches(span) } || span is ForegroundColorSpan || span is BackgroundColorSpan }
+            val flags = Spanned.SPAN_EXCLUSIVE_INCLUSIVE
+            style.marks.forEach { text.setSpan(it.create(), start, end, flags) }
+            style.color?.let { text.setSpan(ForegroundColorSpan(it), start, end, flags) }
+            style.highlight?.let { text.setSpan(BackgroundColorSpan(it), start, end, flags) }
+        }
+        if (style.heading != heading()) setHeading(style.heading)
+        if (style.alignment != alignment()) setAlignment(style.alignment)
+    }
+
+    /** Spans on the paragraph itself, not ones only touching its edges */
+    private fun <T> paragraphSpans(s: Int, e: Int, type: Class<T>): List<T> =
+        text.getSpans(s, e, type).filter { text.getSpanStart(it) < e && text.getSpanEnd(it) > s }
+
+    private fun clearHeading(s: Int, e: Int) {
+        paragraphSpans(s, e, HeadingSpan::class.java).forEach { span ->
+            val from = text.getSpanStart(span)
+            val to = text.getSpanEnd(span)
+            text.removeSpan(span)
+            if (from < s) text.setSpan(HeadingSpan(span.level), from, s, Spanned.SPAN_PARAGRAPH)
+            if (to > e) text.setSpan(HeadingSpan(span.level), e, to, Spanned.SPAN_PARAGRAPH)
+        }
+    }
+
     val hasSelection get() = selStart != selEnd
 
     /** Links the selection to [url]; with just a cursor, inserts the address itself as the link. */
@@ -247,8 +348,11 @@ class RichEditText(context: Context) : EditText(context) {
         edit {
             val start = selStart
             val end = selEnd
-            if (start != end) clear(start, end) { true }
-            paragraphs().forEach { (s, e) -> text.getSpans(s, e, BulletSpan::class.java).forEach(text::removeSpan) }
+            if (start != end) clear(start, end) { it !is HeadingSpan }
+            paragraphs().forEach { (s, e) ->
+                text.getSpans(s, e, BulletSpan::class.java).forEach(text::removeSpan)
+                clearHeading(s, e)
+            }
             pending.clear()
         }
     }

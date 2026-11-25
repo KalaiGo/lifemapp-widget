@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Text
@@ -33,6 +34,10 @@ import com.kalai73.lifemapp.widgets.ui.sidepanel.LocalPanel
 import com.kalai73.lifemapp.widgets.ui.sidepanel.SidePanelHost
 import com.kalai73.lifemapp.widgets.ui.sidepanel.SidePanelViewModel
 import com.kalai73.lifemapp.widgets.ui.sidepanel.opener
+import com.kalai73.lifemapp.widgets.ui.tags.LocalTags
+import com.kalai73.lifemapp.widgets.ui.tags.TagEnvironment
+import com.kalai73.lifemapp.widgets.ui.tags.TagFilterDropdown
+import com.kalai73.lifemapp.widgets.ui.tags.TagManagerDialog
 import androidx.compose.ui.platform.LocalUriHandler
 import kotlinx.coroutines.launch
 
@@ -117,8 +122,23 @@ fun MainDashboard(
         if (url.startsWith("http", ignoreCase = true)) runCatching { uriHandler.openUri(url) } else onOpenWeb(url)
     }
     val panelOpener = remember(panelViewModel) { panelViewModel.opener() }
+    var tagManagerOpen by remember { mutableStateOf(false) }
+    var tagManagerOnCreated by remember { mutableStateOf<((String) -> Unit)?>(null) }
+    val tagEnv = remember(todayUi.activeTag, todayUi.customTags, todayViewModel) {
+        TagEnvironment(
+            activeTag = todayUi.activeTag,
+            customTags = todayUi.customTags,
+            onSelectFilter = todayViewModel::setActiveTag,
+            onOpenManager = { onCreated ->
+                tagManagerOnCreated = onCreated
+                tagManagerOpen = true
+            },
+            onSaveCustomTags = todayViewModel::saveCustomTags,
+            onDeleteCustomTag = todayViewModel::deleteCustomTag,
+        )
+    }
 
-    CompositionLocalProvider(LocalPanel provides panelOpener) {
+    CompositionLocalProvider(LocalPanel provides panelOpener, LocalItemEditing provides todayViewModel.itemEditing, LocalTags provides tagEnv) {
     Box(Modifier.fillMaxSize()) {
     // No header: the pages run to the top, reload sits in the floating actions pill
     Column(Modifier.fillMaxSize().background(t.page)) {
@@ -143,6 +163,8 @@ fun MainDashboard(
                     onLoadItemImage = todayViewModel::loadItemImage,
                     onToggleItem = todayViewModel::setItemCollapsed,
                     onToggleTopic = todayViewModel::setTopicCollapsed,
+                    onSaveItemTags = todayViewModel::saveItemTags,
+                    onSaveTopicTags = todayViewModel::saveTopicTags,
                     onToggleDomainHidden = todayViewModel::toggleDomainHidden,
                     onSetAllDomainsHidden = todayViewModel::setAllDomainsHidden,
                     onRateDomains = todayViewModel::rateDomains,
@@ -173,6 +195,8 @@ fun MainDashboard(
                     onLoadItemImage = todayViewModel::loadItemImage,
                     onToggleItem = todayViewModel::setItemCollapsed,
                     onToggleTopic = todayViewModel::setTopicCollapsed,
+                    onSaveItemTags = todayViewModel::saveItemTags,
+                    onSaveTopicTags = todayViewModel::saveTopicTags,
                     onToggleDomainHidden = todayViewModel::toggleDomainHidden,
                     onSetAllDomainsHidden = todayViewModel::setAllMonthlyDomainsHidden,
                     onRateDomains = todayViewModel::rateDomains,
@@ -204,6 +228,8 @@ fun MainDashboard(
                     onLoadItemImage = todayViewModel::loadItemImage,
                     onToggleItem = todayViewModel::setItemCollapsed,
                     onToggleTopic = todayViewModel::setTopicCollapsed,
+                    onSaveItemTags = todayViewModel::saveItemTags,
+                    onSaveTopicTags = todayViewModel::saveTopicTags,
                     onToggleDomainHidden = todayViewModel::toggleDomainHidden,
                     onSetAllDomainsHidden = todayViewModel::setAllBusinessDomainsHidden,
                     onRateDomains = todayViewModel::rateBusinessDomains,
@@ -220,6 +246,14 @@ fun MainDashboard(
         }
 
         CompositionLocalProvider(LocalTok provides t) {
+            if (todayUi.hasData && (currentTab == DashboardTab.TODAY || currentTab == DashboardTab.MONTHLY)) {
+                TagFilterDropdown(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .statusBarsPadding()
+                        .padding(top = 8.dp, start = 12.dp),
+                )
+            }
             DashboardFloatingBars(
                 activeTab = currentTab,
                 onSelectTab = selectTab,
@@ -259,6 +293,18 @@ fun MainDashboard(
             onOpenWeb = onOpenWeb,
             onUnlock = appViewModel::showUnlock,
         )
+        if (tagManagerOpen) {
+            TagManagerDialog(
+                customTags = todayUi.customTags,
+                onCreated = tagManagerOnCreated,
+                onSaveCustomTags = todayViewModel::saveCustomTags,
+                onDeleteCustomTag = todayViewModel::deleteCustomTag,
+                onDismiss = {
+                    tagManagerOpen = false
+                    tagManagerOnCreated = null
+                },
+            )
+        }
     }
     }
     }

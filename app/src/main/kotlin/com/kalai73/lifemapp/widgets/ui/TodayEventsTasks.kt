@@ -45,6 +45,8 @@ import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.designsystem.PdDrawables
 import com.kalai73.lifemapp.widgets.core.designsystem.PredatorColors
 import com.kalai73.lifemapp.widgets.core.weblauncher.WebRoutes
+import com.kalai73.lifemapp.widgets.ui.tags.TagBadges
+import com.kalai73.lifemapp.widgets.ui.tags.TagFilterDropdown
 
 // ── Sections ────────────────────────────────────────────────────────────────
 
@@ -235,9 +237,14 @@ private fun EventRow(event: EventUi, number: Int, day: EventDayUi, onOpen: (Even
 internal fun TasksSection(ui: WidgetUi, onComplete: (String) -> Unit, onOpenTask: (TaskUi) -> Unit, onOpenWeb: (String) -> Unit) {
     val t = LocalTok.current
     WidgetCard(stringResource(R.string.today_tasks), LucideIcons.TASKS, rule = true, onTitle = { onOpenWeb(WebRoutes.TASKS) }) {
-        Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             ActionButton(Modifier.weight(1f), LucideIcons.ADD, stringResource(R.string.today_add_task)) { onOpenWeb(WebRoutes.NEW_TASK) }
             ActionButton(Modifier.weight(1f), LucideIcons.TASKS, stringResource(R.string.today_task_lists)) { onOpenWeb(WebRoutes.TASKS) }
+            TagFilterDropdown(compact = true)
         }
         if (ui.completionFailed) {
             Text(stringResource(R.string.today_failed_completion), style = t.body(12.sp, t.destructive), modifier = Modifier.padding(vertical = 4.dp))
@@ -329,6 +336,9 @@ private fun TaskRow(task: TaskUi, number: Int, onComplete: (String) -> Unit, onO
                             maxLines = 1,
                             modifier = Modifier.background(t.tinted(tagColor, if (upcoming) 0.06f else 0.14f)).padding(horizontal = 5.dp, vertical = 1.dp),
                         )
+                    }
+                    if (task.contextTags.isNotEmpty()) {
+                        TagBadges(task.contextTags, includeMe = true, iconSize = 13.dp, modifier = Modifier.padding(start = 6.dp))
                     }
                 }
                 if (task.dueLabel != null || task.recurring) {

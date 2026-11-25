@@ -6,6 +6,7 @@ import com.kalai73.lifemapp.widgets.core.data.api.ServerException
 import com.kalai73.lifemapp.widgets.core.data.cache.CacheStore
 import com.kalai73.lifemapp.widgets.core.data.content.ItemHtml
 import com.kalai73.lifemapp.widgets.core.model.CachedState
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -75,24 +76,25 @@ class TaskRepository(
     suspend fun loadText(taskId: String): TaskText {
         val stored = api.taskContent(taskId) ?: return TaskText.Gone
         if (stored.encryptedTitle == null && stored.encryptedDescription == null) {
-            return TaskText.Loaded(stored.title.orEmpty(), stored.description.orEmpty())
+            return TaskText.Loaded(stored.title.orEmpty(), stored.description.orEmpty(), stored.labels)
         }
         val key = dataKey() ?: return TaskText.Locked
         val title = stored.encryptedTitle?.let { EncryptedField.decrypt(it, key) ?: return TaskText.Unreadable } ?: stored.title.orEmpty()
         val description = stored.encryptedDescription?.let { EncryptedField.decrypt(it, key) ?: return TaskText.Unreadable }
             ?: stored.description.orEmpty()
-        return TaskText.Loaded(title, description)
+        return TaskText.Loaded(title, description, stored.labels)
     }
 
     /**
-     * Saves a new [title] and/or [html] description (null keeps that field) as the web's task modal does: with
-     * encryption on both are encrypted with the data key, the plain columns holding the web's placeholder title
-     * and no description; otherwise a stale encrypted copy is cleared, since it would hide the new text.
+     * Saves a new [title], [html] description, and/or [labels] (null keeps that field) as the web's task modal does:
+     * with encryption on title & description are encrypted with the data key, the plain columns holding the web's
+     * placeholder title and no description; otherwise a stale encrypted copy is cleared, since it would hide the new text.
      *
      * @return false when the account is encrypted and this device isn't unlocked
      */
-    suspend fun saveText(taskId: String, title: String?, html: String?, encrypted: Boolean): Boolean {
-        val key = if (encrypted) dataKey() ?: return false else null
+    suspend fun saveText(taskId: String, title: String?, html: String?, encrypted: Boolean, labels: List<String>? = null): Boolean {
+        val needsKey = encrypted && (title != null || html != null)
+        val key = if (needsKey) dataKey() ?: return false else null
         val newTitle = title?.trim()
         val blank = ItemHtml.isBlank(html)
         val description = if (html == null || blank) "" else html.trim()
@@ -106,6 +108,9 @@ class TaskRepository(
             if (html != null) {
                 put("description", if (key != null) "" else description)
                 put("encrypted_description", encryptedDescription?.let { JsonPrimitive(it) } ?: JsonNull)
+            }
+            if (labels != null) {
+                put("labels", JsonArray(labels.map(::JsonPrimitive)))
             }
         }
         if (fields.isEmpty()) return true
@@ -127,6 +132,9 @@ class TaskRepository(
                                 description = if (key != null || blank) null else description.take(MAX_CACHED_DESCRIPTION),
                                 encryptedDescription = if (blank) null else encryptedDescription,
                             )
+                        }
+                        if (labels != null) {
+                            updated = updated.copy(labels = labels)
                         }
                         updated
                     },
@@ -159,7 +167,7 @@ class TaskRepository(
 /** A task's title and description as the editor gets them from [TaskRepository.loadText]. */
 sealed interface TaskText {
     /** [description] as HTML, empty when the task has none */
-    data class Loaded(val title: String, val description: String) : TaskText
+    data class Loaded(val title: String, val description: String, val labels: List<String> = emptyList()) : TaskText
     /** Encrypted, and this device isn't unlocked */
     data object Locked : TaskText
     /** Encrypted, but this device's key doesn't open it */

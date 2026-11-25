@@ -2,6 +2,7 @@ package com.kalai73.lifemapp.widgets.core.presentation
 
 import com.kalai73.lifemapp.widgets.core.model.AuthState
 import com.kalai73.lifemapp.widgets.core.model.ColorSchemeName
+import com.kalai73.lifemapp.widgets.core.model.CustomTag
 import com.kalai73.lifemapp.widgets.core.model.EncryptionState
 import com.kalai73.lifemapp.widgets.core.model.SyncError
 import com.kalai73.lifemapp.widgets.core.model.ThemeMode
@@ -52,6 +53,10 @@ data class MonthlyUi(
      * domains (20–29), [trayectory] is null, and [scoring] / [averageRating] are the business ones.
      */
     val business: Boolean = false,
+    /** Selected context tag filter ("all", "me", "work", "family", or custom tag id) */
+    val activeTag: String = CustomTag.TAG_ALL,
+    /** User-created context tags, normalized */
+    val customTags: List<CustomTag> = emptyList(),
 ) {
     companion object {
         val SignedOut = MonthlyUi(

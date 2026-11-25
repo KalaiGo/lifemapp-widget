@@ -50,6 +50,8 @@ data class SnapshotSettings(
     val timeFormat: String? = null,
     val timezone: String = "UTC",
     val encryptionEnabled: Boolean = false,
+    /** User-created context tags (lm_user_settings.preferences.custom_tags) */
+    val customTags: List<CustomTag> = emptyList(),
 )
 
 @Serializable
@@ -108,6 +110,8 @@ data class Task(
      * (its "Tomorrow ++ 1"). Servers before upcomingTasks list today's tasks only, hence the default.
      */
     val segment: String = SEGMENT_TODAY,
+    /** Task labels (used for context tag filtering and badges); empty from older servers */
+    val labels: List<String> = emptyList(),
 ) {
     companion object {
         const val SEGMENT_TODAY = "today"

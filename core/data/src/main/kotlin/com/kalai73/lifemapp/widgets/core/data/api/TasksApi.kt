@@ -45,11 +45,15 @@ class TasksApi internal constructor(client: ApiClient) : ApiArea(client) {
         if (response.status == HttpStatusCode.NotFound) return null
         val task = response.body<JsonObject>()["task"] as? JsonObject ?: return null
         fun text(name: String) = (task[name] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() }
+        val labels = (task["labels"] as? JsonArray)
+            ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank) }
+            .orEmpty()
         return StoredTaskContent(
             title = text("title"),
             encryptedTitle = text("encrypted_title"),
             description = text("description"),
             encryptedDescription = text("encrypted_description"),
+            labels = labels,
         )
     }
 

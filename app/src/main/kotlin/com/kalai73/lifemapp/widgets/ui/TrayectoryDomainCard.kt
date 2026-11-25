@@ -42,6 +42,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kalai73.lifemapp.widgets.R
 import com.kalai73.lifemapp.widgets.core.data.LifeMappConfig
+import com.kalai73.lifemapp.widgets.core.presentation.panel.ItemTags
+import com.kalai73.lifemapp.widgets.ui.tags.LocalTags
+import com.kalai73.lifemapp.widgets.ui.tags.TagPickerDialog
 import com.kalai73.lifemapp.widgets.core.designsystem.LucideIcons
 import com.kalai73.lifemapp.widgets.core.presentation.IntegrityUi
 import com.kalai73.lifemapp.widgets.core.presentation.TopicItemUi
@@ -93,7 +96,48 @@ private fun TenacityCollapsibleSection(
     val context = LocalContext.current
     var expanded by rememberSaveable { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Pair<TopicItemUi, ItemAction>?>(null) }
+    var taggingItem by remember { mutableStateOf<Pair<TopicUi, TopicItemUi>?>(null) }
+    var taggingTopic by remember { mutableStateOf<TopicUi?>(null) }
+    val tagEnv = LocalTags.current
     val linkCopied = stringResource(R.string.item_link_copied)
+
+    taggingItem?.let { (topic, item) ->
+        val effective = ItemTags.effective(topic.tags, item.tags)
+        val locked = ItemTags.topicTags(topic.tags)
+        TagPickerDialog(
+            value = effective,
+            locked = locked,
+            required = false,
+            onChange = { picked ->
+                items.saveTags(item.id, topic.tags, picked)
+                taggingItem = topic to item.copy(tags = ItemTags.itemTagsToStore(topic.tags, picked))
+            },
+            onOpenManager = {
+                taggingItem = null
+                tagEnv.onOpenManager { created -> items.saveTags(item.id, topic.tags, effective + created) }
+            },
+            onEditTags = { taggingItem = null; tagEnv.onOpenManager(null) },
+            onDismiss = { taggingItem = null },
+        )
+    }
+    taggingTopic?.let { topic ->
+        TagPickerDialog(
+            value = topic.tags,
+            locked = emptyList(),
+            required = true,
+            onChange = { picked ->
+                val next = ItemTags.topicTags(picked)
+                items.saveTopicTags(topic.id, next)
+                taggingTopic = topic.copy(tags = next)
+            },
+            onOpenManager = {
+                taggingTopic = null
+                tagEnv.onOpenManager { created -> items.saveTopicTags(topic.id, ItemTags.topicTags(topic.tags + created)) }
+            },
+            onEditTags = { taggingTopic = null; tagEnv.onOpenManager(null) },
+            onDismiss = { taggingTopic = null },
+        )
+    }
 
     editing?.let { (item, action) ->
         val close = { editing = null }
@@ -103,8 +147,9 @@ private fun TenacityCollapsibleSection(
                 item,
                 focusTitle = true,
                 loadText = items.loadText,
-                onSave = { name, html -> items.save(item.id, name, html); close() },
-                onDelete = { items.delete(item.id); close() },
+                nav = items.nav,
+                onSave = { id, name, html -> items.save(id, name, html); close() },
+                onDelete = { id -> items.delete(id); close() },
                 onDismiss = close,
             )
         }
@@ -113,6 +158,7 @@ private fun TenacityCollapsibleSection(
     val onItemAction = { topic: TopicUi, item: TopicItemUi, action: ItemAction ->
         when (action) {
             ItemAction.EDIT, ItemAction.DELETE -> editing = item to action
+            ItemAction.TAGS -> taggingItem = topic to item
             ItemAction.MOVE_UP -> items.move(item.id, topic.id, true)
             ItemAction.MOVE_DOWN -> items.move(item.id, topic.id, false)
             ItemAction.TOGGLE_WARNING -> items.setWarning(item.id, !item.warning)
@@ -194,7 +240,11 @@ private fun TenacityCollapsibleSection(
                     )
                 } else {
                     tenacity.topics.forEach { topic ->
-                        TopicHeader(topic) { onToggleTopic(topic.id, !topic.collapsed) }
+                        TopicHeader(
+                            topic,
+                            onToggle = { onToggleTopic(topic.id, !topic.collapsed) },
+                            onLongPress = if (!topic.reminders) ({ taggingTopic = topic }) else null,
+                        )
                         if (!topic.collapsed && topic.items.isNotEmpty()) {
                             topic.items.forEachIndexed { i, item ->
                                 ItemRow(

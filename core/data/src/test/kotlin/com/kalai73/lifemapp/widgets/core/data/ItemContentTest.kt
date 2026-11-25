@@ -203,6 +203,34 @@ class ItemContentTest {
     }
 
     @Test
+    fun `headings, highlights and alignment round trip as the web stores them`() {
+        val source = "<h2>Title</h2><p style=\"text-align: right\">to the <span style=\"color: #ef4444\">red <mark data-color=\"#bbf7d0\" style=\"background-color: #bbf7d0; color: inherit\">green</mark></span> end</p><p>Plain</p><h1 style=\"text-align: center\">Last</h1>"
+        var html = source
+        // Twice, so what is written is also read back
+        repeat(2) {
+            val spanned = ItemHtml.toSpanned(html)
+            assertEquals("Title\nto the red green end\nPlain\nLast", spanned.toString())
+            html = ItemHtml.toHtml(spanned)
+            assertTrue(html, Regex("<h2[^>]*>Title</h2>").containsMatchIn(html))
+            assertTrue(html, Regex("<h1[^>]*text-align: ?center[^>]*>Last</h1>").containsMatchIn(html))
+            assertTrue(html, html.contains("text-align: right"))
+            assertTrue(html, Regex("<mark data-color=\"#bbf7d0\" style=\"background-color: #bbf7d0; color: inherit\">(<span[^>]*>)?green(</span>)?</mark>").containsMatchIn(html))
+            assertTrue(html, html.contains("color:#ef4444", ignoreCase = true))
+            assertTrue(html, Regex("<p[^>]*>Plain</p>").containsMatchIn(html))
+            assertFalse(html, html.any { it in '\uE000'..'\uE003' })
+        }
+        assertFalse(ItemHtml.hasUnsupportedFormatting(source))
+    }
+
+    @Test
+    fun `saving tags sends and caches the item's own tags`() = runTest {
+        seed(TopicItem("i1", "Plan"))
+        repo("[]").saveTags("i1", listOf("work"))
+        assertEquals("""{"tags":["work"]}""", puts["i1"].toString())
+        assertEquals(listOf("work"), cachedItem().tags)
+    }
+
+    @Test
     fun `html round trips through the editor's spans`() {
         val spanned = ItemHtml.toSpanned("<p>Hello <strong>bold</strong> <a href=\"https://x.test\">link</a> café</p><p>Second</p>")
         assertEquals("Hello bold link café\nSecond", spanned.toString())
